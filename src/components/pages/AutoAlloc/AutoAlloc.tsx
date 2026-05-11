@@ -5,53 +5,38 @@ import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
-/* ── Shared grid search bar ── */
-function GridSearchBar({
-  code, name, dept,
-  onCode, onName, onDept,
-  total, shown,
-}: {
-  code: string; name: string; dept: string;
-  onCode: (v: string) => void;
-  onName: (v: string) => void;
-  onDept: (v: string) => void;
-  total: number; shown: number;
+/* ── Reusable inline filter row for grids ── */
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31 }: {
+  fCode: string; fName: string; fDept: string;
+  setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
+  deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
 }) {
-  const hasAny = code || name || dept;
-  const SearchInput = ({ value, onChange, placeholder, width = 120 }: { value: string; onChange: (v: string) => void; placeholder: string; width?: number }) => (
-    <div className={styles.gridSearchWrap}>
-      <input
-        className={styles.gridSearchInput}
-        style={{ width }}
-        value={value}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-      />
-      {value && (
-        <button className={styles.gridSearchClear} onClick={() => onChange('')} type="button">✕</button>
-      )}
-    </div>
-  );
   return (
-    <div className={styles.gridSearchBar}>
-      <span className={styles.gridSearchLabel}>🔍</span>
-      <SearchInput value={code} onChange={onCode} placeholder="Mã NV…" width={90} />
-      <SearchInput value={name} onChange={onName} placeholder="Tên…" width={140} />
-      <SearchInput value={dept} onChange={onDept} placeholder="Phòng ban…" width={120} />
-      {hasAny && (
-        <button className={styles.gridSearchClearAll}
-          onClick={() => { onCode(''); onName(''); onDept(''); }}
-          type="button"
-        >✕ Xóa lọc</button>
-      )}
-      {hasAny && (
-        <span className={styles.gridSearchCount}>{shown}/{total} NV</span>
-      )}
-    </div>
+    <tr className={styles.filterRow}>
+      {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} />)}
+      <th><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
+      <th><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
+      <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
+      {Array.from({ length: daysCols }, (_, i) => <th key={`d${i}`} />)}
+      {Array.from({ length: extraAfter }, (_, i) => <th key={`a${i}`} />)}
+    </tr>
   );
 }
-
-
+function useDeptList(rows: Record<string, unknown>[]) {
+  return useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows as any[]) { if (r.deptName) set.add(r.deptName); }
+    return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [rows]);
+}
+function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: string, fDept: string) {
+  return useMemo(() => rows.filter((r: any) => {
+    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
+    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
+    if (fDept && String(r.deptName ?? '') !== fDept) return false;
+    return true;
+  }), [rows, fCode, fName, fDept]);
+}
 
 const IconPlay = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>;
 const IconCheck = () => <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>;
@@ -355,31 +340,27 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
-          <thead><tr>
-            <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 80 }}>Phòng ban</th>
-            <th style={{ minWidth: 52 }}>Nghỉ CTT</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-            <th style={{ minWidth: 40, color: '#15803d' }}>Công</th>
-            <th style={{ minWidth: 44, color: '#1d4ed8' }}>OT(h)</th>
-            <th style={{ minWidth: 50, color: '#c2410c' }}>Trễ(ph)</th>
-            <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 80 }}>Phòng ban</th>
+              <th style={{ minWidth: 52 }}>Nghỉ CTT</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <th style={{ minWidth: 40, color: '#15803d' }}>Công</th>
+              <th style={{ minWidth: 44, color: '#1d4ed8' }}>OT(h)</th>
+              <th style={{ minWidth: 50, color: '#c2410c' }}>Trễ(ph)</th>
+              <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} />
+          </thead>
           <tbody>
             {filtered.map((r: any, ri: number) => {
               const days: { day: number; symbol: string }[] = r.days ?? [];
@@ -478,19 +459,8 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Danh sách PB unique (cho dropdown)
-  const deptList = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows as any[]) { if (r.deptName) set.add(r.deptName); }
-    return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
-  }, [rows]);
-
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && String(r.deptName ?? '') !== fDept) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
 
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -500,12 +470,11 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const handlePick = (dt: number) => {
     if (!picker) return;
     const key: EditKey = `${picker.code}_${picker.day}`;
-    // Tìm dayType gốc từ rows
     const origRow = rows.find((r: any) => r.code === picker.code) as any;
     const origDT = origRow?.days?.find((d: any) => d.day === picker.day)?.dayType ?? -1;
     setEdits(prev => {
       const next = new Map(prev);
-      if (dt === origDT) next.delete(key); // hoàn tác về gốc → xóa edit
+      if (dt === origDT) next.delete(key);
       else next.set(key, dt);
       return next;
     });
@@ -534,25 +503,13 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
     } finally { setSaving(false); }
   };
 
-  // Lấy dayType hiệu dụng (edit overrides original)
   const getEffectiveDT = (code: string, day: number, originalDT: number): number => {
     const key: EditKey = `${code}_${day}`;
     return edits.has(key) ? edits.get(key)! : originalDT;
   };
 
-  const hasFilter = fCode || fName || fDept;
-
   return (
     <div className={styles.tableOuter}>
-      {hasFilter && (
-        <div className={styles.gridSearchBar}>
-          <span className={styles.gridSearchCount}>{filtered.length}/{rows.length} NV</span>
-          <button className={styles.gridSearchClearAll}
-            onClick={() => { setFCode(''); setFName(''); setFDept(''); }}
-            type="button"
-          >✕ Xóa lọc</button>
-        </div>
-      )}
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -566,31 +523,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
               <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
             </tr>
-            <tr className={styles.filterRow}>
-              <th />
-              <th>
-                <div className={s.colFilter}>
-                  <span className={s.colFilterIcon}><IconSearch /></span>
-                  <input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />
-                  {fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}
-                </div>
-              </th>
-              <th>
-                <div className={s.colFilter}>
-                  <span className={s.colFilterIcon}><IconSearch /></span>
-                  <input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />
-                  {fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}
-                </div>
-              </th>
-              <th>
-                <select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}>
-                  <option value="">Tất cả</option>
-                  {deptList.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </th>
-              {Array.from({ length: 31 }, (_, i) => <th key={i} />)}
-              <th /><th /><th />
-            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
@@ -678,28 +611,24 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
-          <thead><tr>
-            <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-            <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
-            <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
+              <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
+            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} />
+          </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
             const ca1Count = days.filter(d => d.shiftCode === 'Ca 1').length;
@@ -746,28 +675,24 @@ function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
-          <thead><tr>
-            <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-            <th style={{ minWidth: 44, color: OT_CLR }}>OT(h)</th>
-            <th style={{ minWidth: 50, color: LATE_CLR }}>Trễ(ph)</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <th style={{ minWidth: 44, color: OT_CLR }}>OT(h)</th>
+              <th style={{ minWidth: 50, color: LATE_CLR }}>Trễ(ph)</th>
+            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} />
+          </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
             return (
@@ -811,27 +736,23 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
-          <thead><tr>
-            <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-            <th style={{ minWidth: 50, color: '#15803d' }}>Làm</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <th style={{ minWidth: 50, color: '#15803d' }}>Làm</th>
+            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={1} />
+          </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
             const workCount = days.filter(d => d.dayType === 0 && d.checkIn && d.checkIn !== '00:00').length;
@@ -870,28 +791,24 @@ function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
-  const filtered = useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
-    return true;
-  }), [rows, fCode, fName, fDept]);
+  const deptList = useDeptList(rows);
+  const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
-          <thead><tr>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 130 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 90 }}>Phòng ban</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
-            <th>Làm</th><th>Nghỉ</th>
-            <th style={{ color: '#1d4ed8' }}>OT(h)</th>
-            <th style={{ color: '#c2410c' }}>Trễ(ph)</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 130 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 90 }}>Phòng ban</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
+              <th>Làm</th><th>Nghỉ</th>
+              <th style={{ color: '#1d4ed8' }}>OT(h)</th>
+              <th style={{ color: '#c2410c' }}>Trễ(ph)</th>
+            </tr>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={0} extraAfter={4} />
+          </thead>
           <tbody>{filtered.map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
               <td className={styles.mono}>{r.code}</td>
