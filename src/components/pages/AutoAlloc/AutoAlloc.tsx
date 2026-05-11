@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
+import { IconSearch, IconClearX } from '@/lib/icons';
 
 /* ── Shared grid search bar ── */
 function GridSearchBar({
@@ -568,21 +569,21 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
             <tr className={styles.filterRow}>
               <th />
               <th>
-                <div className={styles.colFilter}>
-                  <span className={styles.colFilterIcon}>🔍</span>
-                  <input className={styles.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />
-                  {fCode && <button className={styles.colFilterClear} onClick={() => setFCode('')} type="button">✕</button>}
+                <div className={s.colFilter}>
+                  <span className={s.colFilterIcon}><IconSearch /></span>
+                  <input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />
+                  {fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}
                 </div>
               </th>
               <th>
-                <div className={styles.colFilter}>
-                  <span className={styles.colFilterIcon}>🔍</span>
-                  <input className={styles.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />
-                  {fName && <button className={styles.colFilterClear} onClick={() => setFName('')} type="button">✕</button>}
+                <div className={s.colFilter}>
+                  <span className={s.colFilterIcon}><IconSearch /></span>
+                  <input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />
+                  {fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}
                 </div>
               </th>
               <th>
-                <select className={styles.deptFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}>
+                <select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}>
                   <option value="">Tất cả</option>
                   {deptList.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
