@@ -273,6 +273,11 @@ export default function AutoAlloc() {
         <div className={styles.panelBody}>
           <StepView step={activeStep} data={stepData[activeStep]?.data}
             onLoad={() => loadStepData(activeStep, 1)}
+            onRefresh={() => {
+              setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
+              setStepData(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
+              loadStepData(activeStep, 1);
+            }}
             done={Boolean(curStep && status[curStep.key])}
             monthId={activeMonthId}
           />
@@ -426,17 +431,107 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
-/* === DayTypeGrid (Step 2) === */
-function DayTypeGrid({ rows }: { rows: Record<string, unknown>[] }) {
+/* === DayTypePicker (dropdown chọn loại ngày) === */
+function DayTypePicker({ currentDT, x, y, onPick, onClose }: {
+  currentDT: number; x: number; y: number;
+  onPick: (dt: number) => void; onClose: () => void;
+}) {
+  // Điều chỉnh vị trí nếu gần mép phải/dưới
+  const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
+  const top  = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
+  return (
+    <>
+      <div className={styles.dayPickerOverlay} onClick={onClose} />
+      <div className={styles.dayPicker} style={{ left, top }}>
+        {Object.entries(DT_SYMBOL).map(([k, sym]) => {
+          if (!sym) return null;
+          const code = Number(k);
+          return (
+            <button key={k}
+              className={`${styles.dayPickerBtn} ${code === currentDT ? styles.dayPickerBtnActive : ''}`}
+              style={{ color: DT_TEXT[code] ?? '#666', background: DT_CELL_BG[code] ?? '#fff' }}
+              onClick={() => onPick(code)}
+              type="button"
+            >
+              <span>{sym}</span>
+              <span className={styles.dayPickerLabel}>{DAY_TYPE_LABEL[code]?.replace(/\s*\(.*\)/, '') ?? ''}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/* === DayTypeGrid (Step 2) – Editable === */
+type EditKey = `${string}_${number}`; // "empCode_day"
+function DayTypeGrid({ rows, monthId, onSaved }: {
+  rows: Record<string, unknown>[];
+  monthId: string;
+  onSaved?: () => void;
+}) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
+  const [edits, setEdits] = useState<Map<EditKey, number>>(new Map());
+  const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const filtered = useMemo(() => rows.filter((r: any) => {
     if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
     if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
     if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
     return true;
   }), [rows, fCode, fName, fDept]);
+
+  const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPicker({ code, day, currentDT, x: rect.left, y: rect.bottom + 4 });
+  };
+
+  const handlePick = (dt: number) => {
+    if (!picker) return;
+    const key: EditKey = `${picker.code}_${picker.day}`;
+    // Tìm dayType gốc từ rows
+    const origRow = rows.find((r: any) => r.code === picker.code) as any;
+    const origDT = origRow?.days?.find((d: any) => d.day === picker.day)?.dayType ?? -1;
+    setEdits(prev => {
+      const next = new Map(prev);
+      if (dt === origDT) next.delete(key); // hoàn tác về gốc → xóa edit
+      else next.set(key, dt);
+      return next;
+    });
+    setPicker(null);
+  };
+
+  const handleUndo = () => { setEdits(new Map()); };
+
+  const handleSave = async () => {
+    if (edits.size === 0) return;
+    setSaving(true);
+    try {
+      const changes = Array.from(edits.entries()).map(([key, dayType]) => {
+        const [empCode, dayStr] = key.split('_');
+        return { empCode, day: Number(dayStr), dayType };
+      });
+      const r = await fetch('/api/distribution/edit-day', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId, changes }),
+      });
+      if (r.ok) {
+        setEdits(new Map());
+        onSaved?.();
+      }
+    } finally { setSaving(false); }
+  };
+
+  // Lấy dayType hiệu dụng (edit overrides original)
+  const getEffectiveDT = (code: string, day: number, originalDT: number): number => {
+    const key: EditKey = `${code}_${day}`;
+    return edits.has(key) ? edits.get(key)! : originalDT;
+  };
+
   return (
     <div className={styles.tableOuter}>
       <GridSearchBar code={fCode} name={fName} dept={fDept}
@@ -464,23 +559,35 @@ function DayTypeGrid({ rows }: { rows: Record<string, unknown>[] }) {
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
-                  const dt = d?.dayType ?? -1;
+                  const origDT = d?.dayType ?? -1;
+                  const dt = getEffectiveDT(r.code, i + 1, origDT);
                   const sym = DT_SYMBOL[dt] ?? '';
                   const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
                   const clr = DT_TEXT[dt] ?? '#9ca3af';
+                  const isChanged = edits.has(`${r.code}_${i + 1}` as EditKey);
                   return (
-                    <td key={i} style={{
-                      background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600,
-                      fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
-                      borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
-                    }}>
+                    <td key={i}
+                      className={`${styles.editableCell} ${isChanged ? styles.editableCellChanged : ''}`}
+                      style={{
+                        background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600,
+                        fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
+                        borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                      }}
+                      onClick={(e) => handleCellClick(r.code, i + 1, dt, e)}
+                    >
                       {sym || <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>}
                     </td>
                   );
                 })}
-                <td className={styles.statCell}>{days.filter(d => d.dayType === 0).length}</td>
-                <td className={styles.statCell}>{days.filter(d => d.dayType === 1).length}</td>
-                <td className={styles.statCell} style={{ color: '#6d28d9' }}>{days.filter(d => d.dayType === 2).length}</td>
+                <td className={styles.statCell}>
+                  {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length}
+                </td>
+                <td className={styles.statCell}>
+                  {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length}
+                </td>
+                <td className={styles.statCell} style={{ color: '#6d28d9' }}>
+                  {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length}
+                </td>
               </tr>
             );
           })}</tbody>
@@ -494,6 +601,29 @@ function DayTypeGrid({ rows }: { rows: Record<string, unknown>[] }) {
           </span>
         ) : null)}
       </div>
+      {/* Picker dropdown */}
+      {picker && (
+        <DayTypePicker
+          currentDT={picker.currentDT}
+          x={picker.x} y={picker.y}
+          onPick={handlePick}
+          onClose={() => setPicker(null)}
+        />
+      )}
+      {/* Floating action bar */}
+      {edits.size > 0 && (
+        <div className={styles.editBar}>
+          <span className={styles.editBarInfo}>
+            ✏️ <span className={styles.editBarCount}>{edits.size}</span> thay đổi
+          </span>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={handleUndo} type="button">
+            ↩ Hoàn tác
+          </button>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleSave} disabled={saving} type="button">
+            {saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -826,8 +956,8 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId }: { monthId: 
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, done, monthId }: {
-  step: number; data: unknown[] | undefined; onLoad: () => void; done: boolean; monthId: string;
+function StepView({ step, data, onLoad, onRefresh, done, monthId }: {
+  step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string;
 }) {
   useEffect(() => { if (!data) onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className={styles.emptyState}>Đang tải...</div>;
@@ -836,7 +966,7 @@ function StepView({ step, data, onLoad, done, monthId }: {
   if (step === 1) return <ImportGrid rows={rows} />;
   if (step === 2) return (
     <>
-      <DayTypeGrid rows={rows} />
+      <DayTypeGrid rows={rows} monthId={monthId} onSaved={onRefresh ?? onLoad} />
       <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" />
     </>
   );
