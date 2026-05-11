@@ -532,23 +532,59 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
     return edits.has(key) ? edits.get(key)! : originalDT;
   };
 
+  const hasFilter = fCode || fName || fDept;
+
   return (
     <div className={styles.tableOuter}>
-      <GridSearchBar code={fCode} name={fName} dept={fDept}
-        onCode={setFCode} onName={setFName} onDept={setFDept}
-        total={rows.length} shown={filtered.length} />
+      {hasFilter && (
+        <div className={styles.gridSearchBar}>
+          <span className={styles.gridSearchCount}>{filtered.length}/{rows.length} NV</span>
+          <button className={styles.gridSearchClearAll}
+            onClick={() => { setFCode(''); setFName(''); setFDept(''); }}
+            type="button"
+          >✕ Xóa lọc</button>
+        </div>
+      )}
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
-          <thead><tr>
-            <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-            <th style={{ minWidth: 72 }}>Mã NV</th>
-            <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
-            <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
-            {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-            <th style={{ minWidth: 36, color: '#15803d' }}>Làm</th>
-            <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
-            <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <th style={{ minWidth: 72 }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 140 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 100 }}>Phòng ban</th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <th style={{ minWidth: 36, color: '#15803d' }}>Làm</th>
+              <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
+              <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+            </tr>
+            <tr className={styles.filterRow}>
+              <th />
+              <th>
+                <div className={styles.colFilter}>
+                  <span className={styles.colFilterIcon}>🔍</span>
+                  <input className={styles.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />
+                  {fCode && <button className={styles.colFilterClear} onClick={() => setFCode('')} type="button">✕</button>}
+                </div>
+              </th>
+              <th>
+                <div className={styles.colFilter}>
+                  <span className={styles.colFilterIcon}>🔍</span>
+                  <input className={styles.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />
+                  {fName && <button className={styles.colFilterClear} onClick={() => setFName('')} type="button">✕</button>}
+                </div>
+              </th>
+              <th>
+                <div className={styles.colFilter}>
+                  <span className={styles.colFilterIcon}>🔍</span>
+                  <input className={styles.colFilterInput} value={fDept} placeholder="PB…" onChange={e => setFDept(e.target.value)} />
+                  {fDept && <button className={styles.colFilterClear} onClick={() => setFDept('')} type="button">✕</button>}
+                </div>
+              </th>
+              {Array.from({ length: 31 }, (_, i) => <th key={i} />)}
+              <th /><th /><th />
+            </tr>
+          </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
             return (
