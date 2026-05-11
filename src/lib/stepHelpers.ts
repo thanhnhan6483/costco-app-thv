@@ -1,0 +1,147 @@
+/**
+ * stepHelpers.ts — Shared logic dùng chung cho tất cả step APIs
+ */
+import { getConn } from '@/lib/db';
+import { AllocParams, ShiftInfo } from './distributionEngine';
+
+export const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
+
+export interface RawShift {
+  id: string; departmentId: string | null; shiftType: string;
+  windowStart: string; clockIn: string; clockOut: string; windowEnd: string;
+}
+
+/** Load alloc_params từ DB */
+export async function loadParams(monthId: string): Promise<AllocParams> {
+  const conn = await getConn();
+  const rules = await conn.all<{ paramKey: string; paramValue: number | null; specificValue: string | null }>(
+    `SELECT param_key AS paramKey, param_value AS paramValue, specific_value AS specificValue
+     FROM alloc_rules WHERE month_id = ? AND active = TRUE`, monthId
+  );
+  await conn.close();
+  const m = Object.fromEntries(rules.map(r => [r.paramKey, r.paramValue]));
+  const sv = Object.fromEntries(rules.map(r => [r.paramKey, r.specificValue ?? '']));
+
+  // Parse danh sách mã PB từ specific_value (ví dụ: "BGD,KD")
+  const skipCodes = (sv['skip_equal_rest_dept_codes'] || 'BGD')
+    .split(',')
+    .map((s: string) => s.trim().toUpperCase())
+    .filter(Boolean);
+
+  return {
+    maxConsecutiveDays:        m['max_consecutive_days']          ?? 6,
+    workdaysThreshold:         m['workdays_algorithm_threshold']  ?? 27,
+    pnStartFromDay:            m['pn_start_from_day']             ?? 15,
+    maxOtPerDayHours:          m['max_ot_per_day_hours']          ?? 4,
+    otStartFromDay:            m['ot_distribution_start_day']     ?? 15,
+    maxLatePerDayMinutes:      m['max_late_per_day_minutes']      ?? 14,
+    lateStartFromDay:          m['late_distribution_start_day']   ?? 15,
+    specialGroupHourReduction: m['special_group_work_hour_reduction'] ?? 1,
+    skipEqualRestDeptCodes:    skipCodes,
+  };
+}
+
+/** Load shifts map: deptId → {ca1, ca2}, key 'DEFAULT' = ca chung toàn công ty (department_id IS NULL) */
+export async function loadShiftMap(monthId: string) {
+  const conn = await getConn();
+  const rawShifts = await conn.all<RawShift>(
+    `SELECT id, department_id AS departmentId, shift_type AS shiftType,
+            window_start AS windowStart, clock_in AS clockIn,
+            clock_out AS clockOut, window_end AS windowEnd
+     FROM shifts WHERE month_id = ?`, monthId
+  );
+  await conn.close();
+
+  const map = new Map<string, { ca1: ShiftInfo | null; ca2: ShiftInfo | null }>();
+  for (const s of rawShifts) {
+    const key = s.departmentId ?? 'DEFAULT'; // NULL dept_id → ca chung
+    if (!map.has(key)) map.set(key, { ca1: null, ca2: null });
+    const entry = map.get(key)!;
+    const info: ShiftInfo = {
+      departmentId: s.departmentId,
+      shiftType: s.shiftType,
+      windowStart: s.windowStart || s.clockIn,
+      clockIn: s.clockIn,
+      clockOut: s.clockOut,
+      windowEnd: s.windowEnd || s.clockOut,
+    };
+    if (!s.shiftType || s.shiftType === 'Ca 1') entry.ca1 = info;
+    else if (s.shiftType === 'Ca 2') entry.ca2 = info;
+  }
+  return map;
+}
+
+/** Tra cứu ca cho 1 dept, fallback về ca chung nếu không có ca riêng */
+export function getShiftEntry(
+  shiftMap: Map<string, { ca1: ShiftInfo | null; ca2: ShiftInfo | null }>,
+  deptId: string | null,
+) {
+  return shiftMap.get(deptId ?? '') ?? shiftMap.get('DEFAULT') ?? { ca1: null, ca2: null };
+}
+
+/** Load accounting dept IDs */
+export async function loadSpecialDeptIds(monthId: string) {
+  const conn = await getConn();
+  const depts = await conn.all<{ id: string; code: string; name: string }>(
+    `SELECT id, code, name FROM departments WHERE month_id = ?`, monthId
+  );
+  await conn.close();
+  const accountingIds = new Set(depts.filter(d => d.code === 'KT' || d.name.toLowerCase().includes('k\u1ebf to\u00e1n')).map(d => d.id));
+  const bgdIds = new Set(depts.filter(d => d.code === 'BGD' || d.name.toLowerCase().includes('gi\u00e1m \u0111\u1ed1c')).map(d => d.id));
+  return { accountingIds, bgdIds };
+}
+
+/** Get/upsert distribution_status */
+export async function getStatus(monthId: string) {
+  const conn = await getConn();
+  const rows = await conn.all<Record<string, boolean | string>>(
+    `SELECT * FROM distribution_status WHERE month_id = ?`, monthId
+  );
+  await conn.close();
+  if (rows.length === 0) return {
+    monthId, step1Done: false, step2Done: false, step3Done: false,
+    step4Done: false, step5Done: false, step6Done: false,
+  };
+  const r = rows[0];
+  return {
+    monthId,
+    step1Done: Boolean(r.step1_done), step2Done: Boolean(r.step2_done),
+    step3Done: Boolean(r.step3_done), step4Done: Boolean(r.step4_done),
+    step5Done: Boolean(r.step5_done), step6Done: Boolean(r.step6_done),
+  };
+}
+
+export async function markStepDone(monthId: string, step: 1|2|3|4|5|6) {
+  const conn = await getConn();
+  const col = `step${step}_done`;
+  const now = new Date().toISOString().slice(0, 19);
+  // Upsert
+  const existing = await conn.all<{ cnt: number }>(
+    `SELECT COUNT(*) AS cnt FROM distribution_status WHERE month_id = ?`, monthId
+  );
+  if (Number(existing[0].cnt) === 0) {
+    await conn.run(
+      `INSERT INTO distribution_status (month_id, ${col}, updated_at) VALUES (?, TRUE, ?)`,
+      monthId, now
+    );
+  } else {
+    await conn.run(
+      `UPDATE distribution_status SET ${col} = TRUE, updated_at = ? WHERE month_id = ?`,
+      now, monthId
+    );
+  }
+  await conn.close();
+}
+
+/** Load month info → daysInMonth, month, year */
+export async function loadMonthInfo(monthId: string) {
+  const conn = await getConn();
+  const rows = await conn.all<{ fromDate: string }>(
+    `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+  );
+  await conn.close();
+  if (!rows.length) throw new Error('Không tìm thấy tháng: ' + monthId);
+  const [, mStr, yStr] = rows[0].fromDate.split('/');
+  const month = parseInt(mStr), year = parseInt(yStr);
+  return { month, year, daysInMonth: new Date(year, month, 0).getDate() };
+}

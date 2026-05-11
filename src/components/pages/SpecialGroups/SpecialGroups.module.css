@@ -1,0 +1,122 @@
+.page { padding: 28px; }
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.title { font-size: 22px; font-weight: 800; color: var(--gray-900); }
+.subtitle { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+
+.groupGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.groupCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  border-top: 4px solid var(--primary);
+  transition: var(--transition);
+}
+
+.groupCard:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.groupCode {
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 99px;
+  margin-bottom: 10px;
+}
+
+.groupName {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 12px;
+}
+
+.groupHours {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.hoursVal {
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'Manrope', sans-serif;
+  color: var(--primary);
+}
+
+.hoursLabel {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.legalBasis {
+  font-size: 12px;
+  color: var(--gray-400);
+  background: var(--gray-50);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.memberSection {
+  border-top: 1px solid var(--gray-100);
+  padding-top: 14px;
+}
+
+.memberLabel {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+}
+
+.memberItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--gray-50);
+  font-size: 13px;
+}
+
+.mCode {
+  font-family: monospace;
+  font-size: 11px;
+  background: var(--gray-100);
+  padding: 1px 7px;
+  border-radius: 4px;
+  color: var(--gray-600);
+}
+
+.mDate {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--warning);
+  background: #fef3c7;
+  padding: 1px 7px;
+  border-radius: 99px;
+}
+
+.noMembers {
+  font-size: 13px;
+  color: var(--gray-400);
+  font-style: italic;
+}

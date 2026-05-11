@@ -1,0 +1,186 @@
+.page { padding: 28px; }
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.title { font-size: 22px; font-weight: 800; color: var(--gray-900); }
+.subtitle { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+
+.btnExport {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btnExport:hover { background: #059669; }
+
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: white;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.deptSection {
+  background: white;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.deptHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.deptCode {
+  background: var(--primary);
+  color: white;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deptName {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gray-800);
+}
+
+.empCount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.gridWrap {
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.grid th {
+  padding: 8px 4px;
+  text-align: center;
+  background: var(--gray-50);
+  color: var(--gray-500);
+  font-weight: 600;
+  border-bottom: 1px solid var(--gray-200);
+  min-width: 32px;
+}
+
+.grid th.sundayHead { color: #ef4444; }
+
+.grid td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--gray-100);
+  border-right: 1px solid var(--gray-50);
+}
+
+.grid tr:last-child td { border-bottom: none; }
+.grid tr:hover td { background: var(--gray-50); }
+
+.stickyCol {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 10;
+  min-width: 180px;
+  text-align: left !important;
+  border-right: 2px solid var(--gray-200) !important;
+  padding: 8px 12px !important;
+}
+
+.grid th.stickyCol { background: var(--gray-50); }
+
+.empCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.empCode {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--gray-400);
+}
+
+.empName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.groupTag {
+  font-size: 9px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 1px 5px;
+  border-radius: 99px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.dayCell { min-width: 34px; }
+
+.symBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid;
+  min-width: 24px;
+}
+
+.sumCell {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-700);
+  border-left: 1px solid var(--gray-200) !important;
+  min-width: 44px;
+}
+
+.lateDanger { color: var(--danger); }

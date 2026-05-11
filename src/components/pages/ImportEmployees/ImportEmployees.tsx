@@ -1,0 +1,832 @@
+'use client';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import s from '@/styles/table.module.css';
+import styles from './ImportEmployees.module.css';
+import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
+import { useApp } from '@/context/AppContext';
+
+
+const IconDownload = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const IconUpload = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+  </svg>
+);
+
+const DAY_COUNT = 31;
+
+interface Employee {
+  id: string;
+  code: string;
+  name: string;
+  departmentId: string;
+  maPb: string;              // Mã PB raw từ Excel / nhập tay
+  departmentCode: string | null;
+  departmentName: string | null;
+  specialGroup: string;
+  specialGroupName: string | null;   // Tên nhóm đặc thù (JOIN từ special_groups)
+  groupCodeEndDate: string;
+  workdays: string;
+  ngayNghiCuoiThangTruoc: string;
+  overtimeHours: string;
+  lateMinutes: string;
+  phepNam: string;
+  day_1: string; day_2: string; day_3: string; day_4: string; day_5: string;
+  day_6: string; day_7: string; day_8: string; day_9: string; day_10: string;
+  day_11: string; day_12: string; day_13: string; day_14: string; day_15: string;
+  day_16: string; day_17: string; day_18: string; day_19: string; day_20: string;
+  day_21: string; day_22: string; day_23: string; day_24: string; day_25: string;
+  day_26: string; day_27: string; day_28: string; day_29: string; day_30: string;
+  day_31: string;
+  active: boolean;
+  createdAt: string;
+}
+
+const BLANK = {
+  code: '', name: '', departmentId: '', specialGroup: '',
+  groupCodeEndDate: '', workdays: '', overtimeHours: '',
+  lateMinutes: '', phepNam: '',
+  days: Array(DAY_COUNT).fill(''),
+};
+
+function getDay(emp: Employee, i: number): string {
+  return (emp as unknown as Record<string, unknown>)[`day_${i + 1}`] as string ?? '';
+}
+
+/** Parse giá trị số từ string. Trả về NaN nếu rỗng/không phải số. */
+function numVal(s: string): number { return s?.trim() ? parseFloat(s) : NaN; }
+
+function ColFilter({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  return (
+    <div className={s.colFilter}>
+      <span className={s.colFilterIcon}><IconSearch /></span>
+      <input className={s.colFilterInput} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
+      {value && <button className={s.colFilterClear} onClick={() => onChange('')} type="button"><IconClearX /></button>}
+    </div>
+  );
+}
+
+function SortTh({ label, sortKey, current, onSort, className }: {
+  label: string; sortKey: string;
+  current: { key: string; dir: 'asc' | 'desc' } | null;
+  onSort: (k: string) => void;
+  className?: string;
+}) {
+  const active = current?.key === sortKey;
+  const icon = active ? (current!.dir === 'asc' ? '▲' : '▼') : '⇅';
+  return (
+    <th className={className} onClick={() => onSort(sortKey)}
+      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+      title={active ? (current!.dir === 'asc' ? 'Nhấn để đảo thứ tự' : 'Nhấn để bỏ sort') : 'Nhấn để sắp xếp'}
+    >
+      {label}
+      <span style={{ marginLeft: 4, fontSize: 9, opacity: active ? 1 : 0.35, color: active ? '#2563eb' : 'inherit', verticalAlign: 'middle' }}>
+        {icon}
+      </span>
+    </th>
+  );
+}
+
+const LIMIT_OPTIONS = [
+  { label: '100', value: 100 },
+  { label: '500', value: 500 },
+  { label: '1000', value: 1000 },
+  { label: 'Tất cả', value: 99999 },
+];
+
+// ── Limit selector component ───────────────────────
+function LimitSelector({ total, shown, limit, onLimit }: {
+  total: number; shown: number; limit: number;
+  onLimit: (v: number) => void;
+}) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+      <span style={{ fontSize:'0.76rem', color:'var(--gray-500)', whiteSpace:'nowrap' }}>
+        Hiển <strong>{shown}</strong> / <strong>{total}</strong> NV
+      </span>
+      <select
+        value={limit}
+        onChange={e => onLimit(Number(e.target.value))}
+        style={{
+          height:26, padding:'0 6px', border:'1px solid var(--gray-200)',
+          borderRadius:5, fontSize:'0.76rem', color:'var(--gray-600)',
+          background:'#fff', cursor:'pointer', outline:'none',
+        }}
+      >
+        {LIMIT_OPTIONS.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export default function ImportEmployees() {
+  const { activeMonthId } = useApp();
+  const [rows, setRows] = useState<Employee[]>([]);
+  const [depts, setDepts] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [groups, setGroups] = useState<{ code: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [limit, setLimit]     = useState(100);
+  const [total, setTotal]     = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(BLANK);
+  const [deleteId, setDeleteId]     = useState<string | null>(null);
+  const [clearAll, setClearAll]     = useState(false);
+  const [relinking, setRelinking]   = useState(false);
+  const [relinkResult, setRelinkResult] = useState<{ linked: number; notFound: string[]; totalChecked: number } | null>(null);
+  const [importing, setImporting]   = useState(false);
+  const [importResult, setImportResult] = useState<{
+    inserted: number; skipped: number; skippedCodes: string[]; errors: string[];
+    unmappedDept: { code: string; name: string; deptCode: string }[];
+  } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Selection & Bulk edit ──────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkForm, setBulkForm] = useState<{
+    departmentId: string; maPb: string; specialGroup: string; groupCodeEndDate: string;
+  }>({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' });
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+
+  const [col, setCol] = useState({ code: '', name: '', departmentName: '', specialGroup: '' });
+  const setF = (k: keyof typeof col) => (v: string) => setCol(p => ({ ...p, [k]: v }));
+  const hasFilter = Object.values(col).some(v => v !== '');
+
+  type SortKey = 'code' | 'name' | 'departmentName' | 'specialGroupName' | 'groupCodeEndDate' | 'ngayNghiCuoiThangTruoc' | 'workdays' | 'overtimeHours' | 'lateMinutes' | 'phepNam';
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
+  const toggleSort = (key: string) =>
+    setSort(prev => prev?.key === key ? (prev.dir === 'asc' ? { key: key as SortKey, dir: 'desc' } : null) : { key: key as SortKey, dir: 'asc' });
+
+  const loadWithLimit = useCallback(async (lim: number) => {
+    setLoading(true); setError(null);
+    try {
+      const r = await fetch(`/api/employees?month=${activeMonthId}&page=1&limit=${lim}`);
+      const json = await r.json();
+      setRows(json.data ?? []);
+      setTotal(json.total ?? 0);
+      setLimit(lim);
+    } catch (e) { setError(String(e)); }
+    finally { setLoading(false); }
+  }, [activeMonthId]);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [empRes, deptRes, grpRes] = await Promise.all([
+        fetch(`/api/employees?month=${activeMonthId}&page=1&limit=${limit}`),
+        fetch(`/api/departments?month=${activeMonthId}`),
+        fetch(`/api/special-groups?month=${activeMonthId}`),
+      ]);
+      const empJson = await empRes.json();
+      setRows(empJson.data ?? []);
+      setTotal(empJson.total ?? 0);
+      const deptJson = await deptRes.json();
+      setDepts(Array.isArray(deptJson) ? deptJson : []);
+      setGroups((await grpRes.json()).map((g: { code: string; name: string }) => ({ code: g.code, name: g.name })));
+    } catch (e) { setError(String(e)); }
+    finally { setLoading(false); }
+  }, [activeMonthId, limit]);
+
+  useEffect(() => { load(); }, [load]);
+
+
+  // col.departmentName: '' = tất cả | '__EMPTY__' = chưa có PB | tên/code = tìm kiếm
+  const filtered = useMemo(() => rows.filter(r => {
+    if (col.code && !r.code.toLowerCase().includes(col.code.toLowerCase())) return false;
+    if (col.name && !r.name.toLowerCase().includes(col.name.toLowerCase())) return false;
+    if (col.departmentName === '__EMPTY__') { if (r.departmentName) return false; }
+    else if (col.departmentName) {
+      const q = col.departmentName.toLowerCase();
+      const match = (r.departmentName ?? '').toLowerCase().includes(q) ||
+                    (r.departmentCode ?? '').toLowerCase().includes(q) ||
+                    (r.maPb ?? '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (col.specialGroup === '__EMPTY__') { if (r.specialGroupName || r.specialGroup) return false; }
+    else if (col.specialGroup) {
+      const q = col.specialGroup.toLowerCase();
+      const match = (r.specialGroupName ?? '').toLowerCase().includes(q) ||
+                    (r.specialGroup ?? '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    return true;
+  }), [rows, col]);
+
+  const clearFilters = () => setCol({ code: '', name: '', departmentName: '', specialGroup: '' });
+
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    return [...filtered].sort((a, b) => {
+      const va = String(a[sort.key] ?? '');
+      const vb = String(b[sort.key] ?? '');
+      const cmp = va.localeCompare(vb, 'vi', { numeric: true });
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sort]);
+
+  // ── Selection helpers ─────────────────────────────
+  const allVisibleIds = useMemo(() => sorted.map(r => r.id), [sorted]);
+  const isAllSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
+  const isIndeterminate = !isAllSelected && allVisibleIds.some(id => selectedIds.has(id));
+
+  const toggleAll = () => {
+    if (isAllSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(allVisibleIds));
+  };
+  const toggleRow = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  // ── Bulk export (client-side) ─────────────────────
+  const exportSelected = async () => {
+    const sel = sorted.filter(r => selectedIds.has(r.id));
+    const XLSX = await import('xlsx');
+    const header = ['employee_code','employee_name','department_code','department_name',
+                    'group_code','group_name','group_code_end_date','workdays',
+                    ...Array.from({length:31},(_,i)=>`Day ${i+1}`),
+                    'overtime_hours','late_minutes','phep_nam'];
+    const data = sel.map(r => [
+      r.code, r.name, r.departmentCode ?? '', r.departmentName ?? '',
+      r.specialGroup, r.specialGroupName ?? '', r.groupCodeEndDate, r.workdays,
+      ...Array.from({length:31},(_,i)=>getDay(r,i)),
+      r.overtimeHours, r.lateMinutes, r.phepNam,
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+    ws['!cols'] = [{wch:14},{wch:22},{wch:12},{wch:22},{wch:16},{wch:24},{wch:16},{wch:8},...Array(31).fill({wch:5}),{wch:12},{wch:10},{wch:10}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DS_chon_loc');
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `ds_nhan_vien_chon_loc_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  // ── Bulk update ───────────────────────────────────
+  const doBulkUpdate = async () => {
+    if (selectedIds.size === 0) return;
+    const payload: Record<string, string> = {};
+    if (bulkForm.departmentId !== '') { payload.departmentId = bulkForm.departmentId; payload.maPb = bulkForm.maPb; }
+    if (bulkForm.specialGroup !== '') payload.specialGroup = bulkForm.specialGroup;
+    if (bulkForm.groupCodeEndDate !== '') payload.groupCodeEndDate = bulkForm.groupCodeEndDate;
+    if (Object.keys(payload).length === 0) return alert('Chưa chọn trường nào để cập nhật.');
+    setBulkSaving(true);
+    try {
+      const res = await fetch('/api/employees/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds], ...payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setShowBulkEdit(false);
+      setBulkForm({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' });
+      setSelectedIds(new Set());
+      await load();
+    } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
+    finally { setBulkSaving(false); }
+  };
+
+  const openCreate = () => { setForm(BLANK); setEditId(null); setShowForm(true); };
+  const openEdit = (r: Employee) => {
+    setForm({
+      code: r.code, name: r.name, departmentId: r.departmentId,
+      specialGroup: r.specialGroup, groupCodeEndDate: r.groupCodeEndDate,
+      workdays: r.workdays, overtimeHours: r.overtimeHours,
+      lateMinutes: r.lateMinutes, phepNam: r.phepNam,
+      days: Array.from({ length: DAY_COUNT }, (_, i) => getDay(r, i)),
+    });
+    setEditId(r.id); setShowForm(true);
+  };
+  const closeForm = () => { setShowForm(false); setEditId(null); setForm(BLANK); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); if (!form.code || !form.name) return;
+    setSaving(true);
+    try {
+      if (editId) {
+        const res = await fetch(`/api/employees/${editId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+      } else {
+        const res = await fetch('/api/employees', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: Date.now().toString(), ...form, monthId: activeMonthId, createdAt: new Date().toISOString().slice(0, 10) }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+      }
+      await load(); closeForm();
+    } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
+    finally { setSaving(false); }
+  };
+
+  const doDelete = async () => {
+    if (!deleteId) return; setSaving(true);
+    await fetch(`/api/employees/${deleteId}`, { method: 'DELETE' });
+    await load(); setSaving(false); setDeleteId(null);
+  };
+
+  const doClearAll = async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/employees?month=${activeMonthId}`, { method: 'DELETE' });
+      await load();
+    } catch { /* ignore */ }
+    finally { setSaving(false); setClearAll(false); }
+  };
+
+  const doRelink = async () => {
+    setRelinking(true);
+    try {
+      const res = await fetch(`/api/employees/relink?month=${activeMonthId}`, { method: 'POST' });
+      const data = await res.json();
+      setRelinkResult(data);
+      await load();
+    } catch { /* ignore */ }
+    finally { setRelinking(false); }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setImporting(true);
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('monthId', activeMonthId);
+      const res = await fetch('/api/employees/import', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImportResult(data); await load();
+    } catch (err) { alert('Lỗi import: ' + (err instanceof Error ? err.message : String(err))); }
+    finally { setImporting(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  return (
+    <div className={styles.page}>
+      {/* Action bar */}
+      <div className={s.actionBar}>
+        <div className={s.actionBarLeft}>
+          {error && <span className={s.errorChip}>⚠ {error}</span>}
+          {!error && (
+            <LimitSelector total={total} shown={rows.length} limit={limit}
+              onLimit={loadWithLimit} />
+          )}
+          {hasFilter && !error && <button className={s.btnClearAll} onClick={clearFilters}>✕ Xóa lọc ({filtered.length}/{rows.length})</button>}
+          {selectedIds.size > 0 && (
+            <span className={styles.bulkCount}>✔ {selectedIds.size} đã chọn</span>
+          )}
+        </div>
+        <div className={s.actionBarRight}>
+          <button className={s.btnAction} onClick={() => window.open('/api/employees/import', '_blank')} title="Tải mẫu Excel"><IconDownload /><span>Tải Mẫu</span></button>
+          <button className={`${s.btnAction} ${s.btnActionGreen}`} onClick={() => fileRef.current?.click()} disabled={importing}>
+            {importing ? <span className={s.spinning}><IconUpload /></span> : <IconUpload />}
+            <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
+          </button>
+          {/* Xuất Excel: nếu có chọn thì xuất chọn lọc, ngược lại xuất tất cả */}
+          {selectedIds.size > 0 ? (
+            <button className={`${s.btnAction} ${styles.btnExportAction}`} onClick={exportSelected} title="Xuất các dòng đã chọn">
+              <IconDownload /><span>Xuất Excel ({selectedIds.size})</span>
+            </button>
+          ) : (
+            <button className={`${s.btnAction} ${styles.btnExportAction}`}
+              onClick={() => window.open(`/api/employees/export?month=${activeMonthId}`, '_blank')}
+              disabled={loading || rows.length === 0} title="Xuất toàn bộ danh sách">
+              <IconDownload /><span>Xuất Excel</span>
+            </button>
+          )}
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
+          <div className={s.dividerV} />
+          {selectedIds.size > 0 && (
+            <>
+              <button className={`${s.btnAction} ${styles.btnRelinkAction}`}
+                onClick={() => { setBulkForm({ departmentId:'', maPb:'', specialGroup:'', groupCodeEndDate:'' }); setShowBulkEdit(true); }}>
+                ✏️ <span>Cập nhật</span>
+              </button>
+              <div className={s.dividerV} />
+            </>
+          )}
+          <button className={s.btnAction} onClick={load} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
+          <div className={s.dividerV} />
+          <button
+            className={`${s.btnAction} ${styles.btnDangerAction}`}
+            onClick={() => setClearAll(true)}
+            disabled={loading || rows.length === 0}
+            title="Xóa toàn bộ dữ liệu nhân viên"
+          >
+            🗑 <span>Xóa Tất Cả</span>
+          </button>
+        </div>
+      </div>
+
+
+      {/* ── Modal Cập nhật hàng loạt ── */}
+      {showBulkEdit && (
+        <div className={s.formOverlay} onClick={() => setShowBulkEdit(false)}>
+          <div className={s.confirmModal} style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <h3 className={s.confirmTitle}>✏️ Cập nhật {selectedIds.size} nhân viên</h3>
+            <p style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 16 }}>
+              Chỉ điền vào trường muốn thay đổi — trường để trống sẽ không bị cập nhật.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'left' }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>
+                Phòng Ban
+                <select className={styles.deptFilterSelect} style={{ marginTop: 6, maxWidth: '100%' }}
+                  value={bulkForm.departmentId}
+                  onChange={e => { const d = depts.find(d => d.id === e.target.value); setBulkForm(f => ({ ...f, departmentId: e.target.value, maPb: d?.code ?? '' })); }}>
+                  <option value="">(Giữ nguyên)</option>
+                  {depts.map(d => <option key={d.id} value={d.id}>{d.code} – {d.name}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>
+                Nhóm Đặc Thù
+                <select className={styles.deptFilterSelect} style={{ marginTop: 6, maxWidth: '100%' }}
+                  value={bulkForm.specialGroup}
+                  onChange={e => setBulkForm(f => ({ ...f, specialGroup: e.target.value }))}>
+                  <option value="">(Giữ nguyên)</option>
+                  {groups.map(g => <option key={g.code} value={g.code}>{g.code} – {g.name}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>
+                Ngày KT Nhóm
+                <input type="text" className={s.input} style={{ marginTop: 6 }}
+                  placeholder="(Giữ nguyên)" value={bulkForm.groupCodeEndDate}
+                  onChange={e => setBulkForm(f => ({ ...f, groupCodeEndDate: e.target.value }))} />
+              </label>
+            </div>
+            <div className={s.confirmActions} style={{ marginTop: 24 }}>
+              <button className={s.btnSecondary} onClick={() => setShowBulkEdit(false)}>Hủy</button>
+              <button className={s.btnPrimary} onClick={doBulkUpdate} disabled={bulkSaving}>
+                {bulkSaving ? 'Đang lưu…' : `Lưu ${selectedIds.size} dòng`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm Xóa Tất Cả ── */}
+      {clearAll && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal}>
+            <div className={s.confirmIcon}>⚠️</div>
+            <h3 className={s.confirmTitle}>Xóa toàn bộ nhân viên?</h3>
+            <p className={s.confirmDesc}>
+              Hành động này sẽ xóa <strong>tất cả {rows.length} nhân viên</strong> khỏi hệ thống.<br />
+              Dữ liệu <strong>không thể khôi phục</strong>. Bạn có chắc chắn?
+            </p>
+            <div className={s.confirmActions}>
+              <button className={s.btnDanger} onClick={doClearAll} disabled={saving}>
+                {saving ? 'Đang xóa…' : `🗑️ Xóa ${rows.length} nhân viên`}
+              </button>
+              <button className={s.btnSecondary} onClick={() => setClearAll(false)} disabled={saving}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form modal */}
+      {showForm && (
+        <div className={s.formOverlay} onClick={e => e.target === e.currentTarget && closeForm()}>
+          <div className={s.formModal} style={{ maxWidth: 680 }}>
+            <div className={s.formHeader}>
+              <h2 className={s.formTitle}>{editId ? '✏️ Sửa nhân viên' : '➕ Thêm nhân viên'}</h2>
+              <button className={s.formClose} onClick={closeForm}>✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className={s.form}>
+              {/* Thông tin cơ bản */}
+              <div className={s.row2}>
+                <div className={s.field}>
+                  <label className={s.label}>Mã NV <span className={s.required}>*</span></label>
+                  <input className={s.input} value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="NV001" required />
+                </div>
+                <div className={s.field}>
+                  <label className={s.label}>Tên Nhân Viên <span className={s.required}>*</span></label>
+                  <input className={s.input} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nguyễn Văn A" required />
+                </div>
+              </div>
+              <div className={s.row2}>
+                <div className={s.field}>
+                  <label className={s.label}>Phòng Ban</label>
+                  <select className={s.input} value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}>
+                    <option value="">— Chọn phòng ban —</option>
+                    {depts.map(d => <option key={d.id} value={d.id}>{d.code} – {d.name}</option>)}
+                  </select>
+                </div>
+                <div className={s.field}>
+                  <label className={s.label}>Nhóm</label>
+                  <select className={s.input} value={form.specialGroup} onChange={e => setForm(f => ({ ...f, specialGroup: e.target.value }))}>
+                    <option value="">— Không có —</option>
+                    {groups.map(g => <option key={g.code} value={g.code}>{g.code} – {g.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className={s.row2}>
+                <div className={s.field}>
+                  <label className={s.label}>Ngày KT Nhóm</label>
+                  <input className={s.input} value={form.groupCodeEndDate} onChange={e => setForm(f => ({ ...f, groupCodeEndDate: e.target.value }))} placeholder="DD/MM/YYYY" />
+                </div>
+                <div className={s.field}>
+                  <label className={s.label}>Ngày Công</label>
+                  <input className={s.input} value={form.workdays} onChange={e => setForm(f => ({ ...f, workdays: e.target.value }))} placeholder="VD: 26" />
+                </div>
+              </div>
+              {/* Ký hiệu chấm công */}
+              <div className={s.field}>
+                <label className={s.label}>Ký hiệu chấm công (1–31)</label>
+                <div className={styles.dayGrid}>
+                  {Array.from({ length: DAY_COUNT }, (_, i) => (
+                    <div key={i} className={styles.dayCell}>
+                      <span className={styles.dayLabel}>{i + 1}</span>
+                      <input
+                        className={styles.dayInput}
+                        maxLength={4}
+                        value={form.days[i]}
+                        onChange={e => setForm(f => {
+                          const d = [...f.days]; d[i] = e.target.value; return { ...f, days: d };
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className={s.row2} style={{ marginTop: 8 }}>
+                <div className={s.field}>
+                  <label className={s.label}>Tăng Ca (giờ)</label>
+                  <input className={s.input} value={form.overtimeHours} onChange={e => setForm(f => ({ ...f, overtimeHours: e.target.value }))} placeholder="0" />
+                </div>
+                <div className={s.field}>
+                  <label className={s.label}>Trễ (phút)</label>
+                  <input className={s.input} value={form.lateMinutes} onChange={e => setForm(f => ({ ...f, lateMinutes: e.target.value }))} placeholder="0" />
+                </div>
+              </div>
+              <div className={s.field} style={{ maxWidth: 200 }}>
+                <label className={s.label}>Phép Năm</label>
+                <input className={s.input} value={form.phepNam} onChange={e => setForm(f => ({ ...f, phepNam: e.target.value }))} placeholder="0" />
+              </div>
+              <div className={s.formActions}>
+                <button type="submit" className={s.btnPrimary} disabled={saving}>{saving ? 'Đang lưu…' : editId ? '💾 Lưu' : '✅ Thêm'}</button>
+                <button type="button" className={s.btnSecondary} onClick={closeForm}>Hủy</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {deleteId && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal}>
+            <div className={s.confirmIcon}>🗑️</div>
+            <h3 className={s.confirmTitle}>Xác nhận xóa</h3>
+            <p className={s.confirmDesc}>Xóa nhân viên <strong>{rows.find(r => r.id === deleteId)?.name}</strong>?</p>
+            <div className={s.confirmActions}>
+              <button className={s.btnDanger} onClick={doDelete} disabled={saving}>{saving ? 'Đang xóa…' : '🗑️ Xóa'}</button>
+              <button className={s.btnSecondary} onClick={() => setDeleteId(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relink result */}
+      {relinkResult && (
+        <div className={s.formOverlay} onClick={() => setRelinkResult(null)}>
+          <div className={s.confirmModal} style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className={s.confirmIcon}>{relinkResult.linked > 0 ? '🔗' : 'ℹ️'}</div>
+            <h3 className={s.confirmTitle}>Kết quả Liên kết PB</h3>
+            <div style={{ textAlign: 'left', fontSize: 13.5, lineHeight: 1.9, marginBottom: 20 }}>
+              <p>🔍 Đã kiểm tra: <strong>{relinkResult.totalChecked}</strong> nhân viên chưa có PB</p>
+              <p>✅ Liên kết thành công: <strong>{relinkResult.linked}</strong></p>
+              {relinkResult.notFound.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ color: 'var(--gray-500)', fontWeight: 600 }}>
+                    ⚠ Mã PB chưa có trong hệ thống ({relinkResult.notFound.length}):
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {relinkResult.notFound.join(', ')}
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 6 }}>
+                    → Vui lòng thêm các Mã PB này vào <strong>Phân hệ Phòng Ban</strong> rồi chạy lại.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={() => setRelinkResult(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import result */}
+      {importResult && (
+        <div className={s.formOverlay} onClick={() => setImportResult(null)}>
+          <div className={s.confirmModal} style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+            <div className={s.confirmIcon}>
+              {importResult.errors.length > 0 ? '⚠️' : importResult.unmappedDept?.length > 0 ? '🔔' : '✅'}
+            </div>
+            <h3 className={s.confirmTitle}>Kết quả Import</h3>
+            <div style={{ textAlign: 'left', fontSize: 13.5, lineHeight: 1.8, marginBottom: 12 }}>
+              <p>✅ Đã thêm: <strong>{importResult.inserted}</strong> nhân viên</p>
+              <p>⏭ Bỏ qua (trùng mã): <strong>{importResult.skipped}</strong>
+                {importResult.skippedCodes?.length > 0 && <span style={{ fontSize: 12, color: 'var(--gray-500)', marginLeft: 6 }}>({importResult.skippedCodes.join(', ')})</span>}
+              </p>
+              {importResult.errors.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ color: 'var(--danger)', fontWeight: 600 }}>❌ Lỗi:</p>
+                  <ul style={{ paddingLeft: 16, color: 'var(--danger)', fontSize: 12 }}>
+                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* ── Cảnh báo NV chưa rõ phòng ban ── */}
+            {importResult.unmappedDept?.length > 0 && (
+              <div style={{ marginTop: 4, marginBottom: 16 }}>
+                <div style={{
+                  background: '#fff7ed', border: '1px solid #fed7aa',
+                  borderRadius: 8, padding: '10px 14px', marginBottom: 10,
+                }}>
+                  <p style={{ fontWeight: 600, color: '#c2410c', fontSize: 13, marginBottom: 4 }}>
+                    ⚠️ {importResult.unmappedDept.length} nhân viên chưa xác định được Phòng Ban
+                  </p>
+                  <p style={{ fontSize: 12, color: '#9a3412' }}>
+                    Mã phòng ban trong file không khớp với danh sách Phòng Ban trong hệ thống.
+                    Dữ liệu vẫn được import — vui lòng bổ sung phòng ban và liên kết lại sau.
+                  </p>
+                </div>
+                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--gray-200)', borderRadius: 6 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid var(--gray-200)', fontWeight: 600, color: 'var(--gray-600)' }}>Mã NV</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid var(--gray-200)', fontWeight: 600, color: 'var(--gray-600)' }}>Tên Nhân Viên</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid var(--gray-200)', fontWeight: 600, color: '#c2410c' }}>Mã PB (chưa tồn tại)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.unmappedDept.map((e, i) => (
+                        <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                          <td style={{ padding: '5px 10px', borderBottom: '1px solid var(--gray-100)', fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>{e.code}</td>
+                          <td style={{ padding: '5px 10px', borderBottom: '1px solid var(--gray-100)' }}>{e.name}</td>
+                          <td style={{ padding: '5px 10px', borderBottom: '1px solid var(--gray-100)', fontFamily: 'monospace', color: '#c2410c', fontWeight: 700 }}>{e.deptCode}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={() => setImportResult(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bảng cuộn ngang ── */}
+      <div className={styles.tableCard}>
+        {loading ? (
+          <div className={s.loadingState}><span className={s.spinner} /><span>Đang tải…</span></div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                {/* Header row */}
+                <tr className={styles.headRow}>
+                  <th className={`${styles.th} ${styles.thCheck}`}>
+                    <input type="checkbox" className={styles.checkInput}
+                      checked={isAllSelected}
+                      ref={el => { if (el) el.indeterminate = isIndeterminate; }}
+                      onChange={toggleAll}
+                      title={isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    />
+                  </th>
+                  <th className={`${styles.th} ${styles.thStt}  ${styles.s0}`}>#</th>
+                  <SortTh label="MÃ NV" sortKey="code" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCode} ${styles.s1}`} />
+                  <SortTh label="TÊN NHÂN VIÊN" sortKey="name" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thName} ${styles.s2}`} />
+                  <SortTh label="PHÒNG BAN" sortKey="departmentName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thDept}`} />
+                  <SortTh label="NHÓM" sortKey="specialGroupName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thGroup}`} />
+                  <SortTh label="NGÀY KT NHÓM" sortKey="groupCodeEndDate" current={sort} onSort={toggleSort} className={styles.th} />
+                  <SortTh label="NGAY NGHI CTT" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="CÔNG" sortKey="workdays" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  {Array.from({ length: DAY_COUNT }, (_, i) => (
+                    <th key={i} className={`${styles.th} ${styles.thDay}`}>{i + 1}</th>
+                  ))}
+                  <SortTh label="TĂNG CA" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="TRỄ (ph)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="PHÉP NĂM" sortKey="phepNam" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <th className={`${styles.th} ${styles.thAction}`}>THAO TÁC</th>
+                </tr>
+                {/* Filter row */}
+                <tr className={styles.filterRow}>
+                  <th className={styles.thCheck} />
+                  <th className={styles.s0} />
+                  <th className={styles.s1}><ColFilter value={col.code}           placeholder="Mã…"  onChange={setF('code')} /></th>
+                  <th className={styles.s2}><ColFilter value={col.name}           placeholder="Tên…" onChange={setF('name')} /></th>
+                  <th>
+                    <select
+                      className={styles.deptFilterSelect}
+                      value={col.departmentName}
+                      onChange={e => setCol(p => ({ ...p, departmentName: e.target.value }))}
+                    >
+                      <option value="">Tất cả</option>
+                      <option value="__EMPTY__">⚠️ Chưa có PB</option>
+                      {depts.map(d => (
+                        <option key={d.id} value={d.name}>{d.code} – {d.name}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      className={styles.deptFilterSelect}
+                      value={col.specialGroup}
+                      onChange={e => setCol(p => ({ ...p, specialGroup: e.target.value }))}
+                    >
+                      <option value="">Tất cả</option>
+                      {groups.map(g => (
+                        <option key={g.code} value={g.name}>{g.code} – {g.name}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th /><th /><th />  {/* NGAY NGHI CTT + CONG filters */}
+                  {Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}
+                  <th /><th /><th /><th />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.length === 0 ? (
+                  <tr><td colSpan={DAY_COUNT + 12} className={styles.noResult}>
+                    {rows.length === 0 ? 'Chưa có nhân viên. Nhấn Thêm Mới hoặc Import Excel.' : 'Không tìm thấy.'}
+                    {hasFilter && <button className={s.linkBtn} onClick={clearFilters}> Xóa bộ lọc</button>}
+                  </td></tr>
+                ) : sorted.map((r, i) => (
+                  <tr key={r.id} className={`${i % 2 === 0 ? styles.rowEven : styles.rowOdd} ${selectedIds.has(r.id) ? styles.rowSelected : ''}`}>
+                    <td className={`${styles.td} ${styles.thCheck}`}>
+                      <input type="checkbox" className={styles.checkInput}
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleRow(r.id)}
+                      />
+                    </td>
+                    <td className={`${styles.td} ${styles.tdStt} ${styles.s0}`}>{i + 1}</td>
+                    <td className={`${styles.td} ${styles.tdCode} ${styles.s1}`}>{r.code}</td>
+                    <td className={`${styles.td} ${styles.tdName} ${styles.s2}`}>{r.name}</td>
+                    <td className={`${styles.td} ${r.departmentName ? '' : styles.tdNoDept}`}>
+                      {r.departmentName || ''}
+                    </td>
+                    <td className={styles.td}>{r.specialGroupName || ''}</td>
+                    <td className={`${styles.td} ${styles.tdMono} ${r.specialGroup && !r.groupCodeEndDate ? styles.tdNoEndDate : ''}`}>
+                      {r.groupCodeEndDate || <span className={s.noNote}>—</span>}
+                    </td>
+                    <td className={`${styles.td} ${styles.tdNum} ${r.ngayNghiCuoiThangTruoc ? styles.tdNghiCTT : ''}`}>
+                      {r.ngayNghiCuoiThangTruoc || <span className={s.noNote}>—</span>}
+                    </td>
+                    {(() => { const n = numVal(r.workdays); const warn = !isNaN(n) && n <= 0; return (
+                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                      {r.workdays || <span className={s.noNote}>—</span>}
+                    </td>); })()}
+                    {Array.from({ length: DAY_COUNT }, (_, j) => {
+                      const val = getDay(r, j);
+                      return (
+                        <td key={j} className={`${styles.td} ${styles.tdDay} ${val ? styles.tdDayFilled : ''}`}>
+                          {val || <span className={styles.dot}>·</span>}
+                        </td>
+                      );
+                    })}
+                    {(() => { const n = numVal(r.overtimeHours); const warn = !isNaN(n) && n < 0; return (
+                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                      {r.overtimeHours || '—'}
+                    </td>); })()}
+                    {(() => { const n = numVal(r.lateMinutes); const warn = !isNaN(n) && n < 0; return (
+                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                      {r.lateMinutes || '—'}
+                    </td>); })()}
+                    <td className={`${styles.td} ${styles.tdNum}`}>{r.phepNam || '—'}</td>
+                    <td className={`${styles.td} ${styles.tdAction}`}>
+                      <div className={styles.actions}>
+                        <button className={s.btnIconEdit}   onClick={() => openEdit(r)}       title="Sửa"><IconEdit /></button>
+                        <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

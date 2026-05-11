@@ -1,0 +1,175 @@
+/* Shifts.module.css – Extended styles for wide shift table */
+
+/* ── Form modal wide version ──────────────────── */
+.formWide { max-width: 780px !important; }
+
+/* ── Form layout helpers ──────────────────────── */
+.row3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+}
+.row4col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 14px;
+}
+.col2 { grid-column: span 2; }
+.centerField { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Checkbox ─────────────────────────────────── */
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--gray-700);
+  cursor: pointer;
+  padding: 9px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: white;
+  transition: var(--transition);
+}
+.checkboxLabel:hover { border-color: var(--primary); background: var(--primary-light); }
+.checkbox { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+
+/* ── Section divider in form ──────────────────── */
+.sectionDivider {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--primary);
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--gray-100);
+  margin-top: 4px;
+}
+
+/* ── Input with unit ──────────────────────────── */
+.inputWithUnit {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.inputWithUnit input {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;
+  flex: 1;
+}
+.unit {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 38px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 12px;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+
+/* ── Table wrapper with horizontal scroll ─────── */
+.tableWrap { overflow-x: auto; }
+.tableFixed { min-width: 1200px; }
+
+/* ── Column widths ────────────────────────────── */
+.thStt    { width: 48px;  text-align: center; }
+.thName   { min-width: 200px; }
+.thDept   { min-width: 140px; }
+.thDefault{ width: 80px;  text-align: center; }
+.thType   { width: 90px;  text-align: center; }
+.thTime   { width: 90px;  text-align: center; }
+.thNum    { width: 80px;  text-align: center; }
+.thOtCalc { min-width: 180px; }
+.thAction { width: 72px;  text-align: center; }
+
+/* ── Cell styles ──────────────────────────────── */
+.tdStt    { text-align: center; color: var(--gray-400); font-size: 13px; }
+.tdName   { font-weight: 600; color: var(--gray-800); }
+.tdDept   { font-size: 13px; color: var(--gray-600); }
+.tdCenter { text-align: center; }
+.tdNum    { text-align: center; font-family: monospace; font-size: 13px; font-weight: 600; color: var(--gray-700); }
+.tdOtCalc { font-size: 12px; color: var(--gray-600); }
+
+/* ── Time highlight ───────────────────────────── */
+.timeMain {
+  font-weight: 700 !important;
+  color: var(--primary) !important;
+}
+
+/* ── Default checkmark ────────────────────────── */
+.checkMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dash { color: var(--gray-300); }
+
+/* ── Shift type badge ─────────────────────────── */
+.typeBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+.typeBadge[data-type="Ca 1"]       { background: #dbeafe; color: #1e40af; }
+.typeBadge[data-type="Ca 2"]       { background: #ede9fe; color: #5b21b6; }
+.typeBadge[data-type="Ca 3"]       { background: #fce7f3; color: #9d174d; }
+.typeBadge[data-type="Hành Chính"] { background: #d1fae5; color: #065f46; }
+.typeBadge[data-type="Tự do"]      { background: #fef9c3; color: #713f12; }
+
+/* ── Filter select ────────────────────────────── */
+.filterSelect {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--gray-700);
+  background: white;
+  font-family: inherit;
+  outline: none;
+}
+.filterSelect:focus { border-color: var(--primary); }
+
+/* ── Filter inputs – time & number ────────────── */
+.timeFilter {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--gray-200);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--gray-700);
+  background: white;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.timeFilter:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+
+.numFilter {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--gray-200);
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--gray-700);
+  background: white;
+  font-family: monospace;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+  text-align: center;
+}
+.numFilter:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+.numFilter::placeholder { color: var(--gray-300); font-family: inherit; font-size: 11px; }

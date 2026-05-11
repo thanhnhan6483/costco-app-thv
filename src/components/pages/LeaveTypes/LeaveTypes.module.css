@@ -1,0 +1,70 @@
+.page { padding: 28px; }
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.title { font-size: 22px; font-weight: 800; color: var(--gray-900); }
+.subtitle { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+
+.tableCard {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  color: var(--gray-500);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--gray-700);
+}
+
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--gray-50); }
+.table tr.violation td { background: #fff5f5; }
+
+.rowNum { color: var(--gray-400); font-size: 12px; }
+
+.symbol {
+  display: inline-block;
+  font-family: monospace;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--gray-100);
+  color: var(--gray-700);
+  border: 1px solid var(--gray-200);
+}
+
+.symX { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+.symViolation { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+.ltName { font-weight: 600; }
+.ltDesc { color: var(--gray-500); font-size: 13px; }
+
+.yes { color: #065f46; font-weight: 600; }
+.no { color: var(--gray-400); }
+.half { color: #92400e; font-weight: 600; }

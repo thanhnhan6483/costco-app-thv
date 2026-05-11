@@ -1,0 +1,327 @@
+.page {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ── Bulk action bar ─────────────────────────────── */
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.bulkCount {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+.bulkActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Table card ─────────────────────────────────── */
+.tableCard {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  flex: 1;            /* chiếm toàn bộ phần còn lại */
+  min-height: 0;      /* bắt buộc để flex child có thể shrink */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tableWrap {
+  overflow: auto;     /* cuộn cả ngang lẫn dọc trong đây */
+  flex: 1;
+  min-height: 0;      /* bắt buộc để scroll hoạt động */
+}
+
+/* ── Table base ─────────────────────────────────── */
+.table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  white-space: nowrap;
+  min-width: max-content;
+  width: 100%;
+}
+
+/* ── Head ───────────────────────────────────────── */
+.headRow { position: sticky; top: 0; z-index: 10; }
+.filterRow { position: sticky; top: 37px; z-index: 10; }
+
+.filterRow th {
+  padding: 5px 6px;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.th {
+  padding: 8px 10px;
+  background: var(--gray-50);
+  color: var(--gray-500);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-100);
+  user-select: none;
+}
+.thCenter { text-align: center; }
+.thStt    { width: 44px; text-align: center; }
+.thCheck  { width: 36px; min-width: 36px; text-align: center; padding: 6px 4px !important; }
+.thCode   { width: 90px; min-width: 80px; }
+.thName   { width: 120px; min-width: 100px; }
+.thDay    { width: 34px; text-align: center; padding: 8px 3px; }
+.thAction { width: 72px; text-align: center; }
+
+/* Checkbox */
+.checkInput {
+  width: 15px; height: 15px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+/* ── Sticky columns ─────────────────────────────── */
+.s0 { position: sticky; left: 0;    z-index: 5; }
+.s1 { position: sticky; left: 44px; z-index: 5; }
+.s2 { position: sticky; left: 134px; z-index: 5; }
+
+.headRow   .s0, .headRow   .s1, .headRow   .s2 { z-index: 15; background: var(--gray-50); }
+.filterRow .s0, .filterRow .s1, .filterRow .s2 { z-index: 15; background: #f8fafc; }
+
+/* Shadow right edge of sticky */
+.s2::after {
+  content: '';
+  position: absolute;
+  right: -6px; top: 0; bottom: 0; width: 6px;
+  background: linear-gradient(to right, rgba(0,0,0,0.06), transparent);
+  pointer-events: none;
+}
+
+/* ── Rows ───────────────────────────────────────── */
+.rowEven td { background: #ffffff; }
+.rowOdd  td { background: #f8fafc; }
+.rowEven .s0, .rowEven .s1, .rowEven .s2 { background: #ffffff; }
+.rowOdd  .s0, .rowOdd  .s1, .rowOdd  .s2 { background: #f8fafc; }
+.rowSelected td { background: #eff6ff !important; }
+.rowSelected .s0, .rowSelected .s1, .rowSelected .s2 { background: #eff6ff !important; }
+.table tbody tr:hover td { background: #eef6ff !important; }
+
+.td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--gray-100);
+  border-right: 1px solid var(--gray-100);
+  color: var(--gray-700);
+  vertical-align: middle;
+}
+.tdStt  { text-align: center; color: var(--gray-400); font-size: 11px; }
+.tdCode { font-family: monospace; font-size: 12px; font-weight: 700; color: var(--primary); }
+.tdName { font-weight: 500; }
+.tdNum  { text-align: center; font-family: monospace; font-size: 12px; }
+.tdMono { font-family: monospace; font-size: 12px; }
+.tdAction { text-align: center; }
+
+/* Cột Phòng Ban và Nhóm — thu hẹp */
+.thDept  { width: 130px; min-width: 130px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thGroup { width: 110px; min-width: 110px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Ô phòng ban trống → viền đỏ */
+.tdNoDept {
+  background: #fff1f2 !important;
+  border-left: 3px solid #f87171 !important;
+}
+
+/* Ô NGÀY KT NHÓM trống khi có NHÓM → viền đỏ */
+.tdNoEndDate {
+  background: #fff1f2 !important;
+  border-left: 3px solid #f87171 !important;
+  color: #b91c1c !important;
+}
+
+/* Giá trị số bất hợp lệ (= 0, âm) → nền đỏ */
+.tdWarnVal {
+  background: #fff1f2 !important;
+  border-left: 3px solid #f87171 !important;
+  color: #b91c1c !important;
+  font-weight: 700 !important;
+}
+
+/* Cột Nghỉ Cuối Tháng Trước → xanh lá nổi bật */
+.tdNghiCTT {
+  color: #0d9488 !important;
+  font-weight: 700 !important;
+  background: #f0fdfa !important;
+}
+
+/* Combobox lọc phòng ban */
+.deptFilterSelect {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  background: white;
+  color: var(--gray-700);
+  outline: none;
+  cursor: pointer;
+  max-width: 160px;
+}
+.deptFilterSelect:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+/* Day cells */
+.tdDay { text-align: center; padding: 7px 2px; font-size: 12px; font-family: monospace; }
+.tdDayFilled { font-weight: 700; color: #0f766e; background: #f0fdf4 !important; }
+.dot { color: var(--gray-200); }
+
+/* ── No result ─────────────────────────────────── */
+.noResult {
+  text-align: center;
+  padding: 56px;
+  color: var(--gray-400);
+  font-size: 14px;
+}
+
+/* ── Department cell ────────────────────────────── */
+.deptCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  min-width: 0;
+}
+/* Badge Mã PB — đã link thành công */
+.deptCode {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #2563eb;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+/* Tên phòng ban (text chính) */
+.deptName {
+  font-size: 12.5px;
+  color: var(--gray-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+/* Badge Mã PB chưa link — màu cam cảnh báo */
+.deptCodeWarn {
+  display: inline-block;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid #fed7aa;
+}
+/* Text "Chưa link" */
+.deptUnlinked {
+  font-size: 11px;
+  color: #9a3412;
+  font-style: italic;
+}
+
+/* ── Actions ─────────────────────────────────────  */
+.actions { display: flex; gap: 4px; justify-content: center; }
+
+/* Nút Xuất Excel */
+.btnExportAction {
+  color: #0f766e !important;
+}
+.btnExportAction:hover {
+  background: #f0fdf4 !important;
+  color: #065f46 !important;
+}
+.btnExportAction:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Nút Liên kết PB */
+.btnRelinkAction {
+  color: #0891b2 !important;
+}
+.btnRelinkAction:hover {
+  background: #e0f7fa !important;
+  color: #0e7490 !important;
+}
+.btnRelinkAction:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Nút Xóa Tất Cả trong action bar */
+.btnDangerAction {
+  color: var(--danger) !important;
+  gap: 6px;
+}
+.btnDangerAction:hover {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+}
+.btnDangerAction:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Form day grid ──────────────────────────────── */
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+.dayCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.dayLabel {
+  font-size: 10px;
+  color: var(--gray-400);
+  font-weight: 600;
+}
+.dayInput {
+  width: 100%;
+  text-align: center;
+  padding: 5px 4px;
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.dayInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
