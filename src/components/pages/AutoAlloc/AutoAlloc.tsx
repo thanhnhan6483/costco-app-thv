@@ -477,10 +477,17 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Danh sách PB unique (cho dropdown)
+  const deptList = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows as any[]) { if (r.deptName) set.add(r.deptName); }
+    return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [rows]);
+
   const filtered = useMemo(() => rows.filter((r: any) => {
     if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
     if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && !String(r.deptName ?? '').toLowerCase().includes(fDept.toLowerCase())) return false;
+    if (fDept && String(r.deptName ?? '') !== fDept) return false;
     return true;
   }), [rows, fCode, fName, fDept]);
 
@@ -575,11 +582,10 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
                 </div>
               </th>
               <th>
-                <div className={styles.colFilter}>
-                  <span className={styles.colFilterIcon}>🔍</span>
-                  <input className={styles.colFilterInput} value={fDept} placeholder="PB…" onChange={e => setFDept(e.target.value)} />
-                  {fDept && <button className={styles.colFilterClear} onClick={() => setFDept('')} type="button">✕</button>}
-                </div>
+                <select className={styles.deptFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}>
+                  <option value="">Tất cả</option>
+                  {deptList.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
               </th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} />)}
               <th /><th /><th />

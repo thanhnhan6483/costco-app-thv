@@ -166,6 +166,16 @@
 }
 .colFilterClear:hover { color: #dc2626; }
 
+.deptFilterSelect {
+  width: 100%; padding: 4px 6px;
+  border: 1px solid var(--gray-200); border-radius: 4px;
+  font-size: 0.7rem; color: var(--gray-700); background: #fff;
+  outline: none; font-family: inherit; cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  appearance: auto;
+}
+.deptFilterSelect:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+
 /* ── Tables ── */
 .tableWrap { overflow: auto; width: 100%; }
 .tableOuter { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
