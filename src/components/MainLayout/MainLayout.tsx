@@ -1,4 +1,5 @@
 'use client';
+import { Component, ReactNode } from 'react';
 import styles from './MainLayout.module.css';
 import Sidebar from '@/components/Sidebar/Sidebar';
 import Topbar from '@/components/Topbar/Topbar';
@@ -16,6 +17,20 @@ import ConfigMonth from '@/components/pages/ConfigMonth/ConfigMonth';
 import ImportEmployees from '@/components/pages/ImportEmployees/ImportEmployees';
 import AutoAlloc from '@/components/pages/AutoAlloc/AutoAlloc';
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: 32, color: '#b91c1c', background: '#fef2f2', borderRadius: 8, margin: 16 }}>
+        <strong>Lỗi:</strong> {this.state.error}
+        <br /><button style={{ marginTop: 12, padding: '4px 12px' }} onClick={() => this.setState({ error: null })}>Thử lại</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 function renderPage(page: string) {
   switch (page) {
     case 'dashboard':        return <Dashboard />;
@@ -29,7 +44,7 @@ function renderPage(page: string) {
     case 'import-employees': return <ImportEmployees />;
     case 'export-config':
       return <PlaceholderPage title="Xuất Cấu Hình" icon="📤" description="Xuất toàn bộ cấu hình tháng ra file để lưu trữ hoặc chia sẻ." />;
-    case 'auto-alloc':      return <AutoAlloc />;
+    case 'auto-alloc':      return <ErrorBoundary><AutoAlloc /></ErrorBoundary>;
     case 'export-attendance':
       return <PlaceholderPage title="Xuất Báo Cáo" icon="📑" description="Xuất bảng chấm công dạng Excel theo phòng ban hoặc toàn công ty." />;
     default:
