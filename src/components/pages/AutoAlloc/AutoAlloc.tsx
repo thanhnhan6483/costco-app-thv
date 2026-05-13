@@ -468,7 +468,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
     fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string; dayType:number}[]) => {
-      setLeaveTypes(data);
+      setLeaveTypes(Array.isArray(data) ? data : []);
     }).catch(() => {});
   }, [monthId]);
 
