@@ -10,10 +10,19 @@ export async function GET(req: NextRequest) {
   try {
     const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
     const conn = await getConn();
-    const rows = await conn.all(
-      `SELECT id, month_id AS monthId, code, name, description, paid, note, COALESCE(day_type, -1) AS dayType, created_at AS createdAt
-       FROM leave_types WHERE month_id = ? ORDER BY code`, monthId
-    );
+    let rows;
+    try {
+      rows = await conn.all(
+        `SELECT id, month_id AS monthId, code, name, description, paid, note, COALESCE(day_type, -1) AS dayType, created_at AS createdAt
+         FROM leave_types WHERE month_id = ? ORDER BY code`, monthId
+      );
+    } catch {
+      // Fallback nếu cột day_type chưa tồn tại
+      rows = await conn.all(
+        `SELECT id, month_id AS monthId, code, name, description, paid, note, -1 AS dayType, created_at AS createdAt
+         FROM leave_types WHERE month_id = ? ORDER BY code`, monthId
+      );
+    }
     await conn.close();
     return NextResponse.json(rows);
   } catch (e) { console.error(e); return NextResponse.json({ error: 'DB error' }, { status: 500 }); }
