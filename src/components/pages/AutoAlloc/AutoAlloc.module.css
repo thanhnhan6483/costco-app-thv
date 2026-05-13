@@ -423,6 +423,11 @@
   box-shadow: inset 0 0 0 2px #f59e0b !important;
   z-index: 2;
 }
+.editableCellDragOver {
+  box-shadow: inset 0 0 0 2px #2563eb !important;
+  background: #dbeafe !important;
+  z-index: 3;
+}
 
 /* ── DayType Picker Dropdown ── */
 .dayPickerOverlay {

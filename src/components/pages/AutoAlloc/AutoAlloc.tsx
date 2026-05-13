@@ -460,8 +460,10 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const [edits, setEdits] = useState<Map<EditKey, number>>(new Map());
-  const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dragSrc, setDragSrc] = useState<{ code: string; day: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ code: string; day: number } | null>(null);
+  const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
 
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
   useEffect(() => {
@@ -476,6 +478,23 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     setPicker({ code, day, currentDT, x: rect.left, y: rect.bottom + 4 });
+  };
+
+  const handleDrop = (toCode: string, toDay: number) => {
+    if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) { setDragSrc(null); setDragOver(null); return; }
+    const fromDT = getEffectiveDT(dragSrc.code, dragSrc.day, (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((d: any) => d.day === dragSrc.day)?.dayType ?? -1);
+    const toDT   = getEffectiveDT(toCode, toDay, (rows.find((r: any) => r.code === toCode) as any)?.days?.find((d: any) => d.day === toDay)?.dayType ?? -1);
+    const origFrom = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((d: any) => d.day === dragSrc.day)?.dayType ?? -1;
+    const origTo   = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((d: any) => d.day === toDay)?.dayType ?? -1;
+    setEdits(prev => {
+      const next = new Map(prev);
+      const kFrom: EditKey = `${dragSrc.code}_${dragSrc.day}`;
+      const kTo: EditKey   = `${toCode}_${toDay}`;
+      toDT === origFrom ? next.delete(kFrom) : next.set(kFrom, toDT);
+      fromDT === origTo  ? next.delete(kTo)   : next.set(kTo, fromDT);
+      return next;
+    });
+    setDragSrc(null); setDragOver(null);
   };
 
   const handlePick = (dt: number) => {
@@ -551,16 +570,24 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
                   const sym = DT_SYMBOL[dt] ?? '';
                   const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
                   const clr = DT_TEXT[dt] ?? '#9ca3af';
-                  const isChanged = edits.has(`${r.code}_${i + 1}` as EditKey);
+                  const isChanged = edits.has((`${r.code}_${i + 1}`) as EditKey);
+                  const isOver = dragOver?.code === r.code && dragOver?.day === i + 1;
                   return (
                     <td key={i}
-                      className={`${styles.editableCell} ${isChanged ? styles.editableCellChanged : ''}`}
+                      className={`${styles.editableCell} ${isChanged ? styles.editableCellChanged : ''} ${isOver ? styles.editableCellDragOver : ''}`}
                       style={{
                         background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600,
                         fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
                         borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                        opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
                       }}
                       onDoubleClick={(e) => handleCellClick(r.code, i + 1, dt, e)}
+                      draggable
+                      onDragStart={() => setDragSrc({ code: r.code, day: i + 1 })}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={() => handleDrop(r.code, i + 1)}
+                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
                     >
                       {sym || <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>}
                     </td>
