@@ -960,6 +960,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId }: {
 }) {
   useEffect(() => { if (!data) onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className={styles.emptyState}>Đang tải...</div>;
+  if (!Array.isArray(data)) return <div className={styles.emptyState}>Lỗi dữ liệu — vui lòng restart server.</div>;
   const rows = data as Record<string, unknown>[];
 
   if (step === 1) return <ImportGrid rows={rows} />;
