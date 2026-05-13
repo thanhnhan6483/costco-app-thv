@@ -19,7 +19,7 @@ interface AllocRule {
 
 type Filters = { groupCode: string; groupName: string; name: string; paramKey: string; defaultParam: string; specificValue: string };
 const BLANK_FILTER: Filters = { groupCode: '', groupName: '', name: '', paramKey: '', defaultParam: '', specificValue: '' };
-const BLANK_FORM = { groupCode: '', groupName: '', name: '', defaultParam: '', specificValue: '' };
+const BLANK_FORM = { groupCode: '', groupName: '', name: '', paramKey: '', defaultParam: '', specificValue: '' };
 
 /* ── 4 nhóm quy tắc chuẩn ─────────────────── */
 const PRESET_GROUPS = [
@@ -104,7 +104,8 @@ export default function AllocRules() {
   const openEdit = (r: AllocRule) => {
     setForm({
       groupCode: r.groupCode, groupName: r.groupName,
-      name: r.name, defaultParam: r.defaultParam,
+      name: r.name, paramKey: r.paramKey ?? '',
+      defaultParam: r.defaultParam,
       specificValue: r.specificValue ?? '',
     });
     setEditId(r.id); setShowForm(true);
@@ -206,12 +207,17 @@ export default function AllocRules() {
               {/* Giá trị + Ghi chú */}
               <div className={s.row2}>
                 <div className={s.field}>
+                  <label className={s.label}>Mã quy tắc (param_key)</label>
+                  <input className={s.input} value={form.paramKey}
+                    onChange={e => setForm(f => ({ ...f, paramKey: e.target.value }))}
+                    placeholder="VD: max_consecutive_days" style={{ fontFamily: 'monospace' }} />
+                </div>
+                <div className={s.field}>
                   <label className={s.label}>Giá trị mặc định</label>
                   <input className={s.input} value={form.defaultParam}
                     onChange={e => setForm(f => ({ ...f, defaultParam: e.target.value }))}
                     placeholder="VD: 6 ngày" />
                 </div>
-                <div className={s.field} />
               </div>
 
               {/* Ghi chú – full width */}

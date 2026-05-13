@@ -6,11 +6,11 @@ export const runtime = 'nodejs';
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { name, defaultParam, specificValue, description, groupCode, groupName } = await req.json();
+    const { name, defaultParam, specificValue, description, groupCode, groupName, paramKey } = await req.json();
     const conn = await getConn();
     await conn.run(
-      `UPDATE alloc_rules SET name=?,default_param=?,specific_value=?,description=?,group_code=?,group_name=? WHERE id=?`,
-      toDb(name), toDb(defaultParam ?? ''), toDb(specificValue ?? ''), toDb(description ?? ''),
+      `UPDATE alloc_rules SET name=?,param_key=?,default_param=?,specific_value=?,description=?,group_code=?,group_name=? WHERE id=?`,
+      toDb(name), toDb(paramKey ?? ''), toDb(defaultParam ?? ''), toDb(specificValue ?? ''), toDb(description ?? ''),
       toDb(groupCode ?? 'WORK_RULE'), toDb(groupName ?? 'Quy tắc làm việc'), id
     );
     await conn.close();
