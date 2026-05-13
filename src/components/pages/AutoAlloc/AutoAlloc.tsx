@@ -428,7 +428,7 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
     <>
       <div className={styles.dayPickerOverlay} onClick={onClose} />
       <div className={styles.dayPicker} style={{ left, top }}>
-        {leaveTypes.map(lt => {
+        {(Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
           const dt = lt.dayType >= 0 ? lt.dayType : undefined;
           const sym = (dt != null ? (DT_SYMBOL[dt] ?? lt.code) : lt.code);
           const isActive = dt != null && dt === currentDT;
