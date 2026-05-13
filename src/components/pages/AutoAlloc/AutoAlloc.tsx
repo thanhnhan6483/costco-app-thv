@@ -581,7 +581,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
                         borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
                         opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
                       }}
-                      onDoubleClick={(e) => handleCellClick(r.code, i + 1, dt, e)}
+                      onContextMenu={(e) => { e.preventDefault(); handleCellClick(r.code, i + 1, dt, e); }}
                       draggable
                       onDragStart={() => setDragSrc({ code: r.code, day: i + 1 })}
                       onDragOver={(e) => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }}
