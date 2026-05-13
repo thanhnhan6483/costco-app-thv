@@ -5,11 +5,11 @@ export const runtime = 'nodejs';
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { code, name, description, paid, note } = await req.json();
+    const { code, name, description, paid, note, dayType } = await req.json();
     const conn = await getConn();
     await conn.run(
-      `UPDATE leave_types SET code=?, name=?, description=?, paid=?, note=? WHERE id=?`,
-      code?.toUpperCase(), name, description ?? '', paid, note ?? '', id
+      `UPDATE leave_types SET code=?, name=?, description=?, paid=?, note=?, day_type=? WHERE id=?`,
+      code?.toUpperCase(), name, description ?? '', paid, note ?? '', dayType ?? -1, id
     );
     await conn.close();
     return NextResponse.json({ ok: true });

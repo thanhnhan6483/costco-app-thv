@@ -420,7 +420,7 @@ const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, Ô:3, TS:4, DS
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
   onPick: (dt: number) => void; onClose: () => void;
-  leaveTypes: { code: string; name: string }[];
+  leaveTypes: { code: string; name: string; dayType: number }[];
 }) {
   const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
   const top  = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
@@ -429,8 +429,8 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
       <div className={styles.dayPickerOverlay} onClick={onClose} />
       <div className={styles.dayPicker} style={{ left, top }}>
         {leaveTypes.map(lt => {
-          const dt = SYM_TO_DT[lt.code];
-          const sym = (dt != null ? DT_SYMBOL[dt] : null) ?? lt.code;
+          const dt = lt.dayType >= 0 ? lt.dayType : undefined;
+          const sym = (dt != null ? (DT_SYMBOL[dt] ?? lt.code) : lt.code);
           const isActive = dt != null && dt === currentDT;
           return (
             <button key={lt.code}
@@ -465,9 +465,9 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [dragOver, setDragOver] = useState<{ code: string; day: number } | null>(null);
   const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
 
-  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
-    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string}[]) => {
+    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string; dayType:number}[]) => {
       setLeaveTypes(data);
     }).catch(() => {});
   }, [monthId]);

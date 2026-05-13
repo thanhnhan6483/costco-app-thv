@@ -215,6 +215,17 @@ async function initSchema(db: Database): Promise<void> {
     if (!names.includes('description')) {
       await conn.run(`ALTER TABLE leave_types ADD COLUMN description VARCHAR DEFAULT ''`);
     }
+    if (!names.includes('day_type')) {
+      await conn.run(`ALTER TABLE leave_types ADD COLUMN day_type INTEGER DEFAULT -1`);
+      // Seed giá trị mặc định theo code
+      const seedMap: Record<string, number> = {
+        X:0, L:1, LP:1, PN:2, 'Ô':3, TS:4, DS:5, O:6, NL:7, OF:8, P:9,
+        'X/2':10, LL:11, LN:12, H:13, B:14,
+      };
+      for (const [code, dt] of Object.entries(seedMap)) {
+        await conn.run(`UPDATE leave_types SET day_type = ? WHERE code = ?`, dt, code);
+      }
+    }
   } catch { /* bảng chưa tồn tại */ }
 
   /* special_groups – Nhóm đặc thù */

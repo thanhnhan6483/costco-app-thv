@@ -12,12 +12,13 @@ interface LeaveType {
   description: string;
   paid: boolean;
   note: string;
+  dayType: number;
   createdAt: string;
 }
 type Filters = { code: string; name: string; description: string; note: string };
 type SortKey = 'code' | 'name' | 'description' | 'note';
 type SortDir = 'asc' | 'desc';
-const BLANK = { code: '', name: '', description: '', paid: true, note: '' };
+const BLANK = { code: '', name: '', description: '', paid: true, note: '', dayType: -1 };
 
 function ColFilter({ value, placeholder, onChange }: {
   value: string; placeholder: string; onChange: (v: string) => void;
@@ -104,7 +105,7 @@ export default function LeaveTypes() {
 
   const openCreate = () => { setForm(BLANK); setEditId(null); setShowForm(true); };
   const openEdit = (r: LeaveType) => {
-    setForm({ code: r.code, name: r.name, description: r.description, paid: r.paid, note: r.note });
+    setForm({ code: r.code, name: r.name, description: r.description, paid: r.paid, note: r.note, dayType: r.dayType ?? -1 });
     setEditId(r.id); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditId(null); setForm(BLANK); };
@@ -117,7 +118,7 @@ export default function LeaveTypes() {
         const res = await fetch(`/api/leave-types/${editId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: form.code, name: form.name, description: form.description, paid: form.paid, note: form.note }),
+          body: JSON.stringify({ code: form.code, name: form.name, description: form.description, paid: form.paid, note: form.note, dayType: form.dayType }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
       } else {
@@ -176,6 +177,12 @@ export default function LeaveTypes() {
                 </div>
               </div>
               <div className={s.field}>
+                <label className={s.label}>Day Type (số nguyên lưu vào phân bổ)</label>
+                <input className={s.input} type="number" min={-1} value={form.dayType}
+                  onChange={e => setForm(f => ({ ...f, dayType: Number(e.target.value) }))}
+                  placeholder="-1 = chưa map" />
+              </div>
+              <div className={s.field}>
                 <label className={s.label}>Mô tả</label>
                 <input className={s.input} value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
@@ -225,6 +232,7 @@ export default function LeaveTypes() {
                 <SortTh label="Tên Loại Nghỉ" sortKey="name"    current={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortTh label="Mô Tả"       sortKey="description" current={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortTh label="Ghi Chú"     sortKey="note"        current={sortKey} dir={sortDir} onSort={handleSort} />
+                <th style={{ minWidth: 80, textAlign: 'center' }}>Day Type</th>
                 <th className={s.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
@@ -234,11 +242,12 @@ export default function LeaveTypes() {
                 <th><ColFilter value={col.description} placeholder="Mô tả…" onChange={setF('description')} /></th>
                 <th><ColFilter value={col.note} placeholder="Ghi chú…" onChange={setF('note')} /></th>
                 <th />
+                <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr><td colSpan={7} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => (
                 <tr key={r.id}>
                   <td className={s.tdStt}>{i + 1}</td>
@@ -246,6 +255,9 @@ export default function LeaveTypes() {
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
                   <td className={s.noteCell}>{r.description || <span className={s.noNote}>—</span>}</td>
                   <td className={s.noteCell}>{r.note || <span className={s.noNote}>—</span>}</td>
+                  <td style={{ textAlign: 'center', fontFamily: 'monospace', color: r.dayType >= 0 ? '#1d4ed8' : '#9ca3af' }}>
+                    {r.dayType >= 0 ? r.dayType : '—'}
+                  </td>
                   <td>
                     <div className={s.actions}>
                       <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa"><IconEdit /></button>
