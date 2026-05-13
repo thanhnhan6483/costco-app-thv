@@ -22,10 +22,10 @@ export async function PATCH(req: NextRequest) {
     // Tra cứu empCode → empId
     const codes = [...new Set(changes.map(c => c.empCode))];
     const placeholders = codes.map(() => '?').join(',');
-    const empRows = await conn.all<{ id: string; code: string }>(
+    const empRows = await conn.all(
       `SELECT id, code FROM employees WHERE month_id = ? AND code IN (${placeholders})`,
       monthId, ...codes,
-    );
+    ) as { id: string; code: string }[];
     const codeToId = new Map(empRows.map(e => [e.code, e.id]));
 
     let updated = 0;
@@ -33,12 +33,23 @@ export async function PATCH(req: NextRequest) {
       const empId = codeToId.get(c.empCode);
       if (!empId) continue;
 
-      await conn.run(
-        `UPDATE distribution_results
-         SET day_type = ?
-         WHERE month_id = ? AND employee_id = ? AND day = ?`,
-        c.dayType, monthId, empId, c.day,
+      const existing = await conn.all(
+        `SELECT id FROM distribution_results WHERE month_id = ? AND employee_id = ? AND day = ?`,
+        monthId, empId, c.day,
       );
+      if (existing.length > 0) {
+        await conn.run(
+          `UPDATE distribution_results SET day_type = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
+          c.dayType, monthId, empId, c.day,
+        );
+      } else {
+        const { randomUUID } = await import('crypto');
+        await conn.run(
+          `INSERT INTO distribution_results (id, month_id, employee_id, day, day_type, check_in, check_out, shift_code, ot_hours, late_mins, created_at)
+           VALUES (?, ?, ?, ?, ?, '', '', '', 0, 0, ?)`,
+          randomUUID(), monthId, empId, c.day, c.dayType, new Date().toISOString(),
+        );
+      }
       updated++;
     }
 
