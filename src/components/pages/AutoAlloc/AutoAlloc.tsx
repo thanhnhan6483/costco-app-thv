@@ -109,10 +109,10 @@ export default function AutoAlloc() {
     } finally { setClearing(false); }
   }, [activeMonthId, refreshStatus]);
 
-  const loadStepData = useCallback(async (displayStep: number, page = 1, size?: number) => {
+  const loadStepData = useCallback(async (displayStep: number, page = 1, size?: number, force = false) => {
     const limit = size ?? pageSizes[displayStep] ?? 100;
     const cacheKey = `${page}_${limit}`;
-    if (stepCache[displayStep]?.[cacheKey]) {
+    if (!force && stepCache[displayStep]?.[cacheKey]) {
       setStepData(prev => ({ ...prev, [displayStep]: stepCache[displayStep][cacheKey] }));
       setPageNum(prev => ({ ...prev, [displayStep]: page }));
       return;
@@ -262,8 +262,8 @@ export default function AutoAlloc() {
             onLoad={() => loadStepData(activeStep, 1)}
             onRefresh={() => {
               setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
-              setStepData(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
-              loadStepData(activeStep, 1);
+              loadStepData(activeStep, pageNum[activeStep] ?? 1, undefined, true);
+
             }}
             done={Boolean(curStep && status[curStep.key])}
             monthId={activeMonthId}
