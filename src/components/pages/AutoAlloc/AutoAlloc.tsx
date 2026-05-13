@@ -65,7 +65,7 @@ const DT_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#fefce8', 2: '#eff6ff'
 const DT_CLR: Record<number, string> = { 0: '#15803d', 1: '#92400e', 2: '#1d4ed8', 3: '#b91c1c', 4: '#be185d', 5: '#0f766e', 6: '#c2410c', 7: '#4d7c0f', 8: '#4b5563', 9: '#6d28d9' };
 // Ký hiệu ngắn hiển thị trong ô bảng (algorithm output: 0→X, 1→LP, 2→PN...)
 const DT_SYMBOL: Record<number, string> = {
-  0: 'X', 1: 'LP', 2: 'PN', 3: 'Ô', 4: 'TS', 5: 'DS', 6: 'O', 7: 'NL', 8: 'OF', 9: 'P',
+  0: 'X', 1: 'LP', 2: 'PN', 3: 'Ô', 4: 'TS', 5: 'DS', 6: 'O', 7: 'NL', 8: 'OF', 9: 'P', 10: 'X/2',
 };
 
 type StepStatus = Record<string, boolean>;
@@ -333,8 +333,8 @@ function Pagination({ total, limit, pageSize, onPage, onSizeChange }: {
 /* ── color maps ── */
 const SYM_BG: Record<string, string> = { '': '#fff', 'X': '#f0fdf4', 'L': '#f1f5f9', 'LP': '#f1f5f9', 'PN': '#f5f3ff', 'Ô': '#fef2f2', 'TS': '#fdf2f8', 'DS': '#f0fdfa', 'O': '#fff7ed', 'NL': '#eff6ff', 'OF': '#f8fafc', 'P': '#ecfeff' };
 const SYM_CLR: Record<string, string> = { '': '#d1d5db', 'X': '#15803d', 'L': '#475569', 'LP': '#475569', 'PN': '#6d28d9', 'Ô': '#b91c1c', 'TS': '#be185d', 'DS': '#0f766e', 'O': '#c2410c', 'NL': '#1d4ed8', 'OF': '#4b5563', 'P': '#0e7490' };
-const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d9', 3: '#b91c1c', 4: '#be185d', 5: '#0f766e', 6: '#c2410c', 7: '#1d4ed8', 8: '#4b5563', 9: '#0e7490' };
-const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff' };
+const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d9', 3: '#b91c1c', 4: '#be185d', 5: '#0f766e', 6: '#c2410c', 7: '#1d4ed8', 8: '#4b5563', 9: '#0e7490', 10: '#065f46' };
+const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff', 10: '#d1fae5' };
 
 /* === ImportGrid (Step 1) === */
 function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
@@ -415,7 +415,7 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === DayTypePicker (dropdown chọn loại ngày) === */
-const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, Ô:3, TS:4, DS:5, O:6, NL:7, OF:8, P:9 };
+const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, Ô:3, TS:4, DS:5, O:6, NL:7, OF:8, P:9, 'X/2':10 };
 
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
