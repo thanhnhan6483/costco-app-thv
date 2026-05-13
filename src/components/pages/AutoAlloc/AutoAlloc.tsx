@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
@@ -6,16 +6,17 @@ import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
 /* ── Reusable inline filter row for grids ── */
-function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31 }: {
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle }: {
   fCode: string; fName: string; fDept: string;
   setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
   deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
+  codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties;
 }) {
   return (
     <tr className={styles.filterRow}>
       {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} />)}
-      <th><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
-      <th><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
+      <th style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
+      <th style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
       <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
       {Array.from({ length: daysCols }, (_, i) => <th key={`d${i}`} />)}
       {Array.from({ length: extraAfter }, (_, i) => <th key={`a${i}`} />)}
@@ -349,8 +350,8 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               <th style={{ minWidth: 52 }}>Nghỉ CTT</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
@@ -359,7 +360,7 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
               <th style={{ minWidth: 50, color: '#c2410c' }}>Trễ(ph)</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>
             {filtered.map((r: any, ri: number) => {
@@ -367,8 +368,8 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
               return (
                 <tr key={r.code}>
                   <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                  <td className={styles.mono}>{r.code}</td>
-                  <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{r.name}</td>
+                  <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                  <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                   <td className={styles.mono} style={{ fontSize: '0.68rem', color: 'var(--gray-500)' }}>
                     {r.ngayNghiCuoiThangTruoc || '—'}
@@ -414,29 +415,32 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === DayTypePicker (dropdown chọn loại ngày) === */
-function DayTypePicker({ currentDT, x, y, onPick, onClose }: {
+const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, O:3, TS:4, DS:5, NL:7, OF:8, P:9 };
+
+function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
   onPick: (dt: number) => void; onClose: () => void;
+  leaveTypes: { code: string; name: string }[];
 }) {
-  // Điều chỉnh vị trí nếu gần mép phải/dưới
   const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
   const top  = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
   return (
     <>
       <div className={styles.dayPickerOverlay} onClick={onClose} />
       <div className={styles.dayPicker} style={{ left, top }}>
-        {Object.entries(DT_SYMBOL).map(([k, sym]) => {
-          if (!sym) return null;
-          const code = Number(k);
+        {leaveTypes.map(lt => {
+          const dt = SYM_TO_DT[lt.code];
+          if (dt == null) return null;
+          const sym = DT_SYMBOL[dt] ?? lt.code;
           return (
-            <button key={k}
-              className={`${styles.dayPickerBtn} ${code === currentDT ? styles.dayPickerBtnActive : ''}`}
-              style={{ color: DT_TEXT[code] ?? '#666', background: DT_CELL_BG[code] ?? '#fff' }}
-              onClick={() => onPick(code)}
+            <button key={lt.code}
+              className={`${styles.dayPickerBtn} ${dt === currentDT ? styles.dayPickerBtnActive : ''}`}
+              style={{ color: DT_TEXT[dt] ?? '#666', background: DT_CELL_BG[dt] ?? '#fff' }}
+              onClick={() => onPick(dt)}
               type="button"
             >
               <span>{sym}</span>
-              <span className={styles.dayPickerLabel}>{DAY_TYPE_LABEL[code]?.replace(/\s*\(.*\)/, '') ?? ''}</span>
+              <span className={styles.dayPickerLabel}>{lt.name}</span>
             </button>
           );
         })}
@@ -458,6 +462,13 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
   const [edits, setEdits] = useState<Map<EditKey, number>>(new Map());
   const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string}[]) => {
+      setLeaveTypes(data);
+    }).catch(() => {});
+  }, [monthId]);
 
   const deptList = useDeptList(rows);
   const filtered = useGridFilter(rows, fCode, fName, fDept);
@@ -515,23 +526,23 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 36, color: '#15803d' }}>Làm</th>
               <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono}>{r.code}</td>
-                <td className={styles.empName}>{r.name}</td>
+                <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -549,7 +560,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
                         fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
                         borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
                       }}
-                      onClick={(e) => handleCellClick(r.code, i + 1, dt, e)}
+                      onDoubleClick={(e) => handleCellClick(r.code, i + 1, dt, e)}
                     >
                       {sym || <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>}
                     </td>
@@ -584,6 +595,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
           x={picker.x} y={picker.y}
           onPick={handlePick}
           onClose={() => setPicker(null)}
+          leaveTypes={leaveTypes}
         />
       )}
       {/* Floating action bar */}
@@ -620,14 +632,14 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
@@ -636,8 +648,8 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono}>{r.code}</td>
-                <td className={styles.empName}>{r.name}</td>
+                <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -684,22 +696,22 @@ function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 44, color: OT_CLR }}>OT(h)</th>
               <th style={{ minWidth: 50, color: LATE_CLR }}>Trễ(ph)</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono}>{r.code}</td>
-                <td className={styles.empName}>{r.name}</td>
+                <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -745,13 +757,13 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 50, color: '#15803d' }}>Làm</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={1} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={1} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
@@ -759,8 +771,8 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono}>{r.code}</td>
-                <td className={styles.empName}>{r.name}</td>
+                <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -799,8 +811,8 @@ function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
             <tr>
-              <th style={{ minWidth: 56 }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 90 }}>Tên</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <th>Làm</th><th>Nghỉ</th>
@@ -811,8 +823,8 @@ function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
           </thead>
           <tbody>{filtered.map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
-              <td className={styles.mono}>{r.code}</td>
-              <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{r.name}</td>
+              <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+              <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
               {Array.from({ length: 31 }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
@@ -942,4 +954,5 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId }: {
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }
+
 
