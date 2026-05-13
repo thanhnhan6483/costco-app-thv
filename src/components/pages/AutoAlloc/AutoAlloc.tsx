@@ -415,7 +415,7 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === DayTypePicker (dropdown chọn loại ngày) === */
-const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, O:3, TS:4, DS:5, NL:7, OF:8, P:9 };
+const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, Ô:3, TS:4, DS:5, O:6, NL:7, OF:8, P:9 };
 
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
@@ -430,13 +430,13 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
       <div className={styles.dayPicker} style={{ left, top }}>
         {leaveTypes.map(lt => {
           const dt = SYM_TO_DT[lt.code];
-          if (dt == null) return null;
-          const sym = DT_SYMBOL[dt] ?? lt.code;
+          const sym = (dt != null ? DT_SYMBOL[dt] : null) ?? lt.code;
+          const isActive = dt != null && dt === currentDT;
           return (
             <button key={lt.code}
-              className={`${styles.dayPickerBtn} ${dt === currentDT ? styles.dayPickerBtnActive : ''}`}
-              style={{ color: DT_TEXT[dt] ?? '#666', background: DT_CELL_BG[dt] ?? '#fff' }}
-              onClick={() => onPick(dt)}
+              className={`${styles.dayPickerBtn} ${isActive ? styles.dayPickerBtnActive : ''}`}
+              style={{ color: dt != null ? (DT_TEXT[dt] ?? '#666') : '#374151', background: dt != null ? (DT_CELL_BG[dt] ?? '#fff') : '#f9fafb' }}
+              onClick={() => { if (dt != null) onPick(dt); }}
               type="button"
             >
               <span>{sym}</span>
