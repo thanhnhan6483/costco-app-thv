@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const empPage = await conn.all<Record<string, string>>(
       `SELECT e.id, e.code, e.name, d.name AS deptName,
               e.special_group AS specialGroup,
+              e.group_code_end_date AS groupCodeEndDate,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               e.workdays, e.overtime_hours AS overtimeHours,
               e.late_minutes AS lateMinutes, e.phep_nam AS phepNam,

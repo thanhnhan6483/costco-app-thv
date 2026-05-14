@@ -346,17 +346,16 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
-              <th style={{ minWidth: 52 }}>Nghỉ CTT</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 40, color: '#15803d' }}>Công</th>
-              <th style={{ minWidth: 44, color: '#1d4ed8' }}>OT(h)</th>
-              <th style={{ minWidth: 50, color: '#c2410c' }}>Trễ(ph)</th>
-              <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+              <th style={{ minWidth: 40, color: '#15803d' }}>NGÀY CÔNG</th>
+              <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
+              <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
+              <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>
             {filtered.map((r: any, ri: number) => {
@@ -367,9 +366,6 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
                   <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                   <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                  <td className={styles.mono} style={{ fontSize: '0.68rem', color: 'var(--gray-500)' }}>
-                    {r.ngayNghiCuoiThangTruoc || '—'}
-                  </td>
                   {Array.from({ length: 31 }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const sym = d?.symbol ?? '';
@@ -541,9 +537,9 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 36, color: '#15803d' }}>Làm</th>
               <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
@@ -659,9 +655,9 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
@@ -728,9 +724,9 @@ function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 44, color: OT_CLR }}>OT(h)</th>
               <th style={{ minWidth: 50, color: LATE_CLR }}>Trễ(ph)</th>
@@ -789,9 +785,9 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 50, color: '#15803d' }}>Làm</th>
             </tr>
@@ -843,9 +839,9 @@ function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
             <tr>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>Mã NV</th>
+              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>Phòng ban</th>
+              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <th>Làm</th><th>Nghỉ</th>
               <th style={{ color: '#1d4ed8' }}>OT(h)</th>
