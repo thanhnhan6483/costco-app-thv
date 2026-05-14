@@ -44,7 +44,7 @@ const BLANK = {
   lateMinutes: 0, otThreshold: 0, otCalc: 'Tính từ giờ ra (công)', note: '',
 };
 
-const SHIFT_TYPES = ['Ca 1', 'Ca 2', 'Ca 3', 'Hành Chính', 'Tự do'];
+const SHIFT_TYPES = ['Ca 1', 'Ca 2', 'Ca 3'];
 const OT_CALC_OPTIONS = [
   'Tính từ giờ ra (công)',
   'Tính từ giờ vào (trưa)',
@@ -471,12 +471,8 @@ export default function Shifts() {
                     <td className={ss.tdName}>{r.name}</td>
                     <td className={ss.tdDept}>
                       {dept
-                        ? <span className={s.codeBadge} style={{ background: 'var(--accent-muted,#e8f0fe)', color: 'var(--accent,#2563eb)' }}>
-                            {dept.code} – {dept.name}
-                          </span>
-                        : <span className={s.codeBadge} style={{ background: '#f0fdf4', color: '#15803d', fontWeight: 600 }}>
-                            🏢 Ca chung
-                          </span>
+                        ? dept.name
+                        : <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Ca chung</span>
                       }
                     </td>
                     <td className={ss.tdCenter}>

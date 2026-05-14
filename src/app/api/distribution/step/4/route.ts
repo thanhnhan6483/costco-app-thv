@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadShiftMap, loadSpecialDeptIds, markStepDone, getShiftEntry } from '@/lib/stepHelpers';
-import { step4_assignShift } from '@/lib/distributionEngine';
+import { step4_assignShift, step4_assignShiftsBatch } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
 
@@ -14,16 +14,20 @@ export async function POST(req: NextRequest) {
       `SELECT id, department_id AS departmentId FROM employees WHERE month_id = ? AND active = TRUE`, monthId
     );
     for (const emp of emps) {
-      const entry = getShiftEntry(shiftMap, emp.departmentId ?? null);
+      const deptId = emp.departmentId ?? null;
+      const entry = getShiftEntry(shiftMap, deptId);
+      // isCommonShift = true nếu phòng ban không có ca riêng (dùng ca DEFAULT)
+      const hasDeptShift = deptId ? shiftMap.has(deptId) : false;
+      const isCommonShift = !hasDeptShift;
       const days = await conn.all<{ day: number; dayType: number }>(
         `SELECT day, day_type AS dayType FROM distribution_results WHERE month_id = ? AND employee_id = ? ORDER BY day`,
         monthId, emp.id
       );
-      for (const d of days) {
-        const shiftCode = step4_assignShift(d.dayType, entry.ca1, entry.ca2);
+      const assigned = step4_assignShiftsBatch(days as { day: number; dayType: number }[], entry.ca1, entry.ca2, isCommonShift);
+      for (const a of assigned) {
         await conn.run(
           `UPDATE distribution_results SET shift_code=? WHERE month_id=? AND employee_id=? AND day=?`,
-          shiftCode, monthId, emp.id, d.day
+          a.shiftCode, monthId, emp.id, a.day
         );
       }
     }

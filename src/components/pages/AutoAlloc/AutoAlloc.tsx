@@ -157,9 +157,7 @@ export default function AutoAlloc() {
         stepNum: displayStep, stepLabel: step.label, stepIcon: step.icon, elapsedSec,
         onConfirm: async () => {
           setCompletionInfo(null);
-          setStepCache(prev => { const n = { ...prev }; delete n[displayStep]; return n; });
-          setStepData(prev => { const n = { ...prev }; delete n[displayStep]; return n; });
-          await loadStepData(displayStep, 1);
+          await loadStepData(displayStep, 1, undefined, true);
           await refreshStatus();
         },
       });
@@ -235,11 +233,9 @@ export default function AutoAlloc() {
       <div className={styles.panel}>
         <div className={styles.panelHeader}>
           <span className={styles.panelTitle}>{curStep?.icon} Bước {activeStep}: {curStep?.label}</span>
-          {status.step6Done && (
-            <a href={`/api/distribution/export?month=${activeMonthId}`} className={styles.btnExport} id="btn-export" style={{ padding: '4px 10px', fontSize: '0.74rem', gap: 5 }}>
-              <IconDl /> Tải Excel kết quả
-            </a>
-          )}
+          <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#'} className={styles.btnExport} download id={`btn-export-step-${activeStep}`} style={{ padding: '4px 10px', fontSize: '0.74rem', gap: 5 }}>
+            <IconDl /> Tải Excel
+          </a>
           {stepData[activeStep] && (
             <Pagination
               page={stepData[activeStep].page}
@@ -608,12 +604,15 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
         </table>
       </div>
       <div className={styles.legend}>
-        {Object.entries(DT_SYMBOL).map(([k, v]) => v ? (
-          <span key={k} className={styles.legendItem}>
-            <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[Number(k)], color: DT_TEXT[Number(k)], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[Number(k)]}30` }}>{v}</span>
-            {DAY_TYPE_LABEL[Number(k)]}
-          </span>
-        ) : null)}
+        {(Array.isArray(leaveTypes) ? leaveTypes : []).filter(lt => lt.dayType >= 0).map(lt => {
+          const sym = DT_SYMBOL[lt.dayType] ?? lt.code;
+          return (
+            <span key={lt.code} className={styles.legendItem}>
+              <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[lt.dayType], color: DT_TEXT[lt.dayType], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[lt.dayType]}30` }}>{sym}</span>
+              {lt.name}
+            </span>
+          );
+        })}
       </div>
       {/* Picker dropdown */}
       {picker && (
@@ -647,6 +646,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
 function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
   const CA1_BG = '#eff6ff', CA1_CLR = '#1d4ed8';
   const CA2_BG = '#fff7ed', CA2_CLR = '#c2410c';
+  const CAC_BG = '#f0fdf4', CAC_CLR = '#15803d';
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -665,13 +665,15 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
+              <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
             const ca1Count = days.filter(d => d.shiftCode === 'Ca 1').length;
             const ca2Count = days.filter(d => d.shiftCode === 'Ca 2').length;
+            const caCCount = days.filter(d => d.shiftCode === 'C').length;
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
@@ -685,6 +687,7 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
                   let bg = '#fff', clr = '#9ca3af', label: string = DT_SYMBOL[dt] ?? '';
                   if (dt === 0 && sc === 'Ca 1') { bg = CA1_BG; clr = CA1_CLR; label = 'Ca 1'; }
                   else if (dt === 0 && sc === 'Ca 2') { bg = CA2_BG; clr = CA2_CLR; label = 'Ca 2'; }
+                  else if (dt === 0 && sc === 'C') { bg = CAC_BG; clr = CAC_CLR; label = 'C'; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; }
                   return (
                     <td key={i} style={{ background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600, fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>
@@ -694,6 +697,7 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
                 })}
                 <td className={styles.statCell} style={{ color: CA1_CLR }}>{ca1Count || '—'}</td>
                 <td className={styles.statCell} style={{ color: CA2_CLR }}>{ca2Count || '—'}</td>
+                <td className={styles.statCell} style={{ color: CAC_CLR }}>{caCCount || '—'}</td>
               </tr>
             );
           })}</tbody>
@@ -702,6 +706,7 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
       <div className={styles.legend}>
         <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>Ca 1</span> Ca 1</span>
         <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>Ca 2</span> Ca 2</span>
+        <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CAC_BG, color: CAC_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C</span> Ca chung</span>
       </div>
     </div>
   );
@@ -880,11 +885,46 @@ interface ViolationItem { code: string; name: string; deptName: string; day: num
 interface CheckResult { id: string; label: string; description: string; status: CheckStatus; violations: ViolationItem[]; violationCount: number; checkedCount: number; }
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
-function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId }: { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; }) {
+function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun }: { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidateResult | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixingLp, setFixingLp] = useState(false);
+  const [fixingConsec, setFixingConsec] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fixPn = async () => {
+    setFixing(true); setError(null);
+    try {
+      const r = await fetch('/api/distribution/fix-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+      if (!r.ok) throw new Error(await r.text());
+      setResult(null);
+      onFixed?.();
+    } catch (e) { setError(String(e)); } finally { setFixing(false); }
+  };
+
+  const fixConsec = async () => {
+    setFixingConsec(true); setError(null);
+    try {
+      const r = await fetch('/api/distribution/fix-consecutive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+      if (!r.ok) throw new Error(await r.text());
+      setResult(null);
+      onFixed?.();
+    } catch (e) { setError(String(e)); } finally { setFixingConsec(false); }
+  };
+
+  const fixLp = async () => {
+    setFixingLp(true); setError(null);
+    try {
+      const r = await fetch('/api/distribution/fix-lp-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+      if (!r.ok) throw new Error(await r.text());
+      setResult(null);
+      onFixed?.();
+    } catch (e) { setError(String(e)); } finally { setFixingLp(false); }
+  };
 
   const run = async () => {
     setLoading(true); setError(null);
@@ -934,6 +974,15 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId }: { monthId: 
                 <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                 <span className={styles.checkLabel}>{check.label}</span>
                 <span className={`${styles.checkCount} ${countClass[check.status]}`}>{check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm`}</span>
+                {check.id === 'consecutive_days' && check.violationCount > 0 && (
+                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
+                )}
+                {check.id === 'pn_start_day' && check.violationCount > 0 && (
+                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPn(); }} disabled={fixing || loading} type="button">{fixing ? '...' : '🔧 Sửa PN'}</button>
+                )}
+                {check.id === 'lp_balance' && check.violationCount > 0 && (
+                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLp(); }} disabled={fixingLp || loading} type="button">{fixingLp ? '...' : '⚖️ Cân bằng LP'}</button>
+                )}
               </div>
               {openIds.has(check.id) && check.violationCount > 0 && (
                 <div className={styles.violationList}>
@@ -967,16 +1016,31 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId }: {
   if (step === 2) return (
     <>
       <DayTypeGrid rows={rows} monthId={monthId} onSaved={onRefresh ?? onLoad} />
-      <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" />
+      <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} />
     </>
   );
-  if (step === 3) return <ShiftGrid rows={rows} />;
-  if (step === 4) return <OtLateGrid rows={rows} />;
-  if (step === 5) return <TimeGrid rows={rows} />;
+  if (step === 3) return (
+    <>
+      <ShiftGrid rows={rows} />
+      <ValidatePanel monthId={monthId} onlyIds={['shift_assigned']} title="Kiểm tra chia ca" subtitle="Kiểm tra tất cả ngày làm đã được gán ca" btnId="btn-validate-step3" />
+    </>
+  );
+  if (step === 4) return (
+    <>
+      <OtLateGrid rows={rows} />
+      <ValidatePanel monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra OT & Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" />
+    </>
+  );
+  if (step === 5) return (
+    <>
+      <TimeGrid rows={rows} />
+      <ValidatePanel monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" />
+    </>
+  );
   if (step === 6) return (
     <>
       <FinalGrid rows={rows} />
-      <ValidatePanel monthId={monthId} />
+      <ValidatePanel monthId={monthId} autoRun title="🔍 Tổng hợp kiểm tra tất cả quy tắc" subtitle="Kiểm tra toàn bộ: ngày công, chia ca, OT/trễ, giờ vào/ra, cân bằng LP" btnId="btn-validate-step6" onFixed={onRefresh ?? onLoad} />
     </>
   );
 

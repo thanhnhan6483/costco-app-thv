@@ -76,7 +76,9 @@ export function getShiftEntry(
   shiftMap: Map<string, { ca1: ShiftInfo | null; ca2: ShiftInfo | null }>,
   deptId: string | null,
 ) {
-  return shiftMap.get(deptId ?? '') ?? shiftMap.get('DEFAULT') ?? { ca1: null, ca2: null };
+  const defaultEntry = shiftMap.get('DEFAULT') ?? { ca1: null, ca2: null };
+  if (!deptId) return defaultEntry;
+  return shiftMap.get(deptId) ?? defaultEntry;
 }
 
 /** Load accounting dept IDs */

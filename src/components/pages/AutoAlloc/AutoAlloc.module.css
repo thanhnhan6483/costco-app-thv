@@ -295,6 +295,23 @@
 .btnValidate:hover:not(:disabled) { background: #6d28d9; border-color: #6d28d9; }
 .btnValidate:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.btnFixPn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; border: 1px solid #d97706;
+  background: #f59e0b; color: #fff; transition: all 0.15s; white-space: nowrap;
+}
+.btnFixPn:hover:not(:disabled) { background: #d97706; border-color: #b45309; }
+.btnFixPn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnFixInline {
+  margin-left: auto; padding: 3px 10px; border-radius: 5px; font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; border: 1px solid #d97706; background: #fef3c7; color: #92400e;
+  transition: all 0.1s; white-space: nowrap; flex-shrink: 0;
+}
+.btnFixInline:hover:not(:disabled) { background: #f59e0b; color: #fff; border-color: #d97706; }
+.btnFixInline:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .validateGrid { display: flex; flex-direction: column; gap: 10px; }
 .checkCard {
   border-radius: 10px; border: 1px solid var(--gray-200);
@@ -451,13 +468,15 @@
   transition: all 0.1s; min-width: 36px;
 }
 .dayPickerBtn:hover {
-  border-color: var(--primary); background: #eff6ff;
+  border-color: var(--primary);
+  filter: brightness(0.93);
   transform: scale(1.05);
 }
 .dayPickerBtnActive {
   border-color: var(--primary) !important;
-  background: #eff6ff !important;
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
 }
 .dayPickerLabel {
   font-size: 0.58rem; font-weight: 500; color: var(--gray-500);

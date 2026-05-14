@@ -594,16 +594,47 @@ export function step1_generateArrangement(
   return placePNAtEndOfRestPeriod(rawArr, daysInMonth, params, phepNam);
 }
 
-/** Step 4 — Chia ca: với mỗi ngày làm, chọn Ca 1 hoặc Ca 2 */
+/** Step 4 — Chia ca cho 1 ngày (dùng khi chỉ có 1 ca) */
 export function step4_assignShift(
   dayType: number,
   shift1: ShiftInfo | null,
   shift2: ShiftInfo | null,
 ): string {
-  if (dayType !== 0) return ''; // chỉ ngày làm mới có ca
+  if (dayType !== 0) return '';
   if (shift1 && shift2) return randInt(1, 2) === 1 ? 'Ca 1' : 'Ca 2';
   if (shift1) return shift1.shiftType || '';
   return '';
+}
+
+/**
+ * Step 4 — Chia ca cho toàn bộ ngày làm của 1 NV.
+ * Nếu có cả Ca 1 và Ca 2: phân bổ đều 50/50, xen kẽ theo tuần
+ * (tuần lẻ Ca 1, tuần chẵn Ca 2, hoặc ngược lại — chọn ngẫu nhiên 1 lần/NV).
+ */
+export function step4_assignShiftsBatch(
+  days: { day: number; dayType: number }[],
+  shift1: ShiftInfo | null,
+  shift2: ShiftInfo | null,
+  isCommonShift = false,  // true = ca chung (không có ca riêng theo phòng ban)
+): { day: number; shiftCode: string }[] {
+  if (!shift1 || !shift2) {
+    // Chỉ 1 ca → gán tất cả ngày làm cùng ca đó
+    const single = shift1 ?? shift2;
+    const code = isCommonShift ? 'C' : (single ? (single.shiftType || '') : '');
+    return days.map(d => ({ day: d.day, shiftCode: d.dayType === 0 ? code : '' }));
+  }
+
+  // Có 2 ca → xen kẽ theo tuần: tuần 1,3,5 = Ca A; tuần 2,4 = Ca B
+  // Chọn ngẫu nhiên Ca A là Ca 1 hay Ca 2 cho mỗi NV
+  const startWithCa1 = randInt(0, 1) === 0;
+
+  return days.map(d => {
+    if (d.dayType !== 0) return { day: d.day, shiftCode: '' };
+    // Tuần trong tháng (1-indexed): ngày 1-7 = tuần 1, 8-14 = tuần 2, ...
+    const week = Math.ceil(d.day / 7);
+    const useCa1 = startWithCa1 ? (week % 2 === 1) : (week % 2 === 0);
+    return { day: d.day, shiftCode: useCa1 ? 'Ca 1' : 'Ca 2' };
+  });
 }
 
 /** Step 5 — Phân phối OT & Trễ cho từng ngày */

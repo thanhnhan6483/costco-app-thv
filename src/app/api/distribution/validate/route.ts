@@ -47,12 +47,15 @@ export async function GET(req: NextRequest) {
     // Load distribution_results gộp theo NV
     const rawRows = await conn.all<{
       empId: string; empCode: string; empName: string; deptId: string;
-      day: number; dayType: number; otHours: number; lateMins: number;
+      day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string;
+      checkIn: string; checkOut: string;
     }>(
       `SELECT dr.employee_id AS empId, e.code AS empCode, e.name AS empName,
               e.department_id AS deptId,
               dr.day, dr.day_type AS dayType,
-              dr.ot_hours AS otHours, dr.late_mins AS lateMins
+              dr.ot_hours AS otHours, dr.late_mins AS lateMins,
+              COALESCE(dr.shift_code, '') AS shiftCode,
+              COALESCE(dr.check_in, '') AS checkIn, COALESCE(dr.check_out, '') AS checkOut
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        WHERE dr.month_id = ?
@@ -60,14 +63,14 @@ export async function GET(req: NextRequest) {
     );
 
     // Group by empId
-    type DayData = { day: number; dayType: number; otHours: number; lateMins: number };
+    type DayData = { day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string; checkIn: string; checkOut: string };
     type EmpData = { empId: string; code: string; name: string; deptId: string; days: DayData[] };
     const empMap = new Map<string, EmpData>();
     for (const r of rawRows) {
       if (!empMap.has(r.empId)) {
         empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, days: [] });
       }
-      empMap.get(r.empId)!.days.push({ day: r.day, dayType: r.dayType, otHours: Number(r.otHours), lateMins: Number(r.lateMins) });
+      empMap.get(r.empId)!.days.push({ day: r.day, dayType: r.dayType, otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
     }
     const emps = Array.from(empMap.values());
     const totalEmps = emps.length;
@@ -165,7 +168,8 @@ export async function GET(req: NextRequest) {
     }
     check3.violationCount = check3.violations.length;
     check3.status = check3.violationCount === 0 ? 'ok' : 'warning';
-    results.push(check3);
+    // pn_end_of_rest không còn là lỗi — PN sau ngày làm (X) vẫn chấp nhận được
+    // results.push(check3);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 4: OT tối đa maxOtPerDayHours h/ngày
@@ -264,8 +268,58 @@ export async function GET(req: NextRequest) {
     results.push(check7);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 8: Cân bằng ngày nghỉ LP trong phòng ban (chênh ≤ 1)
+       Check: Chia ca — ngày làm phải có shift_code
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkShift: CheckResult = {
+      id: 'shift_assigned',
+      label: 'Chia ca',
+      description: 'Tất cả ngày làm (X) phải được gán ca (Ca 1 / Ca 2)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      for (const d of emp.days) {
+        if (d.dayType === 0 && !d.shiftCode) {
+          checkShift.violations.push({
+            code: emp.code, name: emp.name, deptName, day: d.day,
+            detail: `Ngày ${d.day}: ngày làm chưa được gán ca`,
+          });
+          break; // 1 vi phạm/NV là đủ
+        }
+      }
+    }
+    checkShift.violationCount = checkShift.violations.length;
+    checkShift.status = checkShift.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkShift);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Giờ vào/ra hợp lệ
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkTime: CheckResult = {
+      id: 'check_time',
+      label: 'Giờ vào/ra',
+      description: 'Ngày làm phải có giờ vào/ra hợp lệ (checkIn < checkOut)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    for (const emp of emps) {
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      for (const d of emp.days) {
+        if (d.dayType === 0) {
+          if (!d.checkIn || !d.checkOut) {
+            checkTime.violations.push({ code: emp.code, name: emp.name, deptName, day: d.day, detail: `Ngày ${d.day}: thiếu giờ vào/ra` });
+            break;
+          }
+          if (toMins(d.checkIn) >= toMins(d.checkOut)) {
+            checkTime.violations.push({ code: emp.code, name: emp.name, deptName, day: d.day, detail: `Ngày ${d.day}: giờ vào (${d.checkIn}) ≥ giờ ra (${d.checkOut})` });
+            break;
+          }
+        }
+      }
+    }
+    checkTime.violationCount = checkTime.violations.length;
+    checkTime.status = checkTime.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkTime);
     const check8: CheckResult = {
       id: 'lp_balance',
       label: 'Cân bằng ngày nghỉ trong phòng',
