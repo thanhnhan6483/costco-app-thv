@@ -25,10 +25,12 @@ export async function GET(req: NextRequest) {
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all<{
       empId: string; code: string; empName: string; deptName: string;
+      ngayNghiCuoiThangTruoc: string;
       day: number; dayType: number; checkIn: string; checkOut: string;
       shiftCode: string; otHours: number; lateMins: number;
     }>(`
-      SELECT e.id AS empId, e.code, e.name AS empName, d.name AS deptName,
+      SELECT e.id AS empId, e.code, e.name AS empName, d.name AS deptName, e.workdays, e.special_group AS specialGroup,
+             e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
              dr.day, dr.day_type AS dayType,
              dr.check_in AS checkIn, dr.check_out AS checkOut,
              dr.shift_code AS shiftCode, dr.ot_hours AS otHours, dr.late_mins AS lateMins
@@ -42,21 +44,23 @@ export async function GET(req: NextRequest) {
     await conn.close();
 
     const empMap = new Map<string, {
-      code: string; name: string; deptName: string;
+      code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string;
       days: typeof rows;
-      workCount: number; restCount: number; totalOT: number; totalLate: number;
+      workCount: number; lpCount: number; pnCount: number; totalOT: number; totalLate: number;
     }>();
     for (const row of rows) {
       if (!empMap.has(row.empId)) {
         empMap.set(row.empId, {
           code: row.code, name: row.empName, deptName: row.deptName ?? '',
-          days: [], workCount: 0, restCount: 0, totalOT: 0, totalLate: 0,
+          ngayNghiCuoiThangTruoc: row.ngayNghiCuoiThangTruoc ?? '', workdays: row.workdays ?? '', specialGroup: row.specialGroup ?? '',
+          days: [], workCount: 0, lpCount: 0, pnCount: 0, totalOT: 0, totalLate: 0,
         });
       }
       const emp = empMap.get(row.empId)!;
       emp.days.push(row);
       if (row.dayType === 0) emp.workCount++;
-      if (row.dayType === 1) emp.restCount++;
+      if (row.dayType === 1) emp.lpCount++;
+      if (row.dayType === 2) emp.pnCount++;
       emp.totalOT   += Number(row.otHours)  || 0;
       emp.totalLate += Number(row.lateMins) || 0;
     }

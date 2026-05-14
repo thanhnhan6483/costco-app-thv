@@ -73,8 +73,10 @@ export async function GET(req: NextRequest) {
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName,
+              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               dr.day, dr.day_type AS dayType, dr.shift_code AS shiftCode,
-              dr.check_in AS checkIn, dr.check_out AS checkOut
+              dr.check_in AS checkIn, dr.check_out AS checkOut,
+              dr.ot_hours AS otHours, dr.late_mins AS lateMins
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
@@ -85,14 +87,26 @@ export async function GET(req: NextRequest) {
     const map = new Map<string, any>();
     for (const r of rows as any[]) {
       if (!map.has(r.code)) map.set(r.code, {
-        code: r.code, name: r.empName, deptName: r.deptName ?? '', days: [],
+        code: r.code, name: r.empName, deptName: r.deptName ?? '',
+        ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '',
+        days: [],
       });
       map.get(r.code).days.push({
         day: r.day, dayType: r.dayType, shiftCode: r.shiftCode ?? '',
         checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '',
+        otHours: r.otHours ?? 0, lateMins: r.lateMins ?? 0,
       });
     }
-    return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
+    const result = Array.from(map.values()).map(emp => {
+      const days = emp.days as any[];
+      emp.workCount  = days.filter(d => d.dayType === 0).length;
+      emp.lpCount    = days.filter(d => d.dayType === 1).length;
+      emp.pnCount    = days.filter(d => d.dayType === 2).length;
+      emp.totalOT    = days.reduce((s: number, d: any) => s + (Number(d.otHours) || 0), 0);
+      emp.totalLate  = days.reduce((s: number, d: any) => s + (Number(d.lateMins) || 0), 0);
+      return emp;
+    });
+    return NextResponse.json(buildPagedResponse(result, Number(total), page, limit));
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });

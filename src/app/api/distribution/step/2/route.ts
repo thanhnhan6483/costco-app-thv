@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { markStepDone, DAY_COLS } from '@/lib/stepHelpers';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';

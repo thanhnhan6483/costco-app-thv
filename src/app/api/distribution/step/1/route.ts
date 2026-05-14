@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) {
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
+              e.workdays,
               dr.day, dr.day_type
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
@@ -144,7 +145,7 @@ export async function GET(req: NextRequest) {
     await conn.close();
     const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; days: {day:number;dayType:number}[] }>();
     for (const r of rows as any[]) {
-      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
+      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', days: [] });
       map.get(r.code)!.days.push({ day: r.day, dayType: r.day_type });
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));

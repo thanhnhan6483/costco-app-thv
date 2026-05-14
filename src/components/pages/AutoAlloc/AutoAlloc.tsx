@@ -6,11 +6,12 @@ import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
 /* ── Reusable inline filter row for grids ── */
-function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel }: {
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0 }: {
   fCode: string; fName: string; fDept: string;
   setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
   deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
   codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties; monthLabel?: string;
+  fGroup?: string; setFGroup?: (v: string) => void; groupList?: string[]; extraMiddle?: number;
 }) {
   return (
     <tr className={styles.filterRow}>
@@ -18,6 +19,8 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
       <th style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
       <th style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
       <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
+      {groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
+      {Array.from({ length: extraMiddle }, (_, i) => <th key={'m' + i} />)}
       {monthLabel ? (() => { const [mm,yyyy] = monthLabel.split('/'); return Array.from({ length: daysCols }, (_, di) => { const dow = new Date(parseInt(yyyy,10), parseInt(mm,10)-1, di+1).getDay(); const isSun=dow===0,isSat=dow===6; return <th key={'d'+di} style={{ fontSize:'0.6rem', fontWeight:600, textAlign:'center', color: isSun?'#dc2626':isSat?'#2563eb':'#64748b' }}>{DOW_SHORT[dow]}</th>; }); })() : Array.from({ length: daysCols }, (_, i) => <th key={'d'+i} />)}
       {Array.from({ length: extraAfter }, (_, i) => <th key={`a${i}`} />)}
     </tr>
@@ -30,13 +33,14 @@ function useDeptList(rows: Record<string, unknown>[]) {
     return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
   }, [rows]);
 }
-function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: string, fDept: string) {
+function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: string, fDept: string, fGroup = '') {
   return useMemo(() => rows.filter((r: any) => {
     if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
     if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
     if (fDept && String(r.deptName ?? '') !== fDept) return false;
+    if (fGroup && String(r.specialGroup ?? '') !== fGroup) return false;
     return true;
-  }), [rows, fCode, fName, fDept]);
+  }), [rows, fCode, fName, fDept, fGroup]);
 }
 
 const IconPlay = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>;
@@ -353,7 +357,9 @@ function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
-  const filtered = useGridFilter(rows, fCode, fName, fDept);
+  const [fGroup, setFGroup] = useState('');
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a,b) => a.localeCompare(b,'vi')); }, [rows]);
+  const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   return (
     <div className={styles.tableOuter}>
       <div className={styles.tableWrap}>
@@ -364,13 +370,14 @@ function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+              <th style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }}>NHÓM ĐẶC THÙ</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: '#15803d' }}>NGÀY CÔNG</th>
               <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
               <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>
             {filtered.map((r: any, ri: number) => {
@@ -381,6 +388,7 @@ function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
                   <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                   <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
+                  <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
                   {Array.from({ length: 31 }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const sym = d?.symbol ?? '';
@@ -603,9 +611,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved }: {
                     </td>
                   );
                 })}
-                <td className={styles.statCell}>
-                  {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length}
-                </td>
+                <td className={styles.statCell} style={{ color: '#15803d' }}>{r.workdays || '—'}</td>
                 <td className={styles.statCell}>
                   {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length}
                 </td>
@@ -848,41 +854,52 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
-  const filtered = useGridFilter(rows, fCode, fName, fDept);
+  const [fGroup, setFGroup] = useState('');
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a,b) => a.localeCompare(b,'vi')); }, [rows]);
+  const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   return (
     <div className={styles.tableOuter}>
       <div className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
             <tr>
+              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+               <th style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }}>NHÓM ĐẶC THÙ</th>
+               <th style={{ minWidth: 70, color: '#92400e' }}>NGHỈ THÁNG TRƯỚC</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
-              <th>Làm</th><th>Nghỉ</th>
-              <th style={{ color: '#1d4ed8' }}>TĂNG CA (H)</th>
-              <th style={{ color: '#c2410c' }}>TRỄ(PH)</th>
+              <th style={{ minWidth: 44, color: '#15803d' }}>NGÀY CÔNG</th>
+              <th style={{ minWidth: 36, color: '#1d4ed8' }}>LP</th>
+              <th style={{ minWidth: 36, color: '#7c3aed' }}>PN</th>
+              <th style={{ minWidth: 50, color: '#1d4ed8' }}>TĂNG CA (H)</th>
+              <th style={{ minWidth: 44, color: '#c2410c' }}>TRỄ(PH)</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={0} extraAfter={4} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} extraMiddle={1} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
+              <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
               <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
               <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-              {Array.from({ length: 31 }, (_, i) => {
-                const d = (r.days ?? []).find((x: any) => x.day === i + 1);
-                if (!d) return <td key={i} style={{ color: 'var(--gray-200)' }}>—</td>;
-                const dt = Number(d.dayType);
-                const isWork = dt === 0;
-                return <td key={i} style={{ background: DT_BG[dt] ?? '#fff', color: DT_CLR[dt] ?? '#374151', fontWeight: isWork ? 600 : 400, padding: '3px 2px', whiteSpace: 'nowrap', lineHeight: 1.3, textAlign: 'center' }} title={`${DAY_TYPE_LABEL[dt] ?? ''} | ${d.shiftCode ?? ''}`}>
-                  {isWork ? <>{d.checkIn}<br />{d.checkOut}</> : <span style={{ opacity: 0.8 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
-                </td>;
-              })}
-              <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workCount}</td>
-              <td style={{ fontWeight: 700, color: '#92400e', textAlign: 'center' }}>{r.restCount}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(1)}</span> : '—'}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{r.totalLate}</span> : '—'}</td>
+               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+               <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }}>{r.ngayNghiCuoiThangTruoc || '—'}</td>
+               {Array.from({ length: 31 }, (_, i) => {
+                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
+                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
+                 const dt = Number(d.dayType);
+                 const isWork = dt === 0;
+                 return <td key={i} style={{ background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }} title={(DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? '')}>
+                   {isWork ? <><span style={{ color: '#15803d', display: 'block', lineHeight: 1.2 }}>{d.checkIn}</span><span style={{ color: '#1d4ed8', display: 'block', lineHeight: 1.2 }}>{d.checkOut}</span></> : <span style={{ opacity: 0.85 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
+                 </td>;
+               })}
+              <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
+              <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
+              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(1)}</span> : 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{r.totalLate}</span> : 0}</td>
             </tr>
           ))}</tbody>
         </table>

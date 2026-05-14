@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadShiftMap, loadSpecialDeptIds, markStepDone, getShiftEntry } from '@/lib/stepHelpers';
 import { step4_assignShift, step4_assignShiftsBatch } from '@/lib/distributionEngine';
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const ids = empIds.map(r => r.empId);
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all(
-      `SELECT e.code, e.name AS empName, d.name AS deptName, dr.day, dr.day_type, dr.shift_code
+      `SELECT e.code, e.name AS empName, d.name AS deptName, e.workdays, dr.day, dr.day_type, dr.shift_code
        FROM distribution_results dr JOIN employees e ON dr.employee_id=e.id
        LEFT JOIN departments d ON e.department_id = d.id
        WHERE dr.month_id=? AND dr.employee_id IN (${placeholders})
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     await conn.close();
     const map = new Map<string, any>();
     for (const r of rows as any[]) {
-      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', days: [] });
+      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', workdays: r.workdays ?? '', days: [] });
       map.get(r.code).days.push({ day: r.day, dayType: r.day_type, shiftCode: r.shift_code });
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
