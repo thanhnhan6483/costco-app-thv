@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
              ${SELECT_DAYS},
              e.overtime_hours,
              e.late_minutes,
-             e.phep_nam
+             e.phep_nam,
+             e.ngay_nghi_cuoi_thang_truoc
       FROM employees e
       LEFT JOIN departments  d1 ON d1.id   = e.department_id  AND d1.month_id = e.month_id AND e.department_id <> ''
       LEFT JOIN departments  d2 ON UPPER(d2.code) = UPPER(e.ma_pb) AND d2.month_id = e.month_id AND e.ma_pb <> ''
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
       'group_code', 'group_name',
       'group_code_end_date', 'workdays',
       ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
-      'overtime_hours', 'late_minutes', 'phep_nam',
+      'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_thang_truoc',
     ];
 
     const data = rows.map((r: Record<string, unknown>) => [
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
       r['overtime_hours'] ?? '',
       r['late_minutes'] ?? '',
       r['phep_nam'] ?? '',
+      r['ngay_nghi_cuoi_thang_truoc'] ?? '',
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
@@ -67,7 +69,7 @@ export async function GET(req: NextRequest) {
       { wch: 16 }, { wch: 24 },
       { wch: 16 }, { wch: 8  },
       ...Array(31).fill({ wch: 5 }),
-      { wch: 12 }, { wch: 10 }, { wch: 10 },
+      { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 },
     ];
 
     const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');

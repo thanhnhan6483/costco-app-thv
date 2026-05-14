@@ -132,7 +132,9 @@ export async function GET(req: NextRequest) {
     const ids = empIds.map(r => r.empId);
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all(
-      `SELECT e.code, e.name AS empName, d.name AS deptName, dr.day, dr.day_type
+      `SELECT e.code, e.name AS empName, d.name AS deptName,
+              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
+              dr.day, dr.day_type
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
@@ -140,9 +142,9 @@ export async function GET(req: NextRequest) {
        ORDER BY e.code, dr.day`, monthId, ...ids
     );
     await conn.close();
-    const map = new Map<string, { code: string; name: string; deptName: string; days: {day:number;dayType:number}[] }>();
+    const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; days: {day:number;dayType:number}[] }>();
     for (const r of rows as any[]) {
-      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', days: [] });
+      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
       map.get(r.code)!.days.push({ day: r.day, dayType: r.day_type });
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));

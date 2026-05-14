@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const monthId = url.searchParams.get('month') ?? '';
   const step = Number(url.searchParams.get('step') ?? '2');
+  const withShift = url.searchParams.get('withShift') === '1';
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
 
   const conn = await getConn();
@@ -33,56 +34,97 @@ export async function GET(req: NextRequest) {
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     if (step === 1) {
-      // Bước 1: Xem dữ liệu nhân viên (từ bảng employees)
+      // Bước 1: Xem dữ liệu nhân viên — thứ tự cột khớp với bảng giao diện ImportGrid
       sheetName = 'Buoc1_DuLieu';
       fileName = `buoc1_du_lieu_${today}.xlsx`;
       const rows = await conn.all(
-        `SELECT e.code, e.name, d.name AS deptName, e.workdays, e.overtime_hours, e.late_minutes, e.phep_nam,
-                e.ngay_nghi_cuoi_thang_truoc,
-                ${days.map(d => `e.day_${d}`).join(', ')}
-         FROM employees e LEFT JOIN departments d ON e.department_id = d.id
+        `SELECT e.code, e.name,
+                COALESCE(d1.name, d2.name) AS deptName,
+                ${days.map(d => `e.day_${d}`).join(', ')},
+                e.workdays, e.overtime_hours, e.late_minutes, e.phep_nam
+         FROM employees e
+         LEFT JOIN departments d1 ON d1.id = e.department_id AND d1.month_id = e.month_id AND e.department_id <> ''
+         LEFT JOIN departments d2 ON UPPER(d2.code) = UPPER(e.ma_pb) AND d2.month_id = e.month_id AND e.ma_pb <> ''
          WHERE e.month_id = ? AND e.active = TRUE ORDER BY e.code`, monthId
       ) as Record<string, unknown>[];
-      header = ['Mã NV', 'Tên', 'Phòng ban', 'Công', 'OT(h)', 'Trễ(ph)', 'Phép năm', 'Nghỉ CTT',
-        ...days.map(d => `Ngày ${d}`)];
+      header = ['Mã NV', 'Tên', 'Phòng ban',
+        ...days.map(d => String(d)),
+        'Ngày công', 'Tăng ca (H)', 'Trễ (ph)', 'Phép năm'];
       data = rows.map(r => [
-        r.code, r.name, r.deptName ?? '', r.workdays ?? '', r.overtime_hours ?? '',
-        r.late_minutes ?? '', r.phep_nam ?? '', r.ngay_nghi_cuoi_thang_truoc ?? '',
+        r.code, r.name, r.deptName ?? '',
         ...days.map(d => r[`day_${d}`] ?? ''),
+        r.workdays ?? '', r.overtime_hours ?? '', r.late_minutes ?? '', r.phep_nam ?? '',
       ]);
 
     } else if (step === 2) {
-      // Bước 2: Phân bổ ngày công
-      sheetName = 'Buoc2_NgayCong';
+      // Bước 2: Phân bổ ngày công — theo mẫu Attendance
+      sheetName = 'Attendance';
       fileName = `buoc2_ngay_cong_${today}.xlsx`;
       const rows = await conn.all(
         `SELECT e.code, e.name, d.name AS deptName,
+                e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
                 dr.day, dr.day_type
          FROM distribution_results dr
          JOIN employees e ON dr.employee_id = e.id
          LEFT JOIN departments d ON e.department_id = d.id
          WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
       ) as Record<string, unknown>[];
-      // Pivot
       const empMap = new Map<string, Record<string, unknown>>();
       for (const r of rows) {
         const k = String(r.code);
-        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '' });
+        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '' });
         empMap.get(k)![`d${r.day}`] = DT_LABEL[Number(r.day_type)] ?? '';
       }
-      header = ['Mã NV', 'Tên', 'Phòng ban', ...days.map(d => String(d)),
-        'Làm', 'Nghỉ', 'PN'];
-      data = Array.from(empMap.values()).map(r => {
+
+      // Tính thứ từ monthId — lấy fromDate từ bảng months
+      const [monthRow] = await conn.all<{ fromDate: string }>(
+        `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+      );
+      const DOW_VN = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      let dowRow: (string | number)[] = ['', '', '', ''];
+      if (monthRow?.fromDate) {
+        // fromDate dạng DD/MM/YYYY
+        const [dd, mm, yyyy] = monthRow.fromDate.split('/').map(Number);
+        dowRow = ['', '', '', '', ...days.map(d => {
+          const date = new Date(yyyy, mm - 1, d);
+          return date.getMonth() === mm - 1 ? DOW_VN[date.getDay()] : '';
+        }), '', '', '', ''];
+      }
+
+      header = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)),
+        'NGÀY CÔNG', 'LP', 'PN', 'NGHỈ THÁNG TRƯỚC'];
+      const empArr = Array.from(empMap.values());
+      data = empArr.map((r, idx) => {
         const dayVals = days.map(d => r[`d${d}`] ?? '');
         const lam = dayVals.filter(v => v === 'X').length;
         const nghi = dayVals.filter(v => v === 'LP').length;
         const pn = dayVals.filter(v => v === 'PN').length;
-        return [r.code, r.name, r.deptName, ...dayVals, lam, nghi, pn];
+        return [idx + 1, r.code, r.name, r.deptName, ...dayVals, lam, nghi, pn, r.ngayNghiCuoiThangTruoc];
+      });
+
+      const ws2 = XLSX.utils.aoa_to_sheet([header, dowRow, ...data]);
+      // Style header row
+      const range2 = XLSX.utils.decode_range(ws2['!ref'] ?? 'A1');
+      for (let c = range2.s.c; c <= range2.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        if (ws2[addr]) ws2[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } }, alignment: { horizontal: 'center', wrapText: true } };
+        const addr2 = XLSX.utils.encode_cell({ r: 1, c });
+        if (ws2[addr2] && ws2[addr2].v) ws2[addr2].s = { font: { italic: true, sz: 8 }, alignment: { horizontal: 'center' } };
+      }
+      ws2['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, ...Array(daysInMonth).fill({ wch: 7 }), { wch: 10 }, { wch: 6 }, { wch: 6 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, ws2, sheetName);
+      const buf2 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+      await conn.close();
+      return new NextResponse(buf2, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
       });
 
     } else if (step === 3) {
-      // Bước 3: Chia ca
-      sheetName = 'Buoc3_ChiaCa';
+      // Bước 3: Chia ca — theo mẫu Bước 2
+      sheetName = 'ChiaCa';
       fileName = `buoc3_chia_ca_${today}.xlsx`;
       const rows = await conn.all(
         `SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.shift_code
@@ -91,61 +133,230 @@ export async function GET(req: NextRequest) {
          LEFT JOIN departments d ON e.department_id = d.id
          WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
       ) as Record<string, unknown>[];
-      const empMap = new Map<string, Record<string, unknown>>();
+      const empMap3 = new Map<string, Record<string, unknown>>();
       for (const r of rows) {
         const k = String(r.code);
-        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '' });
+        if (!empMap3.has(k)) empMap3.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '' });
         const dt = Number(r.day_type);
         const sc = String(r.shift_code ?? '');
-        empMap.get(k)![`d${r.day}`] = dt === 0 ? (sc || 'X') : (DT_LABEL[dt] ?? '');
+        empMap3.get(k)![`d${r.day}`] = dt === 0 ? (sc || 'X') : (DT_LABEL[dt] ?? '');
       }
-      header = ['Mã NV', 'Tên', 'Phòng ban', ...days.map(d => String(d)), 'Ca 1', 'Ca 2', 'C'];
-      data = Array.from(empMap.values()).map(r => {
+
+      // Hàng thứ trong tuần (giống Bước 2)
+      const [monthRow3] = await conn.all<{ fromDate: string }>(
+        `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+      );
+      const DOW_VN3 = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      let dowRow3: (string | number)[] = ['', '', '', '', ...Array(daysInMonth).fill(''), '', '', ''];
+      if (monthRow3?.fromDate) {
+        const [dd3, mm3, yyyy3] = monthRow3.fromDate.split('/').map(Number);
+        dowRow3 = ['', '', '', '', ...days.map(d => {
+          const date = new Date(yyyy3, mm3 - 1, d);
+          return date.getMonth() === mm3 - 1 ? DOW_VN3[date.getDay()] : '';
+        }), '', '', ''];
+      }
+
+      const header3 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'Ca 1', 'Ca 2', 'C'];
+      const empArr3 = Array.from(empMap3.values());
+      const data3 = empArr3.map((r, idx) => {
         const dayVals = days.map(d => String(r[`d${d}`] ?? ''));
-        return [r.code, r.name, r.deptName, ...dayVals,
+        return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
           dayVals.filter(v => v === 'Ca 1').length,
           dayVals.filter(v => v === 'Ca 2').length,
           dayVals.filter(v => v === 'C').length,
         ];
       });
 
+      const ws3 = XLSX.utils.aoa_to_sheet([header3, dowRow3, ...data3]);
+      const range3 = XLSX.utils.decode_range(ws3['!ref'] ?? 'A1');
+      for (let c = range3.s.c; c <= range3.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        if (ws3[addr]) ws3[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } }, alignment: { horizontal: 'center', wrapText: true } };
+        const addr2 = XLSX.utils.encode_cell({ r: 1, c });
+        if (ws3[addr2] && ws3[addr2].v) ws3[addr2].s = { font: { italic: true, sz: 8 }, alignment: { horizontal: 'center' } };
+      }
+      ws3['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, ...Array(daysInMonth).fill({ wch: 7 }), { wch: 7 }, { wch: 7 }, { wch: 7 }];
+      XLSX.utils.book_append_sheet(wb, ws3, sheetName);
+      const buf3 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+      await conn.close();
+      return new NextResponse(buf3, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+      });
+
     } else if (step === 4) {
-      // Bước 4: OT & Đi trễ
-      sheetName = 'Buoc4_OT_Tre';
+      // Bước 4: OT & Đi trễ — theo mẫu Bước 2
+      sheetName = 'OT_DiTre';
       fileName = `buoc4_ot_tre_${today}.xlsx`;
-      const rows = await conn.all(
+      const rows4 = await conn.all(
         `SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.ot_hours, dr.late_mins
          FROM distribution_results dr
          JOIN employees e ON dr.employee_id = e.id
          LEFT JOIN departments d ON e.department_id = d.id
          WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
       ) as Record<string, unknown>[];
-      const empMap = new Map<string, Record<string, unknown>>();
-      for (const r of rows) {
+      const empMap4 = new Map<string, Record<string, unknown>>();
+      for (const r of rows4) {
         const k = String(r.code);
-        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', totalOt: 0, totalLate: 0 });
+        if (!empMap4.has(k)) empMap4.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', totalOt: 0, totalLate: 0 });
+        const dt = Number(r.day_type);
         const ot = Number(r.ot_hours) || 0;
         const late = Number(r.late_mins) || 0;
-        empMap.get(k)![`ot${r.day}`] = ot || '';
-        empMap.get(k)![`late${r.day}`] = late || '';
-        (empMap.get(k)!.totalOt as number) + ot;
-        empMap.get(k)!.totalOt = Number(empMap.get(k)!.totalOt) + ot;
-        empMap.get(k)!.totalLate = Number(empMap.get(k)!.totalLate) + late;
+        // Hiển thị: nếu ngày làm (dt=0) thì OT/Trễ, ngày nghỉ thì ký hiệu
+        empMap4.get(k)![`dt${r.day}`] = dt;
+        empMap4.get(k)![`ot${r.day}`] = ot;
+        empMap4.get(k)![`late${r.day}`] = late;
+        empMap4.get(k)!.totalOt = Number(empMap4.get(k)!.totalOt) + ot;
+        empMap4.get(k)!.totalLate = Number(empMap4.get(k)!.totalLate) + late;
       }
-      header = ['Mã NV', 'Tên', 'Phòng ban',
-        ...days.map(d => `OT ${d}`), ...days.map(d => `Trễ ${d}`),
-        'Tổng OT(h)', 'Tổng Trễ(ph)'];
-      data = Array.from(empMap.values()).map(r => [
-        r.code, r.name, r.deptName,
-        ...days.map(d => r[`ot${d}`] ?? ''),
-        ...days.map(d => r[`late${d}`] ?? ''),
-        r.totalOt, r.totalLate,
+
+      const [monthRow4] = await conn.all<{ fromDate: string }>(
+        `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+      );
+      const DOW_VN4 = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      let dowRow4: (string | number)[] = ['', '', '', '', ...Array(daysInMonth).fill(''), '', ''];
+      if (monthRow4?.fromDate) {
+        const [, mm4, yyyy4] = monthRow4.fromDate.split('/').map(Number);
+        dowRow4 = ['', '', '', '', ...days.map(d => {
+          const date = new Date(yyyy4, mm4 - 1, d);
+          return date.getMonth() === mm4 - 1 ? DOW_VN4[date.getDay()] : '';
+        }), '', ''];
+      }
+
+      const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ(PH)'];
+      const empArr4 = Array.from(empMap4.values());
+      const data4 = empArr4.map((r, idx) => {
+        const dayVals = days.map(d => {
+          const dt = Number(r[`dt${d}`] ?? -1);
+          const ot = Number(r[`ot${d}`]) || 0;
+          const late = Number(r[`late${d}`]) || 0;
+          if (dt === 0) {
+            if (ot > 0 && late > 0) return `${ot}h/${late}ph`;
+            if (ot > 0) return `${ot}h`;
+            if (late > 0) return `${late}ph`;
+            return 'X';
+          }
+          return dt >= 0 ? (DT_LABEL[dt] ?? '') : '';
+        });
+        const totalOt = Number(r.totalOt);
+        const totalLate = Number(r.totalLate);
+        return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
+          totalOt > 0 ? totalOt : '',
+          totalLate > 0 ? totalLate : '',
+        ];
+      });
+
+      const ws4 = XLSX.utils.aoa_to_sheet([header4, dowRow4, ...data4]);
+      const range4 = XLSX.utils.decode_range(ws4['!ref'] ?? 'A1');
+      for (let c = range4.s.c; c <= range4.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        if (ws4[addr]) ws4[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } }, alignment: { horizontal: 'center', wrapText: true } };
+        const addr2 = XLSX.utils.encode_cell({ r: 1, c });
+        if (ws4[addr2] && ws4[addr2].v) ws4[addr2].s = { font: { italic: true, sz: 8 }, alignment: { horizontal: 'center' } };
+      }
+      ws4['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, ...Array(daysInMonth).fill({ wch: 7 }), { wch: 8 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, ws4, sheetName);
+      const buf4 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+      await conn.close();
+      return new NextResponse(buf4, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+      });
+
+    } else if (step === 5) {
+      // Bước 5: Giờ vào/ra
+      const rows5 = await conn.all(
+        `SELECT e.code, e.name, d.name AS deptName,
+                dr.day, dr.day_type, dr.check_in, dr.check_out, dr.shift_code
+         FROM distribution_results dr
+         JOIN employees e ON dr.employee_id = e.id
+         LEFT JOIN departments d ON e.department_id = d.id
+         WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
+      ) as Record<string, unknown>[];
+
+      const empMap5 = new Map<string, Record<string, unknown>>();
+      for (const r of rows5) {
+        const k = String(r.code);
+        if (!empMap5.has(k)) empMap5.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '' });
+        const dt = Number(r.day_type);
+        const ci = String(r.check_in ?? '');
+        const co = String(r.check_out ?? '');
+        const sc = String(r.shift_code ?? '');
+        if (dt === 0) {
+          empMap5.get(k)![`in${r.day}`] = ci || '00:00';
+          empMap5.get(k)![`out${r.day}`] = co || '00:00';
+          // Ca: extract number from "Ca 1" → "1", "Ca 2" → "2", "C" → "C"
+          empMap5.get(k)![`ca${r.day}`] = sc === 'C' ? 'C' : (sc.match(/\d+/)?.[0] ?? '');
+        } else {
+          const sym = DT_LABEL[dt] ?? '';
+          empMap5.get(k)![`in${r.day}`] = sym;
+          empMap5.get(k)![`out${r.day}`] = sym;
+          empMap5.get(k)![`ca${r.day}`] = '';
+        }
+      }
+
+      const [monthRow5] = await conn.all<{ fromDate: string }>(
+        `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+      );
+      const DOW_VN5 = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const cols = withShift ? 3 : 2;
+
+      let dowRow5: (string | number)[];
+      let inOutRow: (string | number)[];
+      let header5: (string | number)[];
+      if (monthRow5?.fromDate) {
+        const [, mm5, yyyy5] = monthRow5.fromDate.split('/').map(Number);
+        dowRow5 = ['', '', '', '', ...days.flatMap(d => {
+          const date = new Date(yyyy5, mm5 - 1, d);
+          const dow = date.getMonth() === mm5 - 1 ? DOW_VN5[date.getDay()] : '';
+          return Array(cols).fill(dow);
+        })];
+      } else {
+        dowRow5 = ['', '', '', '', ...Array(daysInMonth * cols).fill('')];
+      }
+      inOutRow = ['', '', '', '', ...days.flatMap(() => withShift ? ['In', 'Out', 'Ca'] : ['In', 'Out'])];
+      header5 = ['STT', 'Mã NV', 'Tên nhân viên', 'Phòng\nban', ...days.flatMap(d => Array(cols).fill(d))];
+
+      const empArr5 = Array.from(empMap5.values());
+      const data5 = empArr5.map((r, idx) => [
+        idx + 1, r.code, r.name, r.deptName,
+        ...days.flatMap(d => withShift
+          ? [r[`in${d}`] ?? '', r[`out${d}`] ?? '', r[`ca${d}`] ?? '']
+          : [r[`in${d}`] ?? '', r[`out${d}`] ?? '']),
       ]);
 
+      sheetName = 'Attendance';
+      fileName = withShift ? `buoc5_gio_vao_ra_ca_${today}.xlsx` : `buoc5_gio_vao_ra_${today}.xlsx`;
+      const ws5 = XLSX.utils.aoa_to_sheet([header5, dowRow5, inOutRow, ...data5]);
+      const range5 = XLSX.utils.decode_range(ws5['!ref'] ?? 'A1');
+      for (let rr = 0; rr < 3; rr++) {
+        for (let c = range5.s.c; c <= range5.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r: rr, c });
+          if (!ws5[addr]) continue;
+          if (rr === 0) ws5[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } }, alignment: { horizontal: 'center', wrapText: true } };
+          else if (rr === 1) ws5[addr].s = { font: { italic: true, sz: 8 }, alignment: { horizontal: 'center' } };
+          else ws5[addr].s = { font: { bold: true, sz: 8 }, fill: { fgColor: { rgb: 'F2F2F2' } }, alignment: { horizontal: 'center' } };
+        }
+      }
+      ws5['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, ...Array(daysInMonth * cols).fill({ wch: 7 })];
+      XLSX.utils.book_append_sheet(wb, ws5, sheetName);
+      const buf5 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+      await conn.close();
+      return new NextResponse(buf5, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+        },
+      });
+
     } else {
-      // Bước 5 & 6: Giờ vào/ra + Kết quả
-      sheetName = step === 5 ? 'Buoc5_GioVaoRa' : 'Buoc6_KetQua';
-      fileName = step === 5 ? `buoc5_gio_vao_ra_${today}.xlsx` : `buoc6_ket_qua_${today}.xlsx`;
+      // Bước 6: Kết quả
+      sheetName = 'Buoc6_KetQua';
+      fileName = `buoc6_ket_qua_${today}.xlsx`;
       const rows = await conn.all(
         `SELECT e.code, e.name, d.name AS deptName,
                 dr.day, dr.day_type, dr.shift_code, dr.check_in, dr.check_out, dr.ot_hours, dr.late_mins
@@ -154,8 +365,7 @@ export async function GET(req: NextRequest) {
          LEFT JOIN departments d ON e.department_id = d.id
          WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
       ) as Record<string, unknown>[];
-      // Flat format: 1 row per employee per day
-      header = ['Mã NV', 'Tên', 'Phòng ban', 'Ngày', 'Loại ngày', 'Ca', 'Giờ vào', 'Giờ ra', 'OT(h)', 'Trễ(ph)'];
+      header = ['Mã NV', 'Tên', 'Phòng ban', 'Ngày', 'Loại ngày', 'Ca', 'Giờ vào', 'Giờ ra', 'TĂNG CA (H)', 'TRỄ(PH)'];
       data = rows.map(r => [
         r.code, r.name, r.deptName ?? '', r.day,
         DT_LABEL[Number(r.day_type)] ?? '',

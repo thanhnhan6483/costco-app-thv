@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import s from '@/styles/table.module.css';
 import styles from './ImportEmployees.module.css';
@@ -255,15 +255,15 @@ export default function ImportEmployees() {
     const header = ['employee_code','employee_name','department_code','department_name',
                     'group_code','group_name','group_code_end_date','workdays',
                     ...Array.from({length:31},(_,i)=>`Day ${i+1}`),
-                    'overtime_hours','late_minutes','phep_nam'];
+                    'overtime_hours','late_minutes','phep_nam','ngay_nghi_thang_truoc'];
     const data = sel.map(r => [
       r.code, r.name, r.departmentCode ?? '', r.departmentName ?? '',
       r.specialGroup, r.specialGroupName ?? '', r.groupCodeEndDate, r.workdays,
       ...Array.from({length:31},(_,i)=>getDay(r,i)),
-      r.overtimeHours, r.lateMinutes, r.phepNam,
+      r.overtimeHours, r.lateMinutes, r.phepNam, r.ngayNghiCuoiThangTruoc ?? '',
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    ws['!cols'] = [{wch:14},{wch:22},{wch:12},{wch:22},{wch:16},{wch:24},{wch:16},{wch:8},...Array(31).fill({wch:5}),{wch:12},{wch:10},{wch:10}];
+    ws['!cols'] = [{wch:14},{wch:22},{wch:12},{wch:22},{wch:16},{wch:24},{wch:16},{wch:8},...Array(31).fill({wch:5}),{wch:12},{wch:10},{wch:10},{wch:18}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DS_chon_loc');
     const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });

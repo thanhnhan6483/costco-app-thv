@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
@@ -6,11 +6,11 @@ import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
 /* ── Reusable inline filter row for grids ── */
-function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle }: {
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel }: {
   fCode: string; fName: string; fDept: string;
   setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
   deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
-  codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties;
+  codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties; monthLabel?: string;
 }) {
   return (
     <tr className={styles.filterRow}>
@@ -18,7 +18,7 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
       <th style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
       <th style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
       <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
-      {Array.from({ length: daysCols }, (_, i) => <th key={`d${i}`} />)}
+      {monthLabel ? (() => { const [mm,yyyy] = monthLabel.split('/'); return Array.from({ length: daysCols }, (_, di) => { const dow = new Date(parseInt(yyyy,10), parseInt(mm,10)-1, di+1).getDay(); const isSun=dow===0,isSat=dow===6; return <th key={'d'+di} style={{ fontSize:'0.6rem', fontWeight:600, textAlign:'center', color: isSun?'#dc2626':isSat?'#2563eb':'#64748b' }}>{DOW_SHORT[dow]}</th>; }); })() : Array.from({ length: daysCols }, (_, i) => <th key={'d'+i} />)}
       {Array.from({ length: extraAfter }, (_, i) => <th key={`a${i}`} />)}
     </tr>
   );
@@ -84,6 +84,7 @@ export default function AutoAlloc() {
   const [clearing, setClearing] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [pageSizes, setPageSizes] = useState<Record<number, number>>({}); // size riêng cho từng bước
+  const [showCa, setShowCa] = useState(false);
   const [completionInfo, setCompletionInfo] = useState<{
     stepNum: number | 'all'; stepLabel: string; stepIcon: string; elapsedSec: number;
     onConfirm: () => void;
@@ -233,9 +234,21 @@ export default function AutoAlloc() {
       <div className={styles.panel}>
         <div className={styles.panelHeader}>
           <span className={styles.panelTitle}>{curStep?.icon} Bước {activeStep}: {curStep?.label}</span>
-          <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#'} className={styles.btnExport} download id={`btn-export-step-${activeStep}`} style={{ padding: '4px 10px', fontSize: '0.74rem', gap: 5 }}>
-            <IconDl /> Tải Excel
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+            {activeStep === 5 && (
+              <button onClick={() => setShowCa(v => !v)} className={styles.btnExport} style={{ minWidth: 110, justifyContent: 'center', background: showCa ? '#1d4ed8' : '#eff6ff', color: showCa ? '#fff' : '#1d4ed8', borderColor: '#93c5fd' }}>
+                {showCa ? 'Ẩn Ca' : 'Hiện Ca'}
+              </button>
+            )}
+            <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#'} className={styles.btnExport} download id={`btn-export-step-${activeStep}`} style={{ minWidth: 110, justifyContent: 'center' }}>
+              <IconDl /> Tải Excel
+            </a>
+            {activeStep === 5 && (
+              <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=5&withShift=1` : '#'} className={styles.btnExport} download id="btn-export-step-5-ca" style={{ minWidth: 110, justifyContent: 'center' }}>
+                <IconDl /> Tải Excel có Ca
+              </a>
+            )}
+          </div>
           {stepData[activeStep] && (
             <Pagination
               page={stepData[activeStep].page}
@@ -263,6 +276,8 @@ export default function AutoAlloc() {
             }}
             done={Boolean(curStep && status[curStep.key])}
             monthId={activeMonthId}
+            monthLabel={activeMonthLabel}
+            showCa={showCa}
           />
         </div>
       </div>
@@ -333,7 +348,7 @@ const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d
 const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff', 10: '#d1fae5', 11: '#fef3c7', 12: '#fef9c3', 13: '#dbeafe', 14: '#f3f4f6' };
 
 /* === ImportGrid (Step 1) === */
-function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
+function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -355,7 +370,7 @@ function ImportGrid({ rows }: { rows: Record<string, unknown>[] }) {
               <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>
             {filtered.map((r: any, ri: number) => {
@@ -443,9 +458,11 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
 
 /* === DayTypeGrid (Step 2) – Editable === */
 type EditKey = `${string}_${number}`; // "empCode_day"
-function DayTypeGrid({ rows, monthId, onSaved }: {
+const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+function DayTypeGrid({ rows, monthId, monthLabel, onSaved }: {
   rows: Record<string, unknown>[];
   monthId: string;
+  monthLabel: string;
   onSaved?: () => void;
 }) {
   const [fCode, setFCode] = useState('');
@@ -538,14 +555,15 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 36, color: '#15803d' }}>Làm</th>
-              <th style={{ minWidth: 36, color: '#475569' }}>Nghỉ</th>
+              <th style={{ minWidth: 60, color: '#15803d' }}>NGÀY CÔNG</th>
+              <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+              <th style={{ minWidth: 80, color: '#0369a1' }}>NGHỈ THÁNG TRƯỚC</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
@@ -594,6 +612,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>
                   {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length}
                 </td>
+                <td className={styles.statCell} style={{ color: '#0369a1' }}>{r.ngayNghiCuoiThangTruoc || <span style={{ color: '#d1d5db' }}>—</span>}</td>
               </tr>
             );
           })}</tbody>
@@ -639,7 +658,7 @@ function DayTypeGrid({ rows, monthId, onSaved }: {
 }
 
 /* === ShiftGrid (Step 3) === */
-function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
+function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
   const CA1_BG = '#eff6ff', CA1_CLR = '#1d4ed8';
   const CA2_BG = '#fff7ed', CA2_CLR = '#c2410c';
   const CAC_BG = '#f0fdf4', CAC_CLR = '#15803d';
@@ -656,14 +675,14 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
               <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
@@ -709,7 +728,7 @@ function ShiftGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === OtLateGrid (Step 4) === */
-function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
+function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
   const OT_BG = '#eff6ff', OT_CLR = '#1d4ed8';
   const LATE_BG = '#fff7ed', LATE_CLR = '#c2410c';
   const [fCode, setFCode] = useState('');
@@ -725,13 +744,13 @@ function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 44, color: OT_CLR }}>OT(h)</th>
-              <th style={{ minWidth: 50, color: LATE_CLR }}>Trễ(ph)</th>
+              <th style={{ minWidth: 44, color: OT_CLR }}>TĂNG CA (H)</th>
+              <th style={{ minWidth: 50, color: LATE_CLR }}>TRỄ(PH)</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
@@ -770,7 +789,7 @@ function OtLateGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === TimeGrid (Step 5) === */
-function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
+function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean }) {
   const IN_BG = '#f0fdf4', IN_CLR = '#15803d';
   const OUT_BG = '#eff6ff', OUT_CLR = '#1d4ed8';
   const [fCode, setFCode] = useState('');
@@ -786,16 +805,14 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 50, color: '#15803d' }}>Làm</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={1} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
-            const workCount = days.filter(d => d.dayType === 0 && d.checkIn && d.checkIn !== '00:00').length;
             return (
               <tr key={r.code}>
                 <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
@@ -810,13 +827,12 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ci && ci !== '00:00') {
                     bg = IN_BG;
-                    label = <><span style={{ color: IN_CLR, display: 'block', lineHeight: 1.2 }}>{ci}</span><span style={{ color: OUT_CLR, display: 'block', lineHeight: 1.2 }}>{co}</span></>;
+                    label = <><span style={{ color: IN_CLR, display: 'block', lineHeight: 1.2 }}>{ci}</span><span style={{ color: OUT_CLR, display: 'block', lineHeight: 1.2 }}>{co}</span>{showCa && d?.shiftCode && <span style={{ color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }}>{d.shiftCode}</span>}</>;
                   } else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
                     <td key={i} title={d?.shiftCode || ''} style={{ background: bg, color: clr, fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 38, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: '#15803d' }}>{workCount || '—'}</td>
               </tr>
             );
           })}</tbody>
@@ -827,7 +843,7 @@ function TimeGrid({ rows }: { rows: Record<string, unknown>[] }) {
 }
 
 /* === FinalGrid (Step 6) === */
-function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
+function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -840,14 +856,14 @@ function FinalGrid({ rows }: { rows: Record<string, unknown>[] }) {
           <thead>
             <tr>
               <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>Tên</th>
+              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <th>Làm</th><th>Nghỉ</th>
-              <th style={{ color: '#1d4ed8' }}>OT(h)</th>
-              <th style={{ color: '#c2410c' }}>Trễ(ph)</th>
+              <th style={{ color: '#1d4ed8' }}>TĂNG CA (H)</th>
+              <th style={{ color: '#c2410c' }}>TRỄ(PH)</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={0} extraAfter={4} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={0} extraAfter={4} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
@@ -1000,42 +1016,42 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId }: {
-  step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string;
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa }: {
+  step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean;
 }) {
   useEffect(() => { if (!data) onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className={styles.emptyState}>Đang tải...</div>;
   if (!Array.isArray(data)) return <div className={styles.emptyState}>Lỗi dữ liệu — vui lòng restart server.</div>;
   const rows = data as Record<string, unknown>[];
 
-  if (step === 1) return <ImportGrid rows={rows} />;
+  if (step === 1) return <ImportGrid rows={rows} monthLabel={monthLabel} />;
   if (step === 2) return (
     <>
-      <DayTypeGrid rows={rows} monthId={monthId} onSaved={onRefresh ?? onLoad} />
+      <DayTypeGrid rows={rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} />
       <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} />
     </>
   );
   if (step === 3) return (
     <>
-      <ShiftGrid rows={rows} />
+    <ShiftGrid rows={rows} monthLabel={monthLabel} />
       <ValidatePanel monthId={monthId} onlyIds={['shift_assigned']} title="Kiểm tra chia ca" subtitle="Kiểm tra tất cả ngày làm đã được gán ca" btnId="btn-validate-step3" />
     </>
   );
   if (step === 4) return (
     <>
-      <OtLateGrid rows={rows} />
+    <OtLateGrid rows={rows} monthLabel={monthLabel} />
       <ValidatePanel monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra OT & Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" />
     </>
   );
   if (step === 5) return (
     <>
-      <TimeGrid rows={rows} />
+    <TimeGrid rows={rows} monthLabel={monthLabel} showCa={showCa ?? false} />
       <ValidatePanel monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" />
     </>
   );
   if (step === 6) return (
     <>
-      <FinalGrid rows={rows} />
+    <FinalGrid rows={rows} monthLabel={monthLabel} />
       <ValidatePanel monthId={monthId} autoRun title="🔍 Tổng hợp kiểm tra tất cả quy tắc" subtitle="Kiểm tra toàn bộ: ngày công, chia ca, OT/trễ, giờ vào/ra, cân bằng LP" btnId="btn-validate-step6" onFixed={onRefresh ?? onLoad} />
     </>
   );

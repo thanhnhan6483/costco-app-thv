@@ -233,10 +233,10 @@
 .exportBar { display: flex; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--gray-200); }
 .btnExport {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border-radius: 7px; font-size: 0.8rem;
+  height: 23px; padding: 0 10px; border-radius: 6px; font-size: 0.74rem;
   font-weight: 600; text-decoration: none; cursor: pointer;
   border: 1px solid #16a34a; background: #f0fdf4; color: #16a34a; transition: all 0.15s;
-  white-space: nowrap; flex-shrink: 0;
+  white-space: nowrap; flex-shrink: 0; box-sizing: border-box;
 }
 .btnExport:hover { background: #dcfce7; }
 
