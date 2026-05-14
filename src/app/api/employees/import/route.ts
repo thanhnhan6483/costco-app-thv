@@ -9,12 +9,12 @@ export async function GET() {
   const header = [
     'employee_code', 'employee_name', 'department_code', 'group_code', 'group_code_end_date', 'workdays',
     ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
-    'overtime_hours', 'late_minutes', 'phep_nam',
+    'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_cuoi_thang_truoc',
   ];
   const sample = [
     'NV001', 'Nguyễn Văn A', 'KD', 'FULL', '31/12/2026', 26,
     ...Array(31).fill(''),
-    0, 0, 0,
+    0, 0, 0, '',
   ];
   const ws = XLSX.utils.aoa_to_sheet([header, sample]);
   ws['!cols'] = header.map((_h, i) => ({ wch: i < 6 ? 18 : 5 }));
@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
       const overtimeHours = String(row['overtime_hours'] ?? '').trim();
       const lateMinutes = String(row['late_minutes'] ?? '').trim();
       const phepNam = String(row['phep_nam'] ?? '').trim();
+      const ngayNghiCuoiThangTruoc = String(row['ngay_nghi_cuoi_thang_truoc'] ?? '').trim();
       const dayVals = Array.from({ length: 31 }, (_, i) => String(row[`Day ${i + 1}`] ?? '').trim());
 
       if (maPbRaw && !departmentId) {
@@ -106,11 +107,11 @@ export async function POST(req: NextRequest) {
         await conn.run(
           `INSERT INTO employees
              (id, month_id, code, name, department_id, ma_pb, special_group, group_code_end_date,
-              workdays, overtime_hours, late_minutes, phep_nam, active, created_at, ${dayColList})
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ${dayPlaceholders})`,
+              workdays, overtime_hours, late_minutes, phep_nam, ngay_nghi_cuoi_thang_truoc, active, created_at, ${dayColList})
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ${dayPlaceholders})`,
           Date.now().toString() + Math.random().toString(36).slice(2, 5),
           monthId, code, name, departmentId, maPbRaw, specialGroup, groupCodeEndDate,
-          workdays, overtimeHours, lateMinutes, phepNam,
+          workdays, overtimeHours, lateMinutes, phepNam, ngayNghiCuoiThangTruoc,
           new Date().toISOString().slice(0, 10), ...dayVals,
         );
         inserted++;

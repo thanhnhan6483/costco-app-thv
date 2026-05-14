@@ -21,7 +21,7 @@ const MODULE1: NavItem[] = [
   { key: 'shifts',           icon: '🕐', label: 'Ca Làm Việc' },
   { key: 'leave-types',      icon: '📋', label: 'Loại Nghỉ Phép' },
   { key: 'special-groups',   icon: '👥', label: 'Nhóm Đặc Thù' },
-  { key: 'import-employees', icon: '📥', label: 'Import Nhân Viên' },
+  { key: 'import-employees', icon: '👥', label: 'Danh sách nhân viên' },
   { key: 'alloc-rules',      icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
   { key: 'export-config',    icon: '📤', label: 'Xuất Cấu Hình' },
 ];

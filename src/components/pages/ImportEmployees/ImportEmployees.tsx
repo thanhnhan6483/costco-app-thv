@@ -718,16 +718,16 @@ export default function ImportEmployees() {
                   <SortTh label="MÃ NV" sortKey="code" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCode} ${styles.s1}`} />
                   <SortTh label="TÊN NHÂN VIÊN" sortKey="name" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thName} ${styles.s2}`} />
                   <SortTh label="PHÒNG BAN" sortKey="departmentName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thDept}`} />
-                  <SortTh label="NHÓM" sortKey="specialGroupName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thGroup}`} />
-                  <SortTh label="NGÀY KT NHÓM" sortKey="groupCodeEndDate" current={sort} onSort={toggleSort} className={styles.th} />
-                  <SortTh label="NGAY NGHI CTT" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
-                  <SortTh label="CÔNG" sortKey="workdays" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroupName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thGroup}`} />
+                  <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" current={sort} onSort={toggleSort} className={styles.th} />
+                  <SortTh label="NGÀY CÔNG" sortKey="workdays" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   {Array.from({ length: DAY_COUNT }, (_, i) => (
                     <th key={i} className={`${styles.th} ${styles.thDay}`}>{i + 1}</th>
                   ))}
                   <SortTh label="TĂNG CA" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="TRỄ (ph)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="PHÉP NĂM" sortKey="phepNam" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <th className={`${styles.th} ${styles.thAction}`}>THAO TÁC</th>
                 </tr>
                 {/* Filter row */}
@@ -761,9 +761,9 @@ export default function ImportEmployees() {
                       ))}
                     </select>
                   </th>
-                  <th /><th /><th />  {/* NGAY NGHI CTT + CONG filters */}
+                  <th /><th />  {/* CONG filter */}
                   {Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}
-                  <th /><th /><th /><th />
+                  <th /><th /><th /><th /><th />
                 </tr>
               </thead>
               <tbody>
@@ -790,9 +790,6 @@ export default function ImportEmployees() {
                     <td className={`${styles.td} ${styles.tdMono} ${r.specialGroup && !r.groupCodeEndDate ? styles.tdNoEndDate : ''}`}>
                       {r.groupCodeEndDate || <span className={s.noNote}>—</span>}
                     </td>
-                    <td className={`${styles.td} ${styles.tdNum} ${r.ngayNghiCuoiThangTruoc ? styles.tdNghiCTT : ''}`}>
-                      {r.ngayNghiCuoiThangTruoc || <span className={s.noNote}>—</span>}
-                    </td>
                     {(() => { const n = numVal(r.workdays); const warn = !isNaN(n) && n <= 0; return (
                     <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
                       {r.workdays || <span className={s.noNote}>—</span>}
@@ -814,6 +811,9 @@ export default function ImportEmployees() {
                       {r.lateMinutes || '—'}
                     </td>); })()}
                     <td className={`${styles.td} ${styles.tdNum}`}>{r.phepNam || '—'}</td>
+                    <td className={`${styles.td} ${styles.tdNum} ${r.ngayNghiCuoiThangTruoc ? styles.tdNghiCTT : ''}`}>
+                      {r.ngayNghiCuoiThangTruoc || <span className={s.noNote}>—</span>}
+                    </td>
                     <td className={`${styles.td} ${styles.tdAction}`}>
                       <div className={styles.actions}>
                         <button className={s.btnIconEdit}   onClick={() => openEdit(r)}       title="Sửa"><IconEdit /></button>
