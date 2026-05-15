@@ -11,9 +11,17 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     const conn = await getConn();
+    // Check if locked column exists
+    const cols = await conn.all<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name='months'`
+    );
+    const hasLocked = cols.some(c => c.column_name === 'locked');
+    if (!hasLocked) {
+      await conn.run(`ALTER TABLE months ADD COLUMN locked BOOLEAN DEFAULT FALSE`);
+    }
     const rows = await conn.all(`
       SELECT id, label, month, from_date AS fromDate, to_date AS toDate,
-             note, created_at AS createdAt
+             note, created_at AS createdAt, COALESCE(locked, FALSE) AS locked
       FROM months
       ORDER BY month DESC
     `);

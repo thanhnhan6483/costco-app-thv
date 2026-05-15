@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
@@ -81,6 +81,8 @@ export default function AutoAlloc() {
   const { activeMonthId, activeMonthLabel } = useApp();
   const [activeStep, setActiveStep] = useState(1);
   const [status, setStatus] = useState<StepStatus>({});
+  const [locked, setLocked] = useState(false);
+  const [locking, setLocking] = useState(false);
   const [stepData, setStepData] = useState<StepData>({});
   const [stepCache, setStepCache] = useState<StepCache>({});
   const [pageNum, setPageNum] = useState<Record<number, number>>({});
@@ -99,10 +101,36 @@ export default function AutoAlloc() {
     if (r.ok) setStatus(await r.json());
   }, [activeMonthId]);
 
+  const refreshLocked = useCallback(async () => {
+    const r = await fetch('/api/months');
+    if (r.ok) {
+      const months: { id: string; locked: boolean }[] = await r.json();
+      const m = months.find(x => x.id === activeMonthId);
+      setLocked(Boolean(m?.locked));
+    }
+  }, [activeMonthId]);
+
+  const toggleLock = useCallback(async () => {
+    if (!activeMonthId) return;
+    setLocking(true);
+    try {
+      const r = await fetch(`/api/months/${activeMonthId}/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked: !locked }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setLocked(data.locked);
+      }
+    } finally { setLocking(false); }
+  }, [activeMonthId, locked]);
+
   useEffect(() => {
     refreshStatus();
+    refreshLocked();
     setStepData({}); setStepCache({}); setPageNum({});
-  }, [activeMonthId, refreshStatus]);
+  }, [activeMonthId, refreshStatus, refreshLocked]);
 
   const clearAll = useCallback(async () => {
     if (!confirm('Xóa toàn bộ dữ liệu phân bổ của tháng này? Không thể khôi phục!')) return;
@@ -214,22 +242,42 @@ export default function AutoAlloc() {
         })}
         <div className={styles.stepperSpacer} />
         <div className={styles.stepperRunWrap}>
+          {!curStep?.viewOnly && (
           <button
             className={`${styles.btnRunStep} ${running === activeStep ? styles.btnRunning : ''}`}
-            onClick={() => runStep(activeStep)} disabled={isRunning || curStep?.viewOnly}
+            onClick={() => runStep(activeStep)} disabled={isRunning || locked}
             id={`btn-run-step-${activeStep}`}
           >
             {running === activeStep ? <><span className={styles.spinnerSm} /> {elapsed}s</>
-              : curStep?.viewOnly ? null
-                : curStep?.apiNum === 2 ? <><IconCheck /> Xác nhận</>
-                  : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
+              : curStep?.apiNum === 2 ? <><IconCheck /> Xác nhận</>
+                : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
           </button>
+          )}
           <div className={styles.dividerV} />
-          <button className={styles.btnRunAll} onClick={runAll} disabled={isRunning || clearing} id="btn-run-all">
-            {running === 'all' ? <><span className={styles.spinner} /> {elapsed}s</> : <><IconPlay /> {'Chạy Toàn Bộ'}</>}
-          </button>
+          {!locked && (
+            <button
+              className={styles.btnClear}
+              onClick={toggleLock}
+              disabled={isRunning || locking}
+              id="btn-finish-month"
+              style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#86efac' }}
+            >
+              {locking ? '⏳...' : '🔒 Khóa'}
+            </button>
+          )}
+          {locked && (
+            <button
+              className={styles.btnClear}
+              onClick={toggleLock}
+              disabled={locking}
+              id="btn-unlock-month"
+              style={{ background: '#fef2f2', color: '#b91c1c', borderColor: '#fca5a5' }}
+            >
+              {locking ? '⏳...' : '🔓 Mở khóa'}
+            </button>
+          )}
           <div className={styles.dividerV} />
-          <button className={styles.btnClear} onClick={clearAll} disabled={isRunning || clearing} id="btn-clear-all">
+          <button className={styles.btnClear} onClick={clearAll} disabled={isRunning || clearing || locked} id="btn-clear-all">
             {clearing ? <><span className={styles.spinnerSm} /> Đang xóa...</> : <>🗑️ Xóa dữ liệu</>}
           </button>
         </div>
@@ -282,6 +330,7 @@ export default function AutoAlloc() {
             monthId={activeMonthId}
             monthLabel={activeMonthLabel}
             showCa={showCa}
+            locked={locked}
           />
         </div>
       </div>
@@ -467,11 +516,12 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
 /* === DayTypeGrid (Step 2) – Editable === */
 type EditKey = `${string}_${number}`; // "empCode_day"
 const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-function DayTypeGrid({ rows, monthId, monthLabel, onSaved }: {
+function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
   rows: Record<string, unknown>[];
   monthId: string;
   monthLabel: string;
   onSaved?: () => void;
+  locked?: boolean;
 }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
@@ -599,9 +649,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved }: {
                         borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
                         opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
                       }}
-                      onContextMenu={(e) => { e.preventDefault(); handleCellClick(r.code, i + 1, dt, e); }}
-                      draggable
-                      onDragStart={() => setDragSrc({ code: r.code, day: i + 1 })}
+                      onContextMenu={(e) => { if (locked) return; e.preventDefault(); handleCellClick(r.code, i + 1, dt, e); }}
+                      draggable={!locked}
+                      onDragStart={() => { if (!locked) setDragSrc({ code: r.code, day: i + 1 }); }}
                       onDragOver={(e) => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }}
                       onDragLeave={() => setDragOver(null)}
                       onDrop={() => handleDrop(r.code, i + 1)}
@@ -651,10 +701,10 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved }: {
           <span className={styles.editBarInfo}>
             ✏️ <span className={styles.editBarCount}>{edits.size}</span> thay đổi
           </span>
-          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={handleUndo} type="button">
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={handleUndo} disabled={locked} type="button">
             ↩ Hoàn tác
           </button>
-          <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleSave} disabled={saving} type="button">
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleSave} disabled={saving || locked} type="button">
             {saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}
           </button>
         </div>
@@ -1033,8 +1083,8 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa }: {
-  step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean;
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked }: {
+  step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
 }) {
   useEffect(() => { if (!data) onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className={styles.emptyState}>Đang tải...</div>;
@@ -1044,7 +1094,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   if (step === 1) return <ImportGrid rows={rows} monthLabel={monthLabel} />;
   if (step === 2) return (
     <>
-      <DayTypeGrid rows={rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} />
+      <DayTypeGrid rows={rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} locked={locked} />
       <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} />
     </>
   );

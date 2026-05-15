@@ -47,6 +47,7 @@ async function initSchema(db: Database): Promise<void> {
       from_date   VARCHAR NOT NULL,            -- 'DD/MM/YYYY'
       to_date     VARCHAR NOT NULL,            -- 'DD/MM/YYYY'
       note        VARCHAR DEFAULT '',
+      locked      BOOLEAN DEFAULT FALSE,
       created_at  VARCHAR NOT NULL
     )
   `);
@@ -56,8 +57,12 @@ async function initSchema(db: Database): Promise<void> {
     const mCols = await conn.all<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns WHERE table_name='months'`
     );
-    if (!mCols.map(c => c.column_name).includes('label')) {
+    const mNames = mCols.map(c => c.column_name);
+    if (!mNames.includes('label')) {
       await conn.run(`ALTER TABLE months ADD COLUMN label VARCHAR DEFAULT ''`);
+    }
+    if (!mNames.includes('locked')) {
+      await conn.run(`ALTER TABLE months ADD COLUMN locked BOOLEAN DEFAULT FALSE`);
     }
   } catch { /* bảng chưa tồn tại */ }
 

@@ -354,45 +354,145 @@ export async function GET(req: NextRequest) {
       });
 
     } else {
-      // Bước 6: Kết quả
-      sheetName = 'Buoc6_KetQua';
+      // Bước 6: Kết quả — theo mẫu Attendance_buoc61
+      sheetName = 'Attendance';
       fileName = `buoc6_ket_qua_${today}.xlsx`;
-      const rows = await conn.all(
-        `SELECT e.code, e.name, d.name AS deptName,
-                dr.day, dr.day_type, dr.shift_code, dr.check_in, dr.check_out, dr.ot_hours, dr.late_mins
+
+      const rows6 = await conn.all(
+        `SELECT e.code, e.name,
+                COALESCE(d1.name, d2.name) AS deptName,
+                e.special_group AS nhom,
+                e.ngay_nghi_cuoi_thang_truoc AS ngayNghi,
+                e.workdays, e.overtime_hours AS overtimeHours, e.late_minutes AS lateMinutes,
+                dr.day, dr.day_type, dr.check_in, dr.check_out, dr.ot_hours, dr.late_mins
          FROM distribution_results dr
          JOIN employees e ON dr.employee_id = e.id
-         LEFT JOIN departments d ON e.department_id = d.id
+         LEFT JOIN departments d1 ON d1.id = e.department_id AND d1.month_id = e.month_id AND e.department_id <> ''
+         LEFT JOIN departments d2 ON UPPER(d2.code) = UPPER(e.ma_pb) AND d2.month_id = e.month_id AND e.ma_pb <> ''
          WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
       ) as Record<string, unknown>[];
-      header = ['Mã NV', 'Tên', 'Phòng ban', 'Ngày', 'Loại ngày', 'Ca', 'Giờ vào', 'Giờ ra', 'TĂNG CA (H)', 'TRỄ(PH)'];
-      data = rows.map(r => [
-        r.code, r.name, r.deptName ?? '', r.day,
-        DT_LABEL[Number(r.day_type)] ?? '',
-        r.shift_code ?? '', r.check_in ?? '', r.check_out ?? '',
-        Number(r.ot_hours) || '', Number(r.late_mins) || '',
+
+      // Build employee map
+      const empMap6 = new Map<string, Record<string, unknown>>();
+      for (const r of rows6) {
+        const k = String(r.code);
+        if (!empMap6.has(k)) {
+          empMap6.set(k, {
+            code: r.code, name: r.name,
+            deptName: r.deptName ?? '',
+            nhom: r.nhom ?? '',
+            ngayNghi: r.ngayNghi ?? '',
+            workdays: r.workdays ?? '',
+            totalLP: 0, totalPN: 0, totalOT: 0, totalLate: 0,
+          });
+        }
+        const dt = Number(r.day_type);
+        const emp = empMap6.get(k)!;
+        if (dt === 0) {
+          emp[`in${r.day}`] = r.check_in || '00:00';
+          emp[`out${r.day}`] = r.check_out || '00:00';
+          emp.totalOT = Number(emp.totalOT) + (Number(r.ot_hours) || 0);
+          emp.totalLate = Number(emp.totalLate) + (Number(r.late_mins) || 0);
+        } else {
+          const sym = DT_LABEL[dt] ?? '';
+          emp[`in${r.day}`] = sym;
+          emp[`out${r.day}`] = sym;
+          if (dt === 1) emp.totalLP = Number(emp.totalLP) + 1;
+          if (dt === 2) emp.totalPN = Number(emp.totalPN) + 1;
+        }
+      }
+
+      // Get day-of-week
+      const [monthRow6] = await conn.all<{ fromDate: string }>(
+        `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+      );
+      const DOW_VN6 = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const FIXED_COLS = 6; // STT, Mã NV, Tên, Phòng ban, Nhóm, Ngày nghỉ
+      const SUMMARY_COLS = ['NGÀY CÔNG', 'LP', 'PN', 'TĂNG CA(H)', 'TRỄ(PH)'];
+
+      // Row 0: header — fixed cols + day numbers (each repeated 2 times) + summary
+      const row0: (string | number)[] = ['STT', 'Mã NV', 'Tên nhân viên', 'Phòng\nban', 'Nhóm', 'Ngày nghỉ của tháng',
+        ...days.flatMap(d => [d, d]), ...SUMMARY_COLS];
+
+      // Row 1: day of week (each repeated 2 times) + empty for summary
+      const row1: (string | number)[] = ['', '', '', '', '', ''];
+      if (monthRow6?.fromDate) {
+        const [, mm6, yyyy6] = monthRow6.fromDate.split('/').map(Number);
+        for (const d of days) {
+          const date = new Date(yyyy6, mm6 - 1, d);
+          const dow = date.getMonth() === mm6 - 1 ? DOW_VN6[date.getDay()] : '';
+          row1.push(dow, dow);
+        }
+      } else {
+        row1.push(...Array(daysInMonth * 2).fill(''));
+      }
+      row1.push(...Array(SUMMARY_COLS.length).fill(''));
+
+      // Row 2: In/Out labels + empty for summary
+      const row2: (string | number)[] = ['', '', '', '', '', '',
+        ...days.flatMap(() => ['In', 'Out']), ...Array(SUMMARY_COLS.length).fill('')];
+
+      // Data rows
+      const empArr6 = Array.from(empMap6.values());
+      const dataRows6 = empArr6.map((r, idx) => [
+        idx + 1, r.code, r.name, r.deptName, r.nhom, r.ngayNghi,
+        ...days.flatMap(d => [r[`in${d}`] ?? '', r[`out${d}`] ?? '']),
+        r.workdays, r.totalLP, r.totalPN,
+        Number(r.totalOT) > 0 ? r.totalOT : '',
+        Number(r.totalLate) > 0 ? r.totalLate : '',
       ]);
-    }
 
-    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    // Bold header
-    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = XLSX.utils.encode_cell({ r: 0, c });
-      if (ws[addr]) ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } } };
-    }
-    // Col widths
-    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 18 }, ...Array(header.length - 3).fill({ wch: 8 })];
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      const ws6 = XLSX.utils.aoa_to_sheet([row0, row1, row2, ...dataRows6]);
 
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
-    await conn.close();
-    return new NextResponse(buf, {
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
-      },
-    });
+      // Merges: fixed cols A-F merge rows 0-2; each day pair merge row 0 and row 1; summary cols merge rows 0-2
+      const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
+      for (let c = 0; c < FIXED_COLS; c++) {
+        merges.push({ s: { r: 0, c }, e: { r: 2, c } });
+      }
+      for (let i = 0; i < daysInMonth; i++) {
+        const c = FIXED_COLS + i * 2;
+        merges.push({ s: { r: 0, c }, e: { r: 0, c: c + 1 } });
+        merges.push({ s: { r: 1, c }, e: { r: 1, c: c + 1 } });
+      }
+      const summaryStart = FIXED_COLS + daysInMonth * 2;
+      for (let i = 0; i < SUMMARY_COLS.length; i++) {
+        merges.push({ s: { r: 0, c: summaryStart + i }, e: { r: 2, c: summaryStart + i } });
+      }
+      ws6['!merges'] = merges;
+
+      // Styles
+      const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: 'D9E1F2' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } };
+      const dowStyle = { font: { italic: true, sz: 8 }, alignment: { horizontal: 'center', vertical: 'center' } };
+      const inOutStyle = { font: { bold: true, sz: 8 }, fill: { fgColor: { rgb: 'F2F2F2' } }, alignment: { horizontal: 'center' } };
+      const totalCols = FIXED_COLS + daysInMonth * 2 + SUMMARY_COLS.length;
+      for (let c = 0; c < totalCols; c++) {
+        const a0 = XLSX.utils.encode_cell({ r: 0, c });
+        const a1 = XLSX.utils.encode_cell({ r: 1, c });
+        const a2 = XLSX.utils.encode_cell({ r: 2, c });
+        if (ws6[a0]) ws6[a0].s = headerStyle;
+        if (ws6[a1]) ws6[a1].s = dowStyle;
+        if (ws6[a2]) ws6[a2].s = inOutStyle;
+      }
+
+      // Col widths
+      ws6['!cols'] = [
+        { wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 18 },
+        ...Array(daysInMonth * 2).fill({ wch: 7 }),
+        { wch: 11 }, { wch: 6 }, { wch: 6 }, { wch: 11 }, { wch: 9 },
+      ];
+      // Row heights for header rows
+      ws6['!rows'] = [{ hpt: 30 }, { hpt: 20 }, { hpt: 15 }];
+
+      XLSX.utils.book_append_sheet(wb, ws6, sheetName);
+      const buf6 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+      await conn.close();
+      return new NextResponse(buf6, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+        },
+      });
+    }
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
