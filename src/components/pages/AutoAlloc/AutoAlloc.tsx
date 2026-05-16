@@ -45,8 +45,12 @@ function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: st
   }), [rows, fCode, fName, fDept, fGroup]);
 }
 
-function useStatList(rows: Record<string, unknown>[], key: string) {
-  return useMemo(() => [...new Set((rows as any[]).map(r => String(r[key] ?? '')).filter(v => v && v !== '0'))].sort((a, b) => Number(a) - Number(b)), [rows, key]);
+function useStatList(rows: Record<string, unknown>[], key: string, decimals?: number) {
+  return useMemo(() => [...new Set((rows as any[]).map(r => {
+    const raw = r[key] ?? '';
+    if (decimals !== undefined && raw !== '' && raw !== '0' && Number(raw) > 0) return Number(raw).toFixed(decimals);
+    return String(raw);
+  }).filter(v => v && v !== '0'))].sort((a, b) => Number(a) - Number(b)), [rows, key, decimals]);
 }
 function StatFilterTh({ list, value, onChange }: { list: string[]; value: string; onChange: (v: string) => void }) {
   return <th><select className={s.statusFilterSelect} value={value} onChange={e => onChange(e.target.value)}><option value="">Tất cả</option>{list.map(v => <option key={v} value={v}>{v}</option>)}</select></th>;
@@ -550,15 +554,15 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
   const [fLate, setFLate] = useState('');
   const [fPN, setFPN] = useState('');
   const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
-  const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')) * 100) / 100; return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
-  const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')) * 100) / 100; return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = parseFloat(String(r.overtimeHours || '0').replace(',', '.')); return v > 0 ? v.toFixed(2) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = parseFloat(String(r.lateMinutes || '0').replace(',', '.')); return v > 0 ? v.toFixed(2) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
     let result = baseFiltered as any[];
     if (fWorkdays) result = result.filter(r => String(r.workdays ?? '') === fWorkdays);
-    if (fOT) result = result.filter(r => String(Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')) * 100) / 100) === fOT);
-    if (fLate) result = result.filter(r => String(Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')) * 100) / 100) === fLate);
+    if (fOT) result = result.filter(r => parseFloat(String(r.overtimeHours || '0').replace(',', '.')).toFixed(2) === fOT);
+    if (fLate) result = result.filter(r => parseFloat(String(r.lateMinutes || '0').replace(',', '.')).toFixed(2) === fLate);
     if (fPN) result = result.filter(r => String(r.phepNam ?? '') === fPN);
     if (!step1Filter) return result;
     return result.filter(r => {
@@ -632,7 +636,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
                     );
                   })}
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',', '.')).toFixed(2)}h</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',', '.')).toFixed(2)}</span> : '—'}</td>
                   <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{parseFloat(String(r.lateMinutes).replace(',', '.')).toFixed(2)}</span> : '—'}</td>
                   <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r.phepNam || '—'}</td>
                 </tr>
@@ -1023,13 +1027,13 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
   const [sort, onSort] = useSort();
   const [fOT, setFOT] = useState('');
   const [fLate, setFLate] = useState('');
-  const otList = useStatList(rows, 'totalOT');
-  const lateList = useStatList(rows, 'totalLate');
+  const otList = useStatList(rows, 'totalOT', 2);
+  const lateList = useStatList(rows, 'totalLate', 2);
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = baseFiltered as any[];
-    if (fOT) r = r.filter((x: any) => String(x.totalOT ?? '') === fOT);
-    if (fLate) r = r.filter((x: any) => String(x.totalLate ?? '') === fLate);
+    if (fOT) r = r.filter((x: any) => Number(x.totalOT) > 0 && Number(x.totalOT).toFixed(2) === fOT);
+    if (fLate) r = r.filter((x: any) => Number(x.totalLate) > 0 && Number(x.totalLate).toFixed(2) === fLate);
     return r;
   }, [baseFiltered, fOT, fLate]);
   return (
@@ -1094,9 +1098,11 @@ function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
+  const [fGroup, setFGroup] = useState('');
   const deptList = useDeptList(rows);
+  const groupList = useMemo(() => [...new Set((rows as any[]).map(r => r.specialGroup).filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi')), [rows]);
   const [sort, onSort] = useSort();
-  const filtered = useGridFilter(rows, fCode, fName, fDept);
+  const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   return (
     <div className={styles.tableOuter}>
       <div className={styles.tableWrap}>
@@ -1107,9 +1113,11 @@ function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#0369a1' }} />
+              <th style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }}>NGÀY KẾT THÚC</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} extraMiddle={1} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
@@ -1119,15 +1127,17 @@ function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[
                 <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
+                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
                   const ci = d?.checkIn ?? '';
                   const co = d?.checkOut ?? '';
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
-                  if (dt === 0 && ci && ci !== '00:00') {
-                    bg = IN_BG;
-                    label = <><span style={{ color: IN_CLR, display: 'block', lineHeight: 1.2 }}>{ci}</span><span style={{ color: OUT_CLR, display: 'block', lineHeight: 1.2 }}>{co}</span>{showCa && d?.shiftCode && <span style={{ color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }}>{d.shiftCode}</span>}</>;
+                  if (ci && (dt === 0 || dt === 1)) {
+                    bg = dt === 0 ? IN_BG : (DT_CELL_BG[1] ?? '#fff');
+                    label = <><span style={{ color: dt === 0 ? IN_CLR : DT_TEXT[1], display: 'block', lineHeight: 1.2 }}>{ci}</span><span style={{ color: dt === 0 ? OUT_CLR : DT_TEXT[1], display: 'block', lineHeight: 1.2 }}>{co}</span>{dt === 0 && showCa && d?.shiftCode && <span style={{ color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }}>{d.shiftCode}</span>}</>;
                   } else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
                     <td key={i} title={d?.shiftCode || ''} style={{ background: bg, color: clr, fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 38, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }}>{label}</td>
@@ -1158,8 +1168,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const workdaysList2 = useStatList(rows, 'workdays');
   const lpList2 = useStatList(rows, 'lpCount');
   const pnList2 = useStatList(rows, 'pnCount');
-  const otList2 = useStatList(rows, 'totalOT');
-  const lateList2 = useStatList(rows, 'totalLate');
+  const otList2 = useStatList(rows, 'totalOT', 2);
+  const lateList2 = useStatList(rows, 'totalLate', 2);
   const baseFiltered2 = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
   const filtered = useMemo(() => {
@@ -1167,8 +1177,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
     if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
     if (fPN2) r = r.filter((x: any) => String(x.pnCount ?? '') === fPN2);
-    if (fOT2) r = r.filter((x: any) => String(x.totalOT ?? '') === fOT2);
-    if (fLate2) r = r.filter((x: any) => String(x.totalLate ?? '') === fLate2);
+    if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && Number(x.totalOT).toFixed(2) === fOT2);
+    if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && Number(x.totalLate).toFixed(2) === fLate2);
     return r;
   }, [baseFiltered2, fWorkdays, fLP, fPN2, fOT2, fLate2]);
   return (
@@ -1218,8 +1228,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
               <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(1)}</span> : 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{r.totalLate}</span> : 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(2)}</span> : 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Number(r.totalLate).toFixed(2)}</span> : 0}</td>
             </tr>
           ))}</tbody>
         </table>
