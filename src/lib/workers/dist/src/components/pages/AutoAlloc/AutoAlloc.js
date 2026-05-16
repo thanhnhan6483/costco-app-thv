@@ -45,7 +45,7 @@ const STEPS = [
     { num: 1, apiNum: 2, key: 'step2Done', label: 'Xem dữ liệu', icon: '📋', editable: false, viewOnly: false },
     { num: 2, apiNum: 1, key: 'step1Done', label: 'Phân bổ ngày công', icon: '📊', editable: false, viewOnly: false },
     { num: 3, apiNum: 4, key: 'step4Done', label: 'Chia ca', icon: '🗓️', editable: false, viewOnly: false },
-    { num: 4, apiNum: 5, key: 'step5Done', label: 'OT & Đi trễ', icon: '⏱️', editable: false, viewOnly: false },
+    { num: 4, apiNum: 5, key: 'step5Done', label: 'Tăng ca/Đi trễ', icon: '⏱️', editable: false, viewOnly: false },
     { num: 5, apiNum: 6, key: 'step6Done', label: 'Giờ vào/ra', icon: '🕐', editable: false, viewOnly: false },
     { num: 6, apiNum: 7, key: 'step6Done', label: 'Kết quả', icon: '📈', editable: false, viewOnly: true },
 ];
@@ -229,22 +229,40 @@ function AutoAlloc() {
     }, [activeMonthId, refreshStatus, loadStepData, activeStep]);
     const isRunning = running !== null;
     const curStep = STEPS.find(s => s.num === activeStep);
-    return ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.page, children: [(0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.stepper, children: [STEPS.map(step => {
-                        const done = Boolean(status[step.key]);
-                        const active = activeStep === step.num;
-                        const busy = running === step.num;
-                        return ((0, jsx_runtime_1.jsxs)("button", { className: `${AutoAlloc_module_css_1.default.stepBtn} ${active ? AutoAlloc_module_css_1.default.stepActive : ''} ${done ? AutoAlloc_module_css_1.default.stepDone : ''}`, onClick: () => handleStepClick(step.num), id: `step-btn-${step.num}`, children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.stepCircle, children: done ? (0, jsx_runtime_1.jsx)(IconCheck, {}) : busy ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }) : step.num }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.stepLabel, children: [step.icon, " ", step.label] }), step.editable && (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.editTag, children: "Manual" })] }, step.num));
-                    }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.stepperSpacer }), (0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.stepperRunWrap, children: [!curStep?.viewOnly && ((0, jsx_runtime_1.jsx)("button", { className: `${AutoAlloc_module_css_1.default.btnRunStep} ${running === activeStep ? AutoAlloc_module_css_1.default.btnRunning : ''}`, onClick: () => runStep(activeStep), disabled: isRunning || locked, id: `btn-run-step-${activeStep}`, children: running === activeStep ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }), " ", elapsed, "s"] })
-                                    : curStep?.apiNum === 2 ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(IconCheck, {}), " X\u00E1c nh\u1EADn"] })
-                                        : (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(IconPlay, {}), " ", 'Chạy bước', " ", activeStep] }) })), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dividerV }), !locked && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: toggleLock, disabled: isRunning || locking, id: "btn-finish-month", style: { background: '#f0fdf4', color: '#15803d', borderColor: '#86efac' }, children: locking ? '⏳...' : '🔒 Khóa' })), locked && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: toggleLock, disabled: locking, id: "btn-unlock-month", style: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fca5a5' }, children: locking ? '⏳...' : '🔓 Mở khóa' })), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dividerV }), (0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: clearAll, disabled: isRunning || clearing || locked, id: "btn-clear-all", children: clearing ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }), " \u0110ang x\u00F3a..."] }) : (0, jsx_runtime_1.jsx)(jsx_runtime_1.Fragment, { children: "\uD83D\uDDD1\uFE0F X\u00F3a d\u1EEF li\u1EC7u" }) })] })] }), (0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.panel, children: [(0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.panelHeader, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.panelTitle, children: [curStep?.icon, " B\u01B0\u1EDBc ", activeStep, ": ", curStep?.label] }), (0, jsx_runtime_1.jsxs)("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }, children: [activeStep === 5 && ((0, jsx_runtime_1.jsx)("button", { onClick: () => setShowCa(v => !v), className: AutoAlloc_module_css_1.default.btnExport, style: { minWidth: 110, justifyContent: 'center', background: showCa ? '#1d4ed8' : '#eff6ff', color: showCa ? '#fff' : '#1d4ed8', borderColor: '#93c5fd' }, children: showCa ? 'Ẩn Ca' : 'Hiện Ca' })), (0, jsx_runtime_1.jsxs)("a", { href: activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#', className: AutoAlloc_module_css_1.default.btnExport, download: true, id: `btn-export-step-${activeStep}`, style: { minWidth: 110, justifyContent: 'center' }, children: [(0, jsx_runtime_1.jsx)(IconDl, {}), " T\u1EA3i Excel"] }), activeStep === 5 && ((0, jsx_runtime_1.jsxs)("a", { href: activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=5&withShift=1` : '#', className: AutoAlloc_module_css_1.default.btnExport, download: true, id: "btn-export-step-5-ca", style: { minWidth: 110, justifyContent: 'center' }, children: [(0, jsx_runtime_1.jsx)(IconDl, {}), " T\u1EA3i Excel c\u00F3 Ca"] }))] }), stepData[activeStep] && ((0, jsx_runtime_1.jsx)(Pagination, { page: stepData[activeStep].page, totalPages: stepData[activeStep].totalPages, total: stepData[activeStep].total, limit: stepData[activeStep].limit, pageSize: pageSizes[activeStep] ?? 100, onPage: (p) => loadStepData(activeStep, p), onSizeChange: (sz) => {
-                                    setPageSizes(prev => ({ ...prev, [activeStep]: sz }));
-                                    setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
-                                    setStepData(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
-                                    loadStepData(activeStep, 1, sz);
-                                } }))] }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.panelBody, children: (0, jsx_runtime_1.jsx)(StepView, { step: activeStep, data: stepData[activeStep]?.data, onLoad: () => loadStepData(activeStep, 1), onRefresh: () => {
-                                setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
-                                loadStepData(activeStep, pageNum[activeStep] ?? 1, undefined, true);
-                            }, done: Boolean(curStep && status[curStep.key]), monthId: activeMonthId, monthLabel: activeMonthLabel, showCa: showCa, locked: locked }) })] }), completionInfo && ((0, jsx_runtime_1.jsx)(CompletionModal, { stepNum: completionInfo.stepNum, stepLabel: completionInfo.stepLabel, stepIcon: completionInfo.stepIcon, elapsedSec: completionInfo.elapsedSec, onConfirm: completionInfo.onConfirm }))] }));
+    return ((0, jsx_runtime_1.jsxs)("div", {
+        className: AutoAlloc_module_css_1.default.page, children: [(0, jsx_runtime_1.jsxs)("div", {
+            className: AutoAlloc_module_css_1.default.stepper, children: [STEPS.map(step => {
+                const done = Boolean(status[step.key]);
+                const active = activeStep === step.num;
+                const busy = running === step.num;
+                return ((0, jsx_runtime_1.jsxs)("button", { className: `${AutoAlloc_module_css_1.default.stepBtn} ${active ? AutoAlloc_module_css_1.default.stepActive : ''} ${done ? AutoAlloc_module_css_1.default.stepDone : ''}`, onClick: () => handleStepClick(step.num), id: `step-btn-${step.num}`, children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.stepCircle, children: done ? (0, jsx_runtime_1.jsx)(IconCheck, {}) : busy ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }) : step.num }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.stepLabel, children: [step.icon, " ", step.label] }), step.editable && (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.editTag, children: "Manual" })] }, step.num));
+            }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.stepperSpacer }), (0, jsx_runtime_1.jsxs)("div", {
+                className: AutoAlloc_module_css_1.default.stepperRunWrap, children: [!curStep?.viewOnly && ((0, jsx_runtime_1.jsx)("button", {
+                    className: `${AutoAlloc_module_css_1.default.btnRunStep} ${running === activeStep ? AutoAlloc_module_css_1.default.btnRunning : ''}`, onClick: () => runStep(activeStep), disabled: isRunning || locked, id: `btn-run-step-${activeStep}`, children: running === activeStep ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }), " ", elapsed, "s"] })
+                        : curStep?.apiNum === 2 ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(IconCheck, {}), " X\u00E1c nh\u1EADn"] })
+                            : (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)(IconPlay, {}), " ", 'Chạy bước', " ", activeStep] })
+                })), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dividerV }), !locked && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: toggleLock, disabled: isRunning || locking, id: "btn-finish-month", style: { background: '#f0fdf4', color: '#15803d', borderColor: '#86efac' }, children: locking ? '⏳...' : '🔒 Khóa' })), locked && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: toggleLock, disabled: locking, id: "btn-unlock-month", style: { background: '#fef2f2', color: '#b91c1c', borderColor: '#fca5a5' }, children: locking ? '⏳...' : '🔓 Mở khóa' })), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dividerV }), (0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnClear, onClick: clearAll, disabled: isRunning || clearing || locked, id: "btn-clear-all", children: clearing ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.spinnerSm }), " \u0110ang x\u00F3a..."] }) : (0, jsx_runtime_1.jsx)(jsx_runtime_1.Fragment, { children: "\uD83D\uDDD1\uFE0F X\u00F3a d\u1EEF li\u1EC7u" }) })]
+            })]
+        }), (0, jsx_runtime_1.jsxs)("div", {
+            className: AutoAlloc_module_css_1.default.panel, children: [(0, jsx_runtime_1.jsxs)("div", {
+                className: AutoAlloc_module_css_1.default.panelHeader, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.panelTitle, children: [curStep?.icon, " B\u01B0\u1EDBc ", activeStep, ": ", curStep?.label] }), (0, jsx_runtime_1.jsxs)("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }, children: [activeStep === 5 && ((0, jsx_runtime_1.jsx)("button", { onClick: () => setShowCa(v => !v), className: AutoAlloc_module_css_1.default.btnExport, style: { minWidth: 110, justifyContent: 'center', background: showCa ? '#1d4ed8' : '#eff6ff', color: showCa ? '#fff' : '#1d4ed8', borderColor: '#93c5fd' }, children: showCa ? 'Ẩn Ca' : 'Hiện Ca' })), (0, jsx_runtime_1.jsxs)("a", { href: activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#', className: AutoAlloc_module_css_1.default.btnExport, download: true, id: `btn-export-step-${activeStep}`, style: { minWidth: 110, justifyContent: 'center' }, children: [(0, jsx_runtime_1.jsx)(IconDl, {}), " T\u1EA3i Excel"] }), activeStep === 5 && ((0, jsx_runtime_1.jsxs)("a", { href: activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=5&withShift=1` : '#', className: AutoAlloc_module_css_1.default.btnExport, download: true, id: "btn-export-step-5-ca", style: { minWidth: 110, justifyContent: 'center' }, children: [(0, jsx_runtime_1.jsx)(IconDl, {}), " T\u1EA3i Excel c\u00F3 Ca"] }))] }), stepData[activeStep] && ((0, jsx_runtime_1.jsx)(Pagination, {
+                    page: stepData[activeStep].page, totalPages: stepData[activeStep].totalPages, total: stepData[activeStep].total, limit: stepData[activeStep].limit, pageSize: pageSizes[activeStep] ?? 100, onPage: (p) => loadStepData(activeStep, p), onSizeChange: (sz) => {
+                        setPageSizes(prev => ({ ...prev, [activeStep]: sz }));
+                        setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
+                        setStepData(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
+                        loadStepData(activeStep, 1, sz);
+                    }
+                }))]
+            }), (0, jsx_runtime_1.jsx)("div", {
+                className: AutoAlloc_module_css_1.default.panelBody, children: (0, jsx_runtime_1.jsx)(StepView, {
+                    step: activeStep, data: stepData[activeStep]?.data, onLoad: () => loadStepData(activeStep, 1), onRefresh: () => {
+                        setStepCache(prev => { const n = { ...prev }; delete n[activeStep]; return n; });
+                        loadStepData(activeStep, pageNum[activeStep] ?? 1, undefined, true);
+                    }, done: Boolean(curStep && status[curStep.key]), monthId: activeMonthId, monthLabel: activeMonthLabel, showCa: showCa, locked: locked
+                })
+            })]
+        }), completionInfo && ((0, jsx_runtime_1.jsx)(CompletionModal, { stepNum: completionInfo.stepNum, stepLabel: completionInfo.stepLabel, stepIcon: completionInfo.stepIcon, elapsedSec: completionInfo.elapsedSec, onConfirm: completionInfo.onConfirm }))]
+    }));
 }
 /* === Completion Modal === */
 function CompletionModal({ stepNum, stepLabel, stepIcon, elapsedSec, onConfirm }) {
@@ -269,42 +287,70 @@ function ImportGrid({ rows, monthLabel }) {
     const [fDept, setFDept] = (0, react_1.useState)('');
     const deptList = useDeptList(rows);
     const [fGroup, setFGroup] = (0, react_1.useState)('');
-    const groupList = (0, react_1.useMemo)(() => { const gs = new Set(); for (const r of rows) {
-        if (r.specialGroup)
-            gs.add(r.specialGroup);
-    } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+    const groupList = (0, react_1.useMemo)(() => {
+        const gs = new Set(); for (const r of rows) {
+            if (r.specialGroup)
+                gs.add(r.specialGroup);
+        } return [...gs].sort((a, b) => a.localeCompare(b, 'vi'));
+    }, [rows]);
     const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
-    return ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, style: { fontSize: '0.72rem' }, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70, color: '#0369a1' }, children: "NH\u00D3M \u0110\u1EB6C TH\u00D9" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#1d4ed8' }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: '#c2410c' }, children: "TR\u1EC4 (PH)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#6d28d9' }, children: "PH\u00C9P N\u0102M" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 4, fGroup: fGroup, setFGroup: setFGroup, groupList: groupList, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => {
-                                const days = r.days ?? [];
-                                return ((0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }, children: r.specialGroup || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                            const d = days.find((x) => x.day === i + 1);
-                                            const sym = d?.symbol ?? '';
-                                            return ((0, jsx_runtime_1.jsx)("td", { style: {
-                                                    background: SYM_BG[sym] ?? '#fff',
-                                                    color: SYM_CLR[sym] ?? '#9ca3af',
-                                                    fontWeight: (!sym || sym === 'X') ? 700 : 600,
-                                                    textAlign: 'center', padding: '4px 2px', minWidth: 26,
-                                                    borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
-                                                }, children: sym || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 300 }, children: "\u00B7" }) }, i));
-                                        }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#15803d' }, children: (0, jsx_runtime_1.jsx)("strong", { children: r.workdays || '—' }) }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.overtimeHours) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.otTag, children: [r.overtimeHours, "h"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.lateMinutes) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: [r.lateMinutes, "ph"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#6d28d9' }, children: r.phepNam || '—' })] }, r.code));
-                            }) })] }) }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.legend, children: Object.entries(SYM_CLR).filter(([k]) => k !== '').map(([sym, clr]) => ((0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: (0, jsx_runtime_1.jsx)("span", { style: {
-                            display: 'inline-block', padding: '1px 6px', borderRadius: 4,
-                            background: SYM_BG[sym], color: clr, fontWeight: 700,
-                            fontSize: '0.7rem', marginRight: 3, border: `1px solid ${clr}30`,
-                        }, children: sym }) }, sym))) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, style: { fontSize: '0.72rem' }, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70, color: '#0369a1' }, children: "NH\u00D3M \u0110\u1EB6C TH\u00D9" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#1d4ed8' }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: '#c2410c' }, children: "TR\u1EC4 (PH)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#6d28d9' }, children: "PH\u00C9P N\u0102M" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 4, fGroup: fGroup, setFGroup: setFGroup, groupList: groupList, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => {
+                        const days = r.days ?? [];
+                        return ((0, jsx_runtime_1.jsxs)("tr", {
+                            children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }, children: r.specialGroup || '—' }), Array.from({ length: 31 }, (_, i) => {
+                                const d = days.find((x) => x.day === i + 1);
+                                const sym = d?.symbol ?? '';
+                                return ((0, jsx_runtime_1.jsx)("td", {
+                                    style: {
+                                        background: SYM_BG[sym] ?? '#fff',
+                                        color: SYM_CLR[sym] ?? '#9ca3af',
+                                        fontWeight: (!sym || sym === 'X') ? 700 : 600,
+                                        textAlign: 'center', padding: '4px 2px', minWidth: 26,
+                                        borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                                    }, children: sym || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 300 }, children: "\u00B7" })
+                                }, i));
+                            }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#15803d' }, children: (0, jsx_runtime_1.jsx)("strong", { children: r.workdays || '—' }) }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.overtimeHours) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.otTag, children: [r.overtimeHours, "h"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.lateMinutes) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: [r.lateMinutes, "ph"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#6d28d9' }, children: r.phepNam || '—' })]
+                        }, r.code));
+                    })
+                })]
+            })
+        }), (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.legend, children: Object.entries(SYM_CLR).filter(([k]) => k !== '').map(([sym, clr]) => ((0, jsx_runtime_1.jsx)("span", {
+                className: AutoAlloc_module_css_1.default.legendItem, children: (0, jsx_runtime_1.jsx)("span", {
+                    style: {
+                        display: 'inline-block', padding: '1px 6px', borderRadius: 4,
+                        background: SYM_BG[sym], color: clr, fontWeight: 700,
+                        fontSize: '0.7rem', marginRight: 3, border: `1px solid ${clr}30`,
+                    }, children: sym
+                })
+            }, sym)))
+        })]
+    }));
 }
 /* === DayTypePicker (dropdown chọn loại ngày) === */
 const SYM_TO_DT = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }) {
     const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
     const top = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
-    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dayPickerOverlay, onClick: onClose }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dayPicker, style: { left, top }, children: (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
-                    const dt = lt.dayType >= 0 ? lt.dayType : undefined;
-                    const sym = (dt != null ? (DT_SYMBOL[dt] ?? lt.code) : lt.code);
-                    const isActive = dt != null && dt === currentDT;
-                    return ((0, jsx_runtime_1.jsxs)("button", { className: `${AutoAlloc_module_css_1.default.dayPickerBtn} ${isActive ? AutoAlloc_module_css_1.default.dayPickerBtnActive : ''}`, style: { color: dt != null ? (DT_TEXT[dt] ?? '#666') : '#374151', background: dt != null ? (DT_CELL_BG[dt] ?? '#fff') : '#f9fafb' }, onClick: () => { if (dt != null)
-                            onPick(dt); }, type: "button", children: [(0, jsx_runtime_1.jsx)("span", { children: sym }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.dayPickerLabel, children: lt.name })] }, lt.code));
-                }) })] }));
+    return ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, {
+        children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.dayPickerOverlay, onClick: onClose }), (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.dayPicker, style: { left, top }, children: (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
+                const dt = lt.dayType >= 0 ? lt.dayType : undefined;
+                const sym = (dt != null ? (DT_SYMBOL[dt] ?? lt.code) : lt.code);
+                const isActive = dt != null && dt === currentDT;
+                return ((0, jsx_runtime_1.jsxs)("button", {
+                    className: `${AutoAlloc_module_css_1.default.dayPickerBtn} ${isActive ? AutoAlloc_module_css_1.default.dayPickerBtnActive : ''}`, style: { color: dt != null ? (DT_TEXT[dt] ?? '#666') : '#374151', background: dt != null ? (DT_CELL_BG[dt] ?? '#fff') : '#f9fafb' }, onClick: () => {
+                        if (dt != null)
+                            onPick(dt);
+                    }, type: "button", children: [(0, jsx_runtime_1.jsx)("span", { children: sym }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.dayPickerLabel, children: lt.name })]
+                }, lt.code));
+            })
+        })]
+    }));
 }
 const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }) {
@@ -393,30 +439,48 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }) {
         const key = `${code}_${day}`;
         return edits.has(key) ? edits.get(key) : originalDT;
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 60, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#475569' }, children: "LP" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#6d28d9' }, children: "PN" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 80, color: '#0369a1' }, children: "NGH\u1EC8 TH\u00C1NG TR\u01AF\u1EDAC" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 4, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => {
-                                const days = r.days ?? [];
-                                return ((0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                            const d = days.find(x => x.day === i + 1);
-                                            const origDT = d?.dayType ?? -1;
-                                            const dt = getEffectiveDT(r.code, i + 1, origDT);
-                                            const sym = DT_SYMBOL[dt] ?? '';
-                                            const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
-                                            const clr = DT_TEXT[dt] ?? '#9ca3af';
-                                            const isChanged = edits.has((`${r.code}_${i + 1}`));
-                                            const isOver = dragOver?.code === r.code && dragOver?.day === i + 1;
-                                            return ((0, jsx_runtime_1.jsx)("td", { className: `${AutoAlloc_module_css_1.default.editableCell} ${isChanged ? AutoAlloc_module_css_1.default.editableCellChanged : ''} ${isOver ? AutoAlloc_module_css_1.default.editableCellDragOver : ''}`, style: {
-                                                    background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600,
-                                                    fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
-                                                    borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
-                                                    opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
-                                                }, onContextMenu: (e) => { if (locked)
-                                                    return; e.preventDefault(); handleCellClick(r.code, i + 1, dt, e); }, draggable: !locked, onDragStart: () => { if (!locked)
-                                                    setDragSrc({ code: r.code, day: i + 1 }); }, onDragOver: (e) => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }, onDragLeave: () => setDragOver(null), onDrop: () => handleDrop(r.code, i + 1), onDragEnd: () => { setDragSrc(null); setDragOver(null); }, children: sym || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" }) }, i));
-                                        }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#15803d' }, children: r.workdays || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, children: Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#6d28d9' }, children: Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#0369a1' }, children: r.ngayNghiCuoiThangTruoc || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db' }, children: "\u2014" }) })] }, r.code));
-                            }) })] }) }), (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.legend, children: (Array.isArray(leaveTypes) ? leaveTypes : []).filter(lt => lt.dayType >= 0).map(lt => {
-                    const sym = DT_SYMBOL[lt.dayType] ?? lt.code;
-                    return ((0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[lt.dayType], color: DT_TEXT[lt.dayType], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[lt.dayType]}30` }, children: sym }), lt.name] }, lt.code));
-                }) }), picker && ((0, jsx_runtime_1.jsx)(DayTypePicker, { currentDT: picker.currentDT, x: picker.x, y: picker.y, onPick: handlePick, onClose: () => setPicker(null), leaveTypes: leaveTypes })), edits.size > 0 && ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.editBar, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.editBarInfo, children: ["\u270F\uFE0F ", (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.editBarCount, children: edits.size }), " thay \u0111\u1ED5i"] }), (0, jsx_runtime_1.jsx)("button", { className: `${AutoAlloc_module_css_1.default.editBarBtn} ${AutoAlloc_module_css_1.default.editBarBtnUndo}`, onClick: handleUndo, disabled: locked, type: "button", children: "\u21A9 Ho\u00E0n t\u00E1c" }), (0, jsx_runtime_1.jsx)("button", { className: `${AutoAlloc_module_css_1.default.editBarBtn} ${AutoAlloc_module_css_1.default.editBarBtnSave}`, onClick: handleSave, disabled: saving || locked, type: "button", children: saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi' })] }))] }));
+    return ((0, jsx_runtime_1.jsxs)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 60, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#475569' }, children: "LP" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#6d28d9' }, children: "PN" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 80, color: '#0369a1' }, children: "NGH\u1EC8 TH\u00C1NG TR\u01AF\u1EDAC" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 4, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => {
+                        const days = r.days ?? [];
+                        return ((0, jsx_runtime_1.jsxs)("tr", {
+                            children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
+                                const d = days.find(x => x.day === i + 1);
+                                const origDT = d?.dayType ?? -1;
+                                const dt = getEffectiveDT(r.code, i + 1, origDT);
+                                const sym = DT_SYMBOL[dt] ?? '';
+                                const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
+                                const clr = DT_TEXT[dt] ?? '#9ca3af';
+                                const isChanged = edits.has((`${r.code}_${i + 1}`));
+                                const isOver = dragOver?.code === r.code && dragOver?.day === i + 1;
+                                return ((0, jsx_runtime_1.jsx)("td", {
+                                    className: `${AutoAlloc_module_css_1.default.editableCell} ${isChanged ? AutoAlloc_module_css_1.default.editableCellChanged : ''} ${isOver ? AutoAlloc_module_css_1.default.editableCellDragOver : ''}`, style: {
+                                        background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600,
+                                        fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28,
+                                        borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                                        opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
+                                    }, onContextMenu: (e) => {
+                                        if (locked)
+                                            return; e.preventDefault(); handleCellClick(r.code, i + 1, dt, e);
+                                    }, draggable: !locked, onDragStart: () => {
+                                        if (!locked)
+                                            setDragSrc({ code: r.code, day: i + 1 });
+                                    }, onDragOver: (e) => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }, onDragLeave: () => setDragOver(null), onDrop: () => handleDrop(r.code, i + 1), onDragEnd: () => { setDragSrc(null); setDragOver(null); }, children: sym || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" })
+                                }, i));
+                            }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#15803d' }, children: r.workdays || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, children: Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#6d28d9' }, children: Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: '#0369a1' }, children: r.ngayNghiCuoiThangTruoc || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db' }, children: "\u2014" }) })]
+                        }, r.code));
+                    })
+                })]
+            })
+        }), (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.legend, children: (Array.isArray(leaveTypes) ? leaveTypes : []).filter(lt => lt.dayType >= 0).map(lt => {
+                const sym = DT_SYMBOL[lt.dayType] ?? lt.code;
+                return ((0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[lt.dayType], color: DT_TEXT[lt.dayType], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[lt.dayType]}30` }, children: sym }), lt.name] }, lt.code));
+            })
+        }), picker && ((0, jsx_runtime_1.jsx)(DayTypePicker, { currentDT: picker.currentDT, x: picker.x, y: picker.y, onPick: handlePick, onClose: () => setPicker(null), leaveTypes: leaveTypes })), edits.size > 0 && ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.editBar, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.editBarInfo, children: ["\u270F\uFE0F ", (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.editBarCount, children: edits.size }), " thay \u0111\u1ED5i"] }), (0, jsx_runtime_1.jsx)("button", { className: `${AutoAlloc_module_css_1.default.editBarBtn} ${AutoAlloc_module_css_1.default.editBarBtnUndo}`, onClick: handleUndo, disabled: locked, type: "button", children: "\u21A9 Ho\u00E0n t\u00E1c" }), (0, jsx_runtime_1.jsx)("button", { className: `${AutoAlloc_module_css_1.default.editBarBtn} ${AutoAlloc_module_css_1.default.editBarBtnSave}`, onClick: handleSave, disabled: saving || locked, type: "button", children: saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi' })] }))]
+    }));
 }
 /* === ShiftGrid (Step 3) === */
 function ShiftGrid({ rows, monthLabel }) {
@@ -428,38 +492,48 @@ function ShiftGrid({ rows, monthLabel }) {
     const [fDept, setFDept] = (0, react_1.useState)('');
     const deptList = useDeptList(rows);
     const filtered = useGridFilter(rows, fCode, fName, fDept);
-    return ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CA1_CLR }, children: "Ca 1" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CA2_CLR }, children: "Ca 2" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CAC_CLR }, children: "C" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 3, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => {
-                                const days = r.days ?? [];
-                                const ca1Count = days.filter(d => d.shiftCode === 'Ca 1').length;
-                                const ca2Count = days.filter(d => d.shiftCode === 'Ca 2').length;
-                                const caCCount = days.filter(d => d.shiftCode === 'C').length;
-                                return ((0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                            const d = days.find(x => x.day === i + 1);
-                                            const dt = d?.dayType ?? -1;
-                                            const sc = d?.shiftCode ?? '';
-                                            let bg = '#fff', clr = '#9ca3af', label = DT_SYMBOL[dt] ?? '';
-                                            if (dt === 0 && sc === 'Ca 1') {
-                                                bg = CA1_BG;
-                                                clr = CA1_CLR;
-                                                label = 'Ca 1';
-                                            }
-                                            else if (dt === 0 && sc === 'Ca 2') {
-                                                bg = CA2_BG;
-                                                clr = CA2_CLR;
-                                                label = 'Ca 2';
-                                            }
-                                            else if (dt === 0 && sc === 'C') {
-                                                bg = CAC_BG;
-                                                clr = CAC_CLR;
-                                                label = 'C';
-                                            }
-                                            else if (dt >= 0) {
-                                                bg = DT_CELL_BG[dt] ?? '#fff';
-                                                clr = DT_TEXT[dt] ?? '#9ca3af';
-                                            }
-                                            return ((0, jsx_runtime_1.jsx)("td", { style: { background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600, fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }, children: label || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" }) }, i));
-                                        }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CA1_CLR }, children: ca1Count || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CA2_CLR }, children: ca2Count || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CAC_CLR }, children: caCCount || '—' })] }, r.code));
-                            }) })] }) }), (0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.legend, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "Ca 1" }), " Ca 1"] }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "Ca 2" }), " Ca 2"] }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CAC_BG, color: CAC_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "C" }), " Ca chung"] })] })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: [(0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CA1_CLR }, children: "Ca 1" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CA2_CLR }, children: "Ca 2" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 40, color: CAC_CLR }, children: "C" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 3, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => {
+                        const days = r.days ?? [];
+                        const ca1Count = days.filter(d => d.shiftCode === 'Ca 1').length;
+                        const ca2Count = days.filter(d => d.shiftCode === 'Ca 2').length;
+                        const caCCount = days.filter(d => d.shiftCode === 'C').length;
+                        return ((0, jsx_runtime_1.jsxs)("tr", {
+                            children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
+                                const d = days.find(x => x.day === i + 1);
+                                const dt = d?.dayType ?? -1;
+                                const sc = d?.shiftCode ?? '';
+                                let bg = '#fff', clr = '#9ca3af', label = DT_SYMBOL[dt] ?? '';
+                                if (dt === 0 && sc === 'Ca 1') {
+                                    bg = CA1_BG;
+                                    clr = CA1_CLR;
+                                    label = 'Ca 1';
+                                }
+                                else if (dt === 0 && sc === 'Ca 2') {
+                                    bg = CA2_BG;
+                                    clr = CA2_CLR;
+                                    label = 'Ca 2';
+                                }
+                                else if (dt === 0 && sc === 'C') {
+                                    bg = CAC_BG;
+                                    clr = CAC_CLR;
+                                    label = 'C';
+                                }
+                                else if (dt >= 0) {
+                                    bg = DT_CELL_BG[dt] ?? '#fff';
+                                    clr = DT_TEXT[dt] ?? '#9ca3af';
+                                }
+                                return ((0, jsx_runtime_1.jsx)("td", { style: { background: bg, color: clr, fontWeight: dt === 0 ? 700 : 600, fontSize: '0.72rem', textAlign: 'center', padding: '4px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }, children: label || (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" }) }, i));
+                            }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CA1_CLR }, children: ca1Count || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CA2_CLR }, children: ca2Count || '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: CAC_CLR }, children: caCCount || '—' })]
+                        }, r.code));
+                    })
+                })]
+            })
+        }), (0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.legend, children: [(0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "Ca 1" }), " Ca 1"] }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "Ca 2" }), " Ca 2"] }), (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.legendItem, children: [(0, jsx_runtime_1.jsx)("span", { style: { display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CAC_BG, color: CAC_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }, children: "C" }), " Ca chung"] })] })]
+    }));
 }
 /* === OtLateGrid (Step 4) === */
 function OtLateGrid({ rows, monthLabel }) {
@@ -470,42 +544,52 @@ function OtLateGrid({ rows, monthLabel }) {
     const [fDept, setFDept] = (0, react_1.useState)('');
     const deptList = useDeptList(rows);
     const filtered = useGridFilter(rows, fCode, fName, fDept);
-    return ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: OT_CLR }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: LATE_CLR }, children: "TR\u1EC4(PH)" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 2, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => {
-                            const days = r.days ?? [];
-                            return ((0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                        const d = days.find(x => x.day === i + 1);
-                                        const dt = d?.dayType ?? -1;
-                                        const ot = Number(d?.otH) || 0;
-                                        const late = Number(d?.lateM) || 0;
-                                        let bg = '#fff', clr = '#9ca3af', label = (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" });
-                                        if (dt === 0 && ot > 0 && late > 0) {
-                                            bg = '#f5f3ff';
-                                            clr = '#6d28d9';
-                                            label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("span", { style: { color: OT_CLR }, children: [ot, "h"] }), (0, jsx_runtime_1.jsx)("span", { style: { color: '#9ca3af', margin: '0 1px' }, children: "/" }), (0, jsx_runtime_1.jsx)("span", { style: { color: LATE_CLR }, children: late })] });
-                                        }
-                                        else if (dt === 0 && ot > 0) {
-                                            bg = OT_BG;
-                                            clr = OT_CLR;
-                                            label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [ot, "h"] });
-                                        }
-                                        else if (dt === 0 && late > 0) {
-                                            bg = LATE_BG;
-                                            clr = LATE_CLR;
-                                            label = (0, jsx_runtime_1.jsx)(jsx_runtime_1.Fragment, { children: late });
-                                        }
-                                        else if (dt === 0) {
-                                            bg = DT_CELL_BG[0];
-                                            clr = DT_TEXT[0];
-                                            label = (0, jsx_runtime_1.jsx)("span", { style: { opacity: 0.4 }, children: "X" });
-                                        }
-                                        else if (dt >= 0) {
-                                            bg = DT_CELL_BG[dt] ?? '#fff';
-                                            clr = DT_TEXT[dt] ?? '#9ca3af';
-                                            label = (0, jsx_runtime_1.jsx)("span", { children: DT_SYMBOL[dt] ?? '' });
-                                        }
-                                        return ((0, jsx_runtime_1.jsx)("td", { style: { background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }, children: label }, i));
-                                    }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: OT_CLR }, children: Number(r.totalOT) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.otTag, children: [Number(r.totalOT).toFixed(1), "h"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: LATE_CLR }, children: Number(r.totalLate) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: [r.totalLate, "ph"] }) : '—' })] }, r.code));
-                        }) })] }) }) }));
+    return ((0, jsx_runtime_1.jsx)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: OT_CLR }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: LATE_CLR }, children: "TR\u1EC4(PH)" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 2, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => {
+                        const days = r.days ?? [];
+                        return ((0, jsx_runtime_1.jsxs)("tr", {
+                            children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
+                                const d = days.find(x => x.day === i + 1);
+                                const dt = d?.dayType ?? -1;
+                                const ot = Number(d?.otH) || 0;
+                                const late = Number(d?.lateM) || 0;
+                                let bg = '#fff', clr = '#9ca3af', label = (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" });
+                                if (dt === 0 && ot > 0 && late > 0) {
+                                    bg = '#f5f3ff';
+                                    clr = '#6d28d9';
+                                    label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsxs)("span", { style: { color: OT_CLR }, children: [ot, "h"] }), (0, jsx_runtime_1.jsx)("span", { style: { color: '#9ca3af', margin: '0 1px' }, children: "/" }), (0, jsx_runtime_1.jsx)("span", { style: { color: LATE_CLR }, children: late })] });
+                                }
+                                else if (dt === 0 && ot > 0) {
+                                    bg = OT_BG;
+                                    clr = OT_CLR;
+                                    label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [ot, "h"] });
+                                }
+                                else if (dt === 0 && late > 0) {
+                                    bg = LATE_BG;
+                                    clr = LATE_CLR;
+                                    label = (0, jsx_runtime_1.jsx)(jsx_runtime_1.Fragment, { children: late });
+                                }
+                                else if (dt === 0) {
+                                    bg = DT_CELL_BG[0];
+                                    clr = DT_TEXT[0];
+                                    label = (0, jsx_runtime_1.jsx)("span", { style: { opacity: 0.4 }, children: "X" });
+                                }
+                                else if (dt >= 0) {
+                                    bg = DT_CELL_BG[dt] ?? '#fff';
+                                    clr = DT_TEXT[dt] ?? '#9ca3af';
+                                    label = (0, jsx_runtime_1.jsx)("span", { children: DT_SYMBOL[dt] ?? '' });
+                                }
+                                return ((0, jsx_runtime_1.jsx)("td", { style: { background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }, children: label }, i));
+                            }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: OT_CLR }, children: Number(r.totalOT) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.otTag, children: [Number(r.totalOT).toFixed(1), "h"] }) : '—' }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.statCell, style: { color: LATE_CLR }, children: Number(r.totalLate) > 0 ? (0, jsx_runtime_1.jsxs)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: [r.totalLate, "ph"] }) : '—' })]
+                        }, r.code));
+                    })
+                })]
+            })
+        })
+    }));
 }
 /* === TimeGrid (Step 5) === */
 function TimeGrid({ rows, monthLabel, showCa }) {
@@ -516,26 +600,36 @@ function TimeGrid({ rows, monthLabel, showCa }) {
     const [fDept, setFDept] = (0, react_1.useState)('');
     const deptList = useDeptList(rows);
     const filtered = useGridFilter(rows, fCode, fName, fDept);
-    return ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i))] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 0, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => {
-                            const days = r.days ?? [];
-                            return ((0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                        const d = days.find(x => x.day === i + 1);
-                                        const dt = d?.dayType ?? -1;
-                                        const ci = d?.checkIn ?? '';
-                                        const co = d?.checkOut ?? '';
-                                        let bg = '#fff', clr = '#9ca3af', label = (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" });
-                                        if (dt === 0 && ci && ci !== '00:00') {
-                                            bg = IN_BG;
-                                            label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { style: { color: IN_CLR, display: 'block', lineHeight: 1.2 }, children: ci }), (0, jsx_runtime_1.jsx)("span", { style: { color: OUT_CLR, display: 'block', lineHeight: 1.2 }, children: co }), showCa && d?.shiftCode && (0, jsx_runtime_1.jsx)("span", { style: { color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }, children: d.shiftCode })] });
-                                        }
-                                        else if (dt >= 0) {
-                                            bg = DT_CELL_BG[dt] ?? '#fff';
-                                            clr = DT_TEXT[dt] ?? '#9ca3af';
-                                            label = (0, jsx_runtime_1.jsx)("span", { children: DT_SYMBOL[dt] ?? '' });
-                                        }
-                                        return ((0, jsx_runtime_1.jsx)("td", { title: d?.shiftCode || '', style: { background: bg, color: clr, fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 38, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }, children: label }, i));
-                                    })] }, r.code));
-                        }) })] }) }) }));
+    return ((0, jsx_runtime_1.jsx)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, children: i + 1 }, i))] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 0, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => {
+                        const days = r.days ?? [];
+                        return ((0, jsx_runtime_1.jsxs)("tr", {
+                            children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.empName, style: { maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), Array.from({ length: 31 }, (_, i) => {
+                                const d = days.find(x => x.day === i + 1);
+                                const dt = d?.dayType ?? -1;
+                                const ci = d?.checkIn ?? '';
+                                const co = d?.checkOut ?? '';
+                                let bg = '#fff', clr = '#9ca3af', label = (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db', fontWeight: 400 }, children: "\u00B7" });
+                                if (dt === 0 && ci && ci !== '00:00') {
+                                    bg = IN_BG;
+                                    label = (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { style: { color: IN_CLR, display: 'block', lineHeight: 1.2 }, children: ci }), (0, jsx_runtime_1.jsx)("span", { style: { color: OUT_CLR, display: 'block', lineHeight: 1.2 }, children: co }), showCa && d?.shiftCode && (0, jsx_runtime_1.jsx)("span", { style: { color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }, children: d.shiftCode })] });
+                                }
+                                else if (dt >= 0) {
+                                    bg = DT_CELL_BG[dt] ?? '#fff';
+                                    clr = DT_TEXT[dt] ?? '#9ca3af';
+                                    label = (0, jsx_runtime_1.jsx)("span", { children: DT_SYMBOL[dt] ?? '' });
+                                }
+                                return ((0, jsx_runtime_1.jsx)("td", { title: d?.shiftCode || '', style: { background: bg, color: clr, fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 38, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }, children: label }, i));
+                            })]
+                        }, r.code));
+                    })
+                })]
+            })
+        })
+    }));
 }
 /* === FinalGrid (Step 6) === */
 function FinalGrid({ rows, monthLabel }) {
@@ -544,19 +638,31 @@ function FinalGrid({ rows, monthLabel }) {
     const [fDept, setFDept] = (0, react_1.useState)('');
     const deptList = useDeptList(rows);
     const [fGroup, setFGroup] = (0, react_1.useState)('');
-    const groupList = (0, react_1.useMemo)(() => { const gs = new Set(); for (const r of rows) {
-        if (r.specialGroup)
-            gs.add(r.specialGroup);
-    } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+    const groupList = (0, react_1.useMemo)(() => {
+        const gs = new Set(); for (const r of rows) {
+            if (r.specialGroup)
+                gs.add(r.specialGroup);
+        } return [...gs].sort((a, b) => a.localeCompare(b, 'vi'));
+    }, [rows]);
     const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
-    return ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", { className: AutoAlloc_module_css_1.default.gridTable, style: { fontSize: '0.68rem' }, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70, color: '#0369a1' }, children: "NH\u00D3M \u0110\u1EB6C TH\u00D9" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 70, color: '#92400e' }, children: "NGH\u1EC8 TH\u00C1NG TR\u01AF\u1EDAC" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, style: { minWidth: 64 }, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#1d4ed8' }, children: "LP" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#7c3aed' }, children: "PN" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: '#1d4ed8' }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#c2410c' }, children: "TR\u1EC4(PH)" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 5, extraMiddle: 1, fGroup: fGroup, setFGroup: setFGroup, groupList: groupList, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", { children: filtered.map((r, ri) => ((0, jsx_runtime_1.jsxs)("tr", { style: { background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }, children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }, children: r.specialGroup || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }, children: r.ngayNghiCuoiThangTruoc || '—' }), Array.from({ length: 31 }, (_, i) => {
-                                    const d = (r.days ?? []).find((x) => x.day === i + 1);
-                                    if (!d)
-                                        return (0, jsx_runtime_1.jsx)("td", { style: { background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }, children: (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db' }, children: "\u00B7" }) }, i);
-                                    const dt = Number(d.dayType);
-                                    const isWork = dt === 0;
-                                    return (0, jsx_runtime_1.jsx)("td", { style: { background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }, title: (DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? ''), children: isWork ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { style: { color: '#15803d', display: 'block', lineHeight: 1.2 }, children: d.checkIn }), (0, jsx_runtime_1.jsx)("span", { style: { color: '#1d4ed8', display: 'block', lineHeight: 1.2 }, children: d.checkOut })] }) : (0, jsx_runtime_1.jsx)("span", { style: { opacity: 0.85 }, children: DT_SYMBOL[dt] ?? '?' }) }, i);
-                                }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#15803d', textAlign: 'center' }, children: r.workdays || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }, children: r.lpCount ?? 0 }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#7c3aed', textAlign: 'center' }, children: r.pnCount ?? 0 }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.totalOT) > 0 ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.otTag, children: Number(r.totalOT).toFixed(1) }) : 0 }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.totalLate) > 0 ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: r.totalLate }) : 0 })] }, r.code))) })] }) }) }));
+    return ((0, jsx_runtime_1.jsx)("div", {
+        className: AutoAlloc_module_css_1.default.tableOuter, children: (0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.tableWrap, children: (0, jsx_runtime_1.jsxs)("table", {
+                className: AutoAlloc_module_css_1.default.gridTable, style: { fontSize: '0.68rem' }, children: [(0, jsx_runtime_1.jsxs)("thead", { children: [(0, jsx_runtime_1.jsxs)("tr", { children: [(0, jsx_runtime_1.jsx)("th", { style: { minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }, children: "#" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 90, maxWidth: 90, overflow: 'hidden' }, children: "M\u00C3 NV" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200 }, children: "T\u00CAN NH\u00C2N VI\u00CAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70 }, children: "PH\u00D2NG BAN" }), (0, jsx_runtime_1.jsx)("th", { style: { textAlign: 'left', minWidth: 70, color: '#0369a1' }, children: "NH\u00D3M \u0110\u1EB6C TH\u00D9" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 70, color: '#92400e' }, children: "NGH\u1EC8 TH\u00C1NG TR\u01AF\u1EDAC" }), Array.from({ length: 31 }, (_, i) => (0, jsx_runtime_1.jsx)("th", { className: AutoAlloc_module_css_1.default.dayNum, style: { minWidth: 64 }, children: i + 1 }, i)), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#15803d' }, children: "NG\u00C0Y C\u00D4NG" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#1d4ed8' }, children: "LP" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 36, color: '#7c3aed' }, children: "PN" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 50, color: '#1d4ed8' }, children: "T\u0102NG CA (H)" }), (0, jsx_runtime_1.jsx)("th", { style: { minWidth: 44, color: '#c2410c' }, children: "TR\u1EC4(PH)" })] }), (0, jsx_runtime_1.jsx)(InlineFilterRow, { fCode: fCode, fName: fName, fDept: fDept, setFCode: setFCode, setFName: setFName, setFDept: setFDept, deptList: deptList, extraBefore: 1, extraAfter: 5, extraMiddle: 1, fGroup: fGroup, setFGroup: setFGroup, groupList: groupList, codeThStyle: { maxWidth: 90, width: 90 }, nameThStyle: { maxWidth: 200, width: 200 }, monthLabel: monthLabel })] }), (0, jsx_runtime_1.jsx)("tbody", {
+                    children: filtered.map((r, ri) => ((0, jsx_runtime_1.jsxs)("tr", {
+                        style: { background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }, children: [(0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }, children: ri + 1 }), (0, jsx_runtime_1.jsx)("td", { className: AutoAlloc_module_css_1.default.mono, style: { maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.code }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: r.name }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }, children: r.deptName || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }, children: r.specialGroup || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }, children: r.ngayNghiCuoiThangTruoc || '—' }), Array.from({ length: 31 }, (_, i) => {
+                            const d = (r.days ?? []).find((x) => x.day === i + 1);
+                            if (!d)
+                                return (0, jsx_runtime_1.jsx)("td", { style: { background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }, children: (0, jsx_runtime_1.jsx)("span", { style: { color: '#d1d5db' }, children: "\u00B7" }) }, i);
+                            const dt = Number(d.dayType);
+                            const isWork = dt === 0;
+                            return (0, jsx_runtime_1.jsx)("td", { style: { background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }, title: (DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? ''), children: isWork ? (0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { style: { color: '#15803d', display: 'block', lineHeight: 1.2 }, children: d.checkIn }), (0, jsx_runtime_1.jsx)("span", { style: { color: '#1d4ed8', display: 'block', lineHeight: 1.2 }, children: d.checkOut })] }) : (0, jsx_runtime_1.jsx)("span", { style: { opacity: 0.85 }, children: DT_SYMBOL[dt] ?? '?' }) }, i);
+                        }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#15803d', textAlign: 'center' }, children: r.workdays || '—' }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }, children: r.lpCount ?? 0 }), (0, jsx_runtime_1.jsx)("td", { style: { fontWeight: 700, color: '#7c3aed', textAlign: 'center' }, children: r.pnCount ?? 0 }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.totalOT) > 0 ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.otTag, children: Number(r.totalOT).toFixed(1) }) : 0 }), (0, jsx_runtime_1.jsx)("td", { style: { textAlign: 'center' }, children: Number(r.totalLate) > 0 ? (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.lateTag, children: r.totalLate }) : 0 })]
+                    }, r.code)))
+                })]
+            })
+        })
+    }));
 }
 function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun }) {
     const [loading, setLoading] = (0, react_1.useState)(false);
@@ -566,8 +672,10 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
     const [fixingConsec, setFixingConsec] = (0, react_1.useState)(false);
     const [error, setError] = (0, react_1.useState)(null);
     const [openIds, setOpenIds] = (0, react_1.useState)(new Set());
-    (0, react_1.useEffect)(() => { if (autoRun)
-        run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    (0, react_1.useEffect)(() => {
+        if (autoRun)
+            run();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
     const fixPn = async () => {
         setFixing(true);
         setError(null);
@@ -647,10 +755,20 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
     const countClass = { ok: AutoAlloc_module_css_1.default.countOk, warning: AutoAlloc_module_css_1.default.countWarn, error: AutoAlloc_module_css_1.default.countError };
     const summaryClass = { ok: AutoAlloc_module_css_1.default.summaryOk, warning: AutoAlloc_module_css_1.default.summaryWarn, error: AutoAlloc_module_css_1.default.summaryError };
     const summaryLabel = { ok: '✅ Tất cả điều kiện đạt', warning: '⚠️ Có cảnh báo cần xem xét', error: '❌ Có điều kiện chưa thỏa mãn' };
-    return ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.validateWrap, style: { borderTop: '2px solid #e2e8f0', marginTop: 4 }, children: [(0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.validateHeader, children: [(0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.validateTitle, children: title ?? '🔍 Kiểm tra điều kiện phân bổ' }), (0, jsx_runtime_1.jsx)("div", { style: { fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: 2 }, children: subtitle ?? 'Xác minh các quy tắc nghiệp vụ' })] }), (0, jsx_runtime_1.jsxs)("div", { style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [result && ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.validateSummary, children: [(0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.validateSummaryBadge} ${summaryClass[result.overallStatus]}`, children: summaryLabel[result.overallStatus] }), (0, jsx_runtime_1.jsxs)("span", { style: { color: 'var(--gray-500)', fontSize: '0.75rem' }, children: [result.totalEmps, " NV \u00B7 ", result.totalViolations, " vi ph\u1EA1m"] })] })), (0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnValidate, onClick: run, disabled: loading, id: btnId, children: loading ? 'Đang kiểm tra...' : '🔍 Kiểm tra' })] })] }), error && (0, jsx_runtime_1.jsxs)("div", { style: { background: '#fef2f2', padding: 10, color: '#b91c1c' }, children: ["\u26A0\uFE0F L\u1ED7i: ", error] }), result && ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.validateGrid, children: result.results.map(check => ((0, jsx_runtime_1.jsxs)("div", { className: `${AutoAlloc_module_css_1.default.checkCard} ${statusClass[check.status]}`, children: [(0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.checkCardHeader, onClick: () => setOpenIds(prev => { const n = new Set(prev); if (n.has(check.id))
-                                n.delete(check.id);
-                            else
-                                n.add(check.id); return n; }), children: [(0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.checkStatusDot} ${dotClass[check.status]}` }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.checkLabel, children: check.label }), (0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.checkCount} ${countClass[check.status]}`, children: check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm` }), check.id === 'consecutive_days' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixConsec(); }, disabled: fixingConsec || loading, type: "button", children: fixingConsec ? '...' : '🔧 Sửa liên tiếp' })), check.id === 'pn_start_day' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixPn(); }, disabled: fixing || loading, type: "button", children: fixing ? '...' : '🔧 Sửa PN' })), check.id === 'lp_balance' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixLp(); }, disabled: fixingLp || loading, type: "button", children: fixingLp ? '...' : '⚖️ Cân bằng LP' }))] }), openIds.has(check.id) && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.violationList, children: check.violations.slice(0, 8).map((v, i) => ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.violationRow, children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationCode, children: v.code }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationName, children: v.name }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationDetail, children: v.detail })] }, i))) }))] }, check.id))) }))] }));
+    return ((0, jsx_runtime_1.jsxs)("div", {
+        className: AutoAlloc_module_css_1.default.validateWrap, style: { borderTop: '2px solid #e2e8f0', marginTop: 4 }, children: [(0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.validateHeader, children: [(0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.validateTitle, children: title ?? '🔍 Kiểm tra điều kiện phân bổ' }), (0, jsx_runtime_1.jsx)("div", { style: { fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: 2 }, children: subtitle ?? 'Xác minh các quy tắc nghiệp vụ' })] }), (0, jsx_runtime_1.jsxs)("div", { style: { display: 'flex', alignItems: 'center', gap: 10 }, children: [result && ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.validateSummary, children: [(0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.validateSummaryBadge} ${summaryClass[result.overallStatus]}`, children: summaryLabel[result.overallStatus] }), (0, jsx_runtime_1.jsxs)("span", { style: { color: 'var(--gray-500)', fontSize: '0.75rem' }, children: [result.totalEmps, " NV \u00B7 ", result.totalViolations, " vi ph\u1EA1m"] })] })), (0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnValidate, onClick: run, disabled: loading, id: btnId, children: loading ? 'Đang kiểm tra...' : '🔍 Kiểm tra' })] })] }), error && (0, jsx_runtime_1.jsxs)("div", { style: { background: '#fef2f2', padding: 10, color: '#b91c1c' }, children: ["\u26A0\uFE0F L\u1ED7i: ", error] }), result && ((0, jsx_runtime_1.jsx)("div", {
+            className: AutoAlloc_module_css_1.default.validateGrid, children: result.results.map(check => ((0, jsx_runtime_1.jsxs)("div", {
+                className: `${AutoAlloc_module_css_1.default.checkCard} ${statusClass[check.status]}`, children: [(0, jsx_runtime_1.jsxs)("div", {
+                    className: AutoAlloc_module_css_1.default.checkCardHeader, onClick: () => setOpenIds(prev => {
+                        const n = new Set(prev); if (n.has(check.id))
+                            n.delete(check.id);
+                        else
+                            n.add(check.id); return n;
+                    }), children: [(0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.checkStatusDot} ${dotClass[check.status]}` }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.checkLabel, children: check.label }), (0, jsx_runtime_1.jsx)("span", { className: `${AutoAlloc_module_css_1.default.checkCount} ${countClass[check.status]}`, children: check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm` }), check.id === 'consecutive_days' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixConsec(); }, disabled: fixingConsec || loading, type: "button", children: fixingConsec ? '...' : '🔧 Sửa liên tiếp' })), check.id === 'pn_start_day' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixPn(); }, disabled: fixing || loading, type: "button", children: fixing ? '...' : '🔧 Sửa vị trí PN' })), check.id === 'lp_balance' && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("button", { className: AutoAlloc_module_css_1.default.btnFixInline, onClick: e => { e.stopPropagation(); fixLp(); }, disabled: fixingLp || loading, type: "button", children: fixingLp ? '...' : '⚖️ Cân bằng LP' }))]
+                }), openIds.has(check.id) && check.violationCount > 0 && ((0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.violationList, children: check.violations.slice(0, 8).map((v, i) => ((0, jsx_runtime_1.jsxs)("div", { className: AutoAlloc_module_css_1.default.violationRow, children: [(0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationCode, children: v.code }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationName, children: v.name }), (0, jsx_runtime_1.jsx)("span", { className: AutoAlloc_module_css_1.default.violationDetail, children: v.detail })] }, i))) }))]
+            }, check.id)))
+        }))]
+    }));
 }
 /* === AllocConfigPanel — Cấu hình áp dụng cho Bước 2 === */
 const STEP2_PARAM_KEYS = ['max_consecutive_days', 'workdays_algorithm_threshold', 'pn_start_from_day', 'pn_preferred_position', 'skip_equal_rest_dept_codes'];
@@ -671,17 +789,21 @@ function AllocConfigPanel({ monthId }) {
     }, [monthId]);
     if (!rules.length)
         return null;
-    return ((0, jsx_runtime_1.jsx)("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 8, padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }, children: STEP2_PARAM_KEYS.map(key => {
+    return ((0, jsx_runtime_1.jsx)("div", {
+        style: { display: 'flex', flexWrap: 'wrap', gap: 8, padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }, children: STEP2_PARAM_KEYS.map(key => {
             const r = rules.find(x => x.paramKey === key);
             if (!r)
                 return null;
             return ((0, jsx_runtime_1.jsxs)("div", { style: { display: 'flex', alignItems: 'center', gap: 6, background: r.active ? '#f0fdf4' : '#f1f5f9', border: `1px solid ${r.active ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 6, padding: '4px 10px', fontSize: 12 }, children: [(0, jsx_runtime_1.jsx)("span", { style: { color: r.active ? '#15803d' : '#94a3b8', fontWeight: 600 }, children: STEP2_LABELS[key] ?? key }), (0, jsx_runtime_1.jsx)("span", { style: { color: '#64748b' }, children: ":" }), (0, jsx_runtime_1.jsx)("span", { style: { color: r.active ? '#0f172a' : '#94a3b8', fontWeight: 500 }, children: r.defaultParam || '—' }), !r.active && (0, jsx_runtime_1.jsx)("span", { style: { color: '#94a3b8', fontSize: 11 }, children: "(t\u1EAFt)" })] }, key));
-        }) }));
+        })
+    }));
 }
 /* === StepView === */
 function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked }) {
-    (0, react_1.useEffect)(() => { if (!data)
-        onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+    (0, react_1.useEffect)(() => {
+        if (!data)
+            onLoad();
+    }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
     if (!data)
         return (0, jsx_runtime_1.jsx)("div", { className: AutoAlloc_module_css_1.default.emptyState, children: "\u0110ang t\u1EA3i..." });
     if (!Array.isArray(data))

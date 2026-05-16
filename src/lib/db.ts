@@ -173,16 +173,16 @@ async function initSchema(db: Database): Promise<void> {
     );
     const names = shiftCols.map(c => c.column_name);
     const newCols: [string, string][] = [
-      ['month_id',     `VARCHAR DEFAULT '${DEFAULT_MONTH_ID}'`],
-      ['department',   `VARCHAR DEFAULT ''`],
-      ['department_id',`VARCHAR DEFAULT NULL`],
-      ['is_default',   `BOOLEAN DEFAULT FALSE`],
-      ['shift_type',   `VARCHAR DEFAULT 'Ca 1'`],
+      ['month_id', `VARCHAR DEFAULT '${DEFAULT_MONTH_ID}'`],
+      ['department', `VARCHAR DEFAULT ''`],
+      ['department_id', `VARCHAR DEFAULT NULL`],
+      ['is_default', `BOOLEAN DEFAULT FALSE`],
+      ['shift_type', `VARCHAR DEFAULT 'Ca 1'`],
       ['window_start', `VARCHAR DEFAULT ''`],
-      ['window_end',   `VARCHAR DEFAULT ''`],
+      ['window_end', `VARCHAR DEFAULT ''`],
       ['late_minutes', `INTEGER DEFAULT 0`],
       ['ot_threshold', `INTEGER DEFAULT 0`],
-      ['ot_calc',      `VARCHAR DEFAULT 'Tính từ giờ ra (công)'`],
+      ['ot_calc', `VARCHAR DEFAULT 'Tính từ giờ ra (công)'`],
     ];
     for (const [col, def] of newCols) {
       if (!names.includes(col)) {
@@ -224,8 +224,8 @@ async function initSchema(db: Database): Promise<void> {
       await conn.run(`ALTER TABLE leave_types ADD COLUMN day_type INTEGER DEFAULT -1`);
       // Seed giá trị mặc định theo code
       const seedMap: Record<string, number> = {
-        X:0, L:1, LP:1, PN:2, 'Ô':3, TS:4, DS:5, O:6, NL:7, OF:8, P:9,
-        'X/2':10, LL:11, LN:12, H:13, B:14,
+        X: 0, L: 1, LP: 1, PN: 2, 'Ô': 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9,
+        'X/2': 10, LL: 11, LN: 12, H: 13, B: 14,
       };
       for (const [code, dt] of Object.entries(seedMap)) {
         await conn.run(`UPDATE leave_types SET day_type = ? WHERE code = ?`, dt, code);
@@ -340,16 +340,16 @@ async function initSchema(db: Database): Promise<void> {
     );
     const names = eCols.map(c => c.column_name);
     const empNewCols: [string, string][] = [
-      ['month_id',                          `VARCHAR DEFAULT '${DEFAULT_MONTH_ID}'`],
-      ['ma_pb',                             `VARCHAR DEFAULT ''`],
-      ['group_code_end_date',               `VARCHAR DEFAULT ''`],
-      ['department_id',                     `VARCHAR DEFAULT ''`],
-      ['ngay_nghi_cuoi_thang_truoc',        `VARCHAR DEFAULT ''`],
-      ['so_ngay_lam_cuoi_thang_truoc',      `INTEGER DEFAULT 0`],
-      ['workdays',                          `VARCHAR DEFAULT ''`],
-      ['overtime_hours',                    `VARCHAR DEFAULT ''`],
-      ['late_minutes',                      `VARCHAR DEFAULT ''`],
-      ['phep_nam',                          `VARCHAR DEFAULT ''`],
+      ['month_id', `VARCHAR DEFAULT '${DEFAULT_MONTH_ID}'`],
+      ['ma_pb', `VARCHAR DEFAULT ''`],
+      ['group_code_end_date', `VARCHAR DEFAULT ''`],
+      ['department_id', `VARCHAR DEFAULT ''`],
+      ['ngay_nghi_cuoi_thang_truoc', `VARCHAR DEFAULT ''`],
+      ['so_ngay_lam_cuoi_thang_truoc', `INTEGER DEFAULT 0`],
+      ['workdays', `VARCHAR DEFAULT ''`],
+      ['overtime_hours', `VARCHAR DEFAULT ''`],
+      ['late_minutes', `VARCHAR DEFAULT ''`],
+      ['phep_nam', `VARCHAR DEFAULT ''`],
     ];
     for (const [col, def] of empNewCols) {
       if (!names.includes(col)) {
@@ -540,7 +540,7 @@ async function seedIfEmpty(conn: Connection): Promise<void> {
       ('4',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Lịch nghỉ phép phải liên tiếp',   '',                             NULL, 'Cuối kỳ nghỉ',                              '', 'Ngày nghỉ phép phải đứng liền nhau',                TRUE, '${now}'),
       ('5',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Cân bằng nhân lực theo ca',       '',                             NULL, 'Chênh lệch ≤ 1 NV/ca/ngày',                 '', 'Số NV/ca không được chênh lệch quá mức quy định',   TRUE, '${now}'),
       ('6',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Thời gian đi trễ cho phép',       '',                             NULL, '9 phút/ngày',                               '', 'Số phút đi trễ tối đa được bỏ qua',                 TRUE, '${now}'),
-      ('7',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Giờ tăng ca tối đa',              '',                             NULL, '60 phút/ngày',                              '', 'Số phút OT tối đa được tính mỗi ngày',              TRUE, '${now}'),
+      ('7',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Giờ tăng ca tối đa',              '',                             NULL, '60 phút/ngày',                              '', 'Số phút Tăng ca tối đa được tính mỗi ngày',              TRUE, '${now}'),
       ('8',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Sai lệch giờ ra cho phép',        '',                             NULL, 'Chênh lệch ≤ 30 phút/ngày',                 '', 'Giờ ra có thể lệch tối đa so với giờ chuẩn',        TRUE, '${now}'),
       ('9',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Khoảng cách ca tối thiểu',        '',                             NULL, '12 giờ',                                    '', 'Thời gian nghỉ tối thiểu giữa 2 ca',                TRUE, '${now}'),
       ('wk1', '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Giới hạn ngày làm liên tục',      'max_consecutive_days',         6,    '6 ngày',                                    'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ. Dùng để kiểm tra constraint backtracking.', '', TRUE, '${now}'),

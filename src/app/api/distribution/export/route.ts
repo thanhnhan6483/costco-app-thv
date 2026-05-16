@@ -161,9 +161,9 @@ export async function GET(req: NextRequest) {
       const data3 = empArr3.map((r, idx) => {
         const dayVals = days.map(d => String(r[`d${d}`] ?? ''));
         return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
-          dayVals.filter(v => v === 'C1').length,
-          dayVals.filter(v => v === 'C2').length,
-          dayVals.filter(v => v === 'C').length,
+        dayVals.filter(v => v === 'C1').length,
+        dayVals.filter(v => v === 'C2').length,
+        dayVals.filter(v => v === 'C').length,
         ];
       });
 
@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
       });
 
     } else if (step === 4) {
-      // Bước 4: OT & Đi trễ — theo mẫu Bước 2
+      // Bước 4: Tăng ca/Đi trễ — theo mẫu Bước 2
       sheetName = 'OT_DiTre';
       fileName = `buoc4_ot_tre_${today}.xlsx`;
       const rows4 = await conn.all(
@@ -243,8 +243,8 @@ export async function GET(req: NextRequest) {
         const totalOt = Number(r.totalOt);
         const totalLate = Number(r.totalLate);
         return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
-          totalOt > 0 ? totalOt : '',
-          totalLate > 0 ? totalLate : '',
+        totalOt > 0 ? totalOt : '',
+        totalLate > 0 ? totalLate : '',
         ];
       });
 

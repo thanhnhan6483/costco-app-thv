@@ -1,22 +1,22 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function (o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
     if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
+        desc = { enumerable: true, get: function () { return m[k]; } };
     }
     Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
+}) : (function (o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function (o, v) {
     Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
+}) : function (o, v) {
     o["default"] = v;
 });
 var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
+    var ownKeys = function (o) {
         ownKeys = Object.getOwnPropertyNames || function (o) {
             var ar = [];
             for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
@@ -112,9 +112,9 @@ async function GET(req) {
                 // fromDate dạng DD/MM/YYYY
                 const [dd, mm, yyyy] = monthRow.fromDate.split('/').map(Number);
                 dowRow = ['', '', '', '', ...days.map(d => {
-                        const date = new Date(yyyy, mm - 1, d);
-                        return date.getMonth() === mm - 1 ? DOW_VN[date.getDay()] : '';
-                    }), '', '', '', ''];
+                    const date = new Date(yyyy, mm - 1, d);
+                    return date.getMonth() === mm - 1 ? DOW_VN[date.getDay()] : '';
+                }), '', '', '', ''];
             }
             header = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)),
                 'NGÀY CÔNG', 'LP', 'PN', 'NGHỈ THÁNG TRƯỚC'];
@@ -173,18 +173,18 @@ async function GET(req) {
             if (monthRow3?.fromDate) {
                 const [dd3, mm3, yyyy3] = monthRow3.fromDate.split('/').map(Number);
                 dowRow3 = ['', '', '', '', ...days.map(d => {
-                        const date = new Date(yyyy3, mm3 - 1, d);
-                        return date.getMonth() === mm3 - 1 ? DOW_VN3[date.getDay()] : '';
-                    }), '', '', ''];
+                    const date = new Date(yyyy3, mm3 - 1, d);
+                    return date.getMonth() === mm3 - 1 ? DOW_VN3[date.getDay()] : '';
+                }), '', '', ''];
             }
             const header3 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'Ca 1', 'Ca 2', 'C'];
             const empArr3 = Array.from(empMap3.values());
             const data3 = empArr3.map((r, idx) => {
                 const dayVals = days.map(d => String(r[`d${d}`] ?? ''));
                 return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
-                    dayVals.filter(v => v === 'Ca 1').length,
-                    dayVals.filter(v => v === 'Ca 2').length,
-                    dayVals.filter(v => v === 'C').length,
+                dayVals.filter(v => v === 'Ca 1').length,
+                dayVals.filter(v => v === 'Ca 2').length,
+                dayVals.filter(v => v === 'C').length,
                 ];
             });
             const ws3 = XLSX.utils.aoa_to_sheet([header3, dowRow3, ...data3]);
@@ -209,7 +209,7 @@ async function GET(req) {
             });
         }
         else if (step === 4) {
-            // Bước 4: OT & Đi trễ — theo mẫu Bước 2
+            // Bước 4: Tăng ca/Đi trễ — theo mẫu Bước 2
             sheetName = 'OT_DiTre';
             fileName = `buoc4_ot_tre_${today}.xlsx`;
             const rows4 = await conn.all(`SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.ot_hours, dr.late_mins
@@ -238,9 +238,9 @@ async function GET(req) {
             if (monthRow4?.fromDate) {
                 const [, mm4, yyyy4] = monthRow4.fromDate.split('/').map(Number);
                 dowRow4 = ['', '', '', '', ...days.map(d => {
-                        const date = new Date(yyyy4, mm4 - 1, d);
-                        return date.getMonth() === mm4 - 1 ? DOW_VN4[date.getDay()] : '';
-                    }), '', ''];
+                    const date = new Date(yyyy4, mm4 - 1, d);
+                    return date.getMonth() === mm4 - 1 ? DOW_VN4[date.getDay()] : '';
+                }), '', ''];
             }
             const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ(PH)'];
             const empArr4 = Array.from(empMap4.values());
@@ -263,8 +263,8 @@ async function GET(req) {
                 const totalOt = Number(r.totalOt);
                 const totalLate = Number(r.totalLate);
                 return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
-                    totalOt > 0 ? totalOt : '',
-                    totalLate > 0 ? totalLate : '',
+                totalOt > 0 ? totalOt : '',
+                totalLate > 0 ? totalLate : '',
                 ];
             });
             const ws4 = XLSX.utils.aoa_to_sheet([header4, dowRow4, ...data4]);
@@ -327,10 +327,10 @@ async function GET(req) {
             if (monthRow5?.fromDate) {
                 const [, mm5, yyyy5] = monthRow5.fromDate.split('/').map(Number);
                 dowRow5 = ['', '', '', '', ...days.flatMap(d => {
-                        const date = new Date(yyyy5, mm5 - 1, d);
-                        const dow = date.getMonth() === mm5 - 1 ? DOW_VN5[date.getDay()] : '';
-                        return Array(cols).fill(dow);
-                    })];
+                    const date = new Date(yyyy5, mm5 - 1, d);
+                    const dow = date.getMonth() === mm5 - 1 ? DOW_VN5[date.getDay()] : '';
+                    return Array(cols).fill(dow);
+                })];
             }
             else {
                 dowRow5 = ['', '', '', '', ...Array(daysInMonth * cols).fill('')];

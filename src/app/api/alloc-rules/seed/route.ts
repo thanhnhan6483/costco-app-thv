@@ -3,15 +3,15 @@ import { getConn } from '@/lib/db';
 export const runtime = 'nodejs';
 
 const RULES = [
-  { id: '1', name: 'Giới hạn ngày làm liên tục',       defaultParam: '6 ngày',                                   description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
-  { id: '2', name: 'Khoảng cách ngày nghỉ liên tháng', defaultParam: '≤ 6 ngày',                                 description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
-  { id: '3', name: 'Phân bổ ngày nghỉ đồng đều',       defaultParam: 'Áp dụng cho mọi phòng ban trừ Ban Giám đốc', description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
-  { id: '4', name: 'Vị trí phép năm (PN)',              defaultParam: 'Cuối kỳ nghỉ',                             description: 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi. Nếu nhiều chuỗi bằng nhau thì ưu tiên chuỗi gần cuối tháng hơn.' },
-  { id: '5', name: 'Phân bổ ca cân bằng',               defaultParam: 'Chênh lệch ≤ 1 NV/ca/ngày',               description: 'Số lượng nhân viên giữa các ca trong cùng phòng ban phải gần bằng nhau mỗi ngày.' },
-  { id: '6', name: 'Đi trễ tối đa/ngày',                defaultParam: '9 phút/ngày',                              description: 'Không có ngày nào có số phút trễ > 9 phút.' },
-  { id: '7', name: 'Tăng ca tối thiểu/ngày',            defaultParam: '60 phút/ngày',                             description: 'Nếu có tăng ca, số phút OT trong ngày phải ≥ 60 phút.' },
-  { id: '8', name: 'OT cân bằng trong phòng ban',       defaultParam: 'Chênh lệch ≤ 30 phút/ngày',               description: 'Nhân viên cùng phòng ban có số giờ OT trong cùng ngày gần bằng nhau.' },
-  { id: '9', name: 'OT tối đa giữa hai ngày nghỉ tour', defaultParam: '12 giờ',                                   description: 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt 12 tiếng.' },
+  { id: '1', name: 'Giới hạn ngày làm liên tục', defaultParam: '6 ngày', description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
+  { id: '2', name: 'Khoảng cách ngày nghỉ liên tháng', defaultParam: '≤ 6 ngày', description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
+  { id: '3', name: 'Phân bổ ngày nghỉ đồng đều', defaultParam: 'Áp dụng cho mọi phòng ban trừ Ban Giám đốc', description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
+  { id: '4', name: 'Vị trí phép năm (PN)', defaultParam: 'Cuối kỳ nghỉ', description: 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi. Nếu nhiều chuỗi bằng nhau thì ưu tiên chuỗi gần cuối tháng hơn.' },
+  { id: '5', name: 'Phân bổ ca cân bằng', defaultParam: 'Chênh lệch ≤ 1 NV/ca/ngày', description: 'Số lượng nhân viên giữa các ca trong cùng phòng ban phải gần bằng nhau mỗi ngày.' },
+  { id: '6', name: 'Đi trễ tối đa/ngày', defaultParam: '9 phút/ngày', description: 'Không có ngày nào có số phút trễ > 9 phút.' },
+  { id: '7', name: 'Tăng ca tối thiểu/ngày', defaultParam: '60 phút/ngày', description: 'Nếu có tăng ca, số phút OT trong ngày phải ≥ 60 phút.' },
+  { id: '8', name: 'OT cân bằng trong phòng ban', defaultParam: 'Chênh lệch ≤ 30 phút/ngày', description: 'Nhân viên cùng phòng ban có số giờ OT trong cùng ngày gần bằng nhau.' },
+  { id: '9', name: 'Tăng ca tối đa giữa hai ngày nghỉ tour', defaultParam: '12 giờ', description: 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt 12 tiếng.' },
 ];
 
 /* GET /api/alloc-rules/seed — xóa và seed lại 9 quy tắc mặc định với UTF-8 chuẩn */

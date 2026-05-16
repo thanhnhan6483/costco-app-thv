@@ -6,12 +6,13 @@ import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
 /* ── Reusable inline filter row for grids ── */
-function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0 }: {
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0, children }: {
   fCode: string; fName: string; fDept: string;
   setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
   deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
   codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties; monthLabel?: string;
   fGroup?: string; setFGroup?: (v: string) => void; groupList?: string[]; extraMiddle?: number;
+  children?: React.ReactNode;
 }) {
   return (
     <tr className={styles.filterRow}>
@@ -21,8 +22,9 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
       <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
       {groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
       {Array.from({ length: extraMiddle }, (_, i) => <th key={'m' + i} />)}
-      {monthLabel ? (() => { const [mm,yyyy] = monthLabel.split('/'); return Array.from({ length: daysCols }, (_, di) => { const dow = new Date(parseInt(yyyy,10), parseInt(mm,10)-1, di+1).getDay(); const isSun=dow===0,isSat=dow===6; return <th key={'d'+di} style={{ fontSize:'0.6rem', fontWeight:600, textAlign:'center', color: isSun?'#dc2626':isSat?'#2563eb':'#64748b' }}>{DOW_SHORT[dow]}</th>; }); })() : Array.from({ length: daysCols }, (_, i) => <th key={'d'+i} />)}
+      {monthLabel ? (() => { const [mm, yyyy] = monthLabel.split('/'); return Array.from({ length: daysCols }, (_, di) => { const dow = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, di + 1).getDay(); const isSun = dow === 0, isSat = dow === 6; return <th key={'d' + di} style={{ fontSize: '0.6rem', fontWeight: 600, textAlign: 'center', color: isSun ? '#dc2626' : isSat ? '#2563eb' : '#64748b' }}>{DOW_SHORT[dow]}</th>; }); })() : Array.from({ length: daysCols }, (_, i) => <th key={'d' + i} />)}
       {Array.from({ length: extraAfter }, (_, i) => <th key={`a${i}`} />)}
+      {children}
     </tr>
   );
 }
@@ -43,17 +45,54 @@ function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: st
   }), [rows, fCode, fName, fDept, fGroup]);
 }
 
+function useStatList(rows: Record<string, unknown>[], key: string) {
+  return useMemo(() => [...new Set((rows as any[]).map(r => String(r[key] ?? '')).filter(v => v && v !== '0'))].sort((a, b) => Number(a) - Number(b)), [rows, key]);
+}
+function StatFilterTh({ list, value, onChange }: { list: string[]; value: string; onChange: (v: string) => void }) {
+  return <th><select className={s.statusFilterSelect} value={value} onChange={e => onChange(e.target.value)}><option value="">Tất cả</option>{list.map(v => <option key={v} value={v}>{v}</option>)}</select></th>;
+}
+
+type SortState = { key: string; dir: 'asc' | 'desc' } | null;
+function SortTh({ label, sortKey, sort, onSort, style }: { label: React.ReactNode; sortKey: string; sort: SortState; onSort: (k: string) => void; style?: React.CSSProperties }) {
+  const active = sort?.key === sortKey;
+  return (
+    <th onClick={() => onSort(sortKey)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...style }}>
+      {label}
+      <span style={{ marginLeft: 3, fontSize: 9, opacity: active ? 1 : 0.3, color: active ? '#2563eb' : 'inherit', verticalAlign: 'middle' }}>
+        {active ? (sort!.dir === 'asc' ? '▲' : '▼') : '⇅'}
+      </span>
+    </th>
+  );
+}
+function useSortRows(rows: any[], sort: SortState) {
+  return useMemo(() => {
+    if (!sort) return rows;
+    return [...rows].sort((a, b) => {
+      const va = String(a[sort.key] ?? ''); const vb = String(b[sort.key] ?? '');
+      const cmp = va.localeCompare(vb, 'vi', { numeric: true });
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [rows, sort]);
+}
+function useSort(): [SortState, (key: string) => void] {
+  const [sort, setSort] = useState<SortState>(null);
+  const onSort = useCallback((key: string) => {
+    setSort(prev => prev?.key === key ? (prev.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' });
+  }, []);
+  return [sort, onSort];
+}
+
 const IconPlay = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z" /></svg>;
 const IconCheck = () => <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>;
 const IconDl = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" /></svg>;
 
 const STEPS = [
-  { num: 1, apiNum: 2, key: 'step2Done', label: 'Xem dữ liệu', icon: '📋', editable: false, viewOnly: false },
-  { num: 2, apiNum: 1, key: 'step1Done', label: 'Phân bổ ngày công', icon: '📊', editable: false, viewOnly: false },
-  { num: 3, apiNum: 4, key: 'step4Done', label: 'Chia ca', icon: '🗓️', editable: false, viewOnly: false },
-  { num: 4, apiNum: 5, key: 'step5Done', label: 'OT & Đi trễ', icon: '⏱️', editable: false, viewOnly: false },
-  { num: 5, apiNum: 6, key: 'step6Done', label: 'Giờ vào/ra', icon: '🕐', editable: false, viewOnly: false },
-  { num: 6, apiNum: 7, key: 'step6Done', label: 'Kết quả', icon: '📈', editable: false, viewOnly: true },
+  { num: 1, apiNum: 1, key: 'step1Done', label: 'Xem dữ liệu', icon: '📋', editable: false, viewOnly: false },
+  { num: 2, apiNum: 2, key: 'step2Done', label: 'Phân bổ ngày công', icon: '📊', editable: false, viewOnly: false },
+  { num: 3, apiNum: 3, key: 'step3Done', label: 'Chia ca', icon: '🗓️', editable: false, viewOnly: false },
+  { num: 4, apiNum: 4, key: 'step4Done', label: 'Tăng ca/Đi trễ', icon: '⏱️', editable: false, viewOnly: false },
+  { num: 5, apiNum: 5, key: 'step5Done', label: 'Giờ vào/ra', icon: '🕐', editable: false, viewOnly: false },
+  { num: 6, apiNum: 6, key: 'step6Done', label: 'Kết quả', icon: '📈', editable: false, viewOnly: true },
 ];
 
 const DAY_TYPE_COLOR: Record<number, string> = {
@@ -135,7 +174,8 @@ export default function AutoAlloc() {
     refreshStatus();
     refreshLocked();
     setStepData({}); setStepCache({}); setPageNum({});
-  }, [activeMonthId, refreshStatus, refreshLocked]);
+    setTimeout(() => loadStepData(activeStep, 1, undefined, true), 0);
+  }, [activeMonthId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setValidateOpen(false);
@@ -163,9 +203,9 @@ export default function AutoAlloc() {
     }
     const step = STEPS.find(s => s.num === displayStep);
     if (!step) return;
-    // Bước 2 chưa chạy phân bổ → dùng dữ liệu gốc từ step/2 (employees)
-    // force=true sau khi chạy xong → luôn dùng step.apiNum (step/1)
-    const apiNum = (displayStep === 2 && !status['step1Done'] && !force) ? 2 : step.apiNum;
+    // Bước 2 chưa chạy phân bổ → dùng dữ liệu gốc từ step/1 (employees)
+    // force=true sau khi chạy xong → luôn dùng step.apiNum (step/2)
+    const apiNum = (displayStep === 2 && !status['step2Done'] && !force) ? 1 : step.apiNum;
     const r = await fetch(`/api/distribution/step/${apiNum}?month=${activeMonthId}&page=${page}&limit=${limit}`);
     if (r.ok) {
       const json: StepPage = await r.json();
@@ -185,16 +225,14 @@ export default function AutoAlloc() {
     const step = STEPS.find(s => s.num === displayStep);
     if (!step || step.viewOnly) return;
     const { apiNum } = step;
-    if (apiNum === 2) {
+    if (apiNum === 1) {
       await fetch(`/api/distribution/step/${apiNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId }) });
       setValidateOpen(false);
       setValidate2Status({ loading: false, result: null });
       await refreshStatus();
-      // Chuyển sang Bước 2 và load dữ liệu
-      setActiveStep(2);
-      setStepCache(prev => { const n = { ...prev }; delete n[2]; return n; });
-      setStepData(prev => { const n = { ...prev }; delete n[2]; return n; });
-      await loadStepData(2, 1, undefined, true);
+      setStepCache(prev => { const n = { ...prev }; delete n[1]; return n; });
+      setStepData(prev => { const n = { ...prev }; delete n[1]; return n; });
+      await loadStepData(1, 1, undefined, true);
       return;
     }
     setRunning(displayStep);
@@ -250,14 +288,21 @@ export default function AutoAlloc() {
     const t0 = Date.now();
     const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
     try {
-      await fetch('/api/distribution/step/1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, algo }) });
+      await fetch('/api/distribution/step/2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, algo }) });
+      const elapsedSec = Math.round((Date.now() - t0) / 1000);
       clearInterval(timer); setAlgoRunning(null); setElapsed(0);
       await fetch('/api/distribution/invalidate-after', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, afterDisplayStep: 2 }) });
       const laterSteps = STEPS.filter(s => s.num > 2 && !s.viewOnly).map(s => s.num);
       setStepCache(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); delete n[2]; return n; });
       setStepData(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); delete n[2]; return n; });
-      await refreshStatus();
-      await loadStepData(2, 1, undefined, true);
+      setCompletionInfo({
+        stepNum: 2, stepLabel: 'Phân bổ ngày công', stepIcon: '📊', elapsedSec,
+        onConfirm: async () => {
+          setCompletionInfo(null);
+          await refreshStatus();
+          await loadStepData(2, 1, undefined, true);
+        },
+      });
     } catch (e) { clearInterval(timer); setAlgoRunning(null); setElapsed(0); throw e; }
   }, [activeMonthId, refreshStatus, loadStepData]);
   const isRunning = running !== null || algoRunning !== null;
@@ -286,17 +331,17 @@ export default function AutoAlloc() {
         <div className={styles.stepperSpacer} />
         <div className={styles.stepperRunWrap}>
           {!curStep?.viewOnly && (
-          <button
-            className={`${styles.btnRunStep} ${(running === activeStep || algoRunning !== null) ? styles.btnRunning : ''}`}
-            onClick={() => activeStep === 2 ? runStep2WithAlgo('greedy') : runStep(activeStep)}
-            disabled={isRunning || locked}
-            id={`btn-run-step-${activeStep}`}
-          >
-            {(running === activeStep || (activeStep === 2 && algoRunning !== null))
-              ? <><span className={styles.spinnerSm} /> {elapsed}s</>
-              : curStep?.apiNum === 2 ? <><IconCheck /> Xác nhận</>
-                : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
-          </button>
+            <button
+              className={`${styles.btnRunStep} ${(running === activeStep || algoRunning !== null) ? styles.btnRunning : ''}`}
+              onClick={() => activeStep === 2 ? runStep2WithAlgo('greedy') : runStep(activeStep)}
+              disabled={isRunning || locked}
+              id={`btn-run-step-${activeStep}`}
+            >
+              {(running === activeStep || (activeStep === 2 && algoRunning !== null))
+                ? <><span className={styles.spinnerSm} /> {elapsed}s</>
+                : curStep?.apiNum === 1 ? <><IconCheck /> Xác nhận</>
+                  : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
+            </button>
           )}
           {activeStep === 2 && !curStep?.viewOnly && (
             <>
@@ -346,12 +391,7 @@ export default function AutoAlloc() {
         <div className={styles.panelHeader}>
           <span className={styles.panelTitle}>{curStep?.icon} Bước {activeStep}: {curStep?.label}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-            {activeStep === 5 && (
-              <button onClick={() => setShowCa(v => !v)} className={styles.btnExport} style={{ minWidth: 110, justifyContent: 'center', background: showCa ? '#1d4ed8' : '#eff6ff', color: showCa ? '#fff' : '#1d4ed8', borderColor: '#93c5fd' }}>
-                {showCa ? 'Ẩn Ca' : 'Hiện Ca'}
-              </button>
-            )}
-            {[2,3,4,5].includes(activeStep) && (() => {
+            {[2, 3, 4, 5].includes(activeStep) && curStep && status[curStep.key] && (() => {
               const { loading, result } = validate2Status;
               const doRun = () => { setValidateOpen(true); validateRef.current?.run(); };
               if (loading) return <button className={styles.btnExport} disabled style={{ minWidth: 130, justifyContent: 'center' }}>⏳ Đang kiểm tra...</button>;
@@ -383,9 +423,14 @@ export default function AutoAlloc() {
               <IconDl /> Tải Excel
             </a>
             {activeStep === 5 && (
-              <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=5&withShift=1` : '#'} className={styles.btnExport} download id="btn-export-step-5-ca" style={{ minWidth: 110, justifyContent: 'center' }}>
-                <IconDl /> Tải Excel có Ca
-              </a>
+              <>
+                <button onClick={() => setShowCa(v => !v)} className={styles.btnExport} style={{ minWidth: 110, justifyContent: 'center', background: showCa ? '#1d4ed8' : '#eff6ff', color: showCa ? '#fff' : '#1d4ed8', borderColor: '#93c5fd' }}>
+                  {showCa ? 'Ẩn Ca' : 'Hiện Ca'}
+                </button>
+                <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=5&withShift=1` : '#'} className={styles.btnExport} download id="btn-export-step-5-ca" style={{ minWidth: 110, justifyContent: 'center' }}>
+                  <IconDl /> Tải Excel có Ca
+                </a>
+              </>
             )}
           </div>
           {stepData[activeStep] && (
@@ -499,28 +544,39 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [fGroup, setFGroup] = useState('');
-  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a,b) => a.localeCompare(b,'vi')); }, [rows]);
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+  const [fWorkdays, setFWorkdays] = useState('');
+  const [fOT, setFOT] = useState('');
+  const [fLate, setFLate] = useState('');
+  const [fPN, setFPN] = useState('');
+  const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')) * 100) / 100; return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')) * 100) / 100; return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
-    if (!step1Filter) return baseFiltered;
-    return (baseFiltered as any[]).filter(r => {
+    let result = baseFiltered as any[];
+    if (fWorkdays) result = result.filter(r => String(r.workdays ?? '') === fWorkdays);
+    if (fOT) result = result.filter(r => String(Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')) * 100) / 100) === fOT);
+    if (fLate) result = result.filter(r => String(Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')) * 100) / 100) === fLate);
+    if (fPN) result = result.filter(r => String(r.phepNam ?? '') === fPN);
+    if (!step1Filter) return result;
+    return result.filter(r => {
       const days: { day: number; symbol: string }[] = r.days ?? [];
       const pnDays = days.filter(d => d.symbol === 'PN').map(d => d.day);
       if (step1Filter === 'pn_before_15') return pnDays.some(d => d < 15);
-      if (step1Filter === 'pn_mismatch') {
-        const pnCount = pnDays.length;
-        const colPN = Number(r.phepNam) || 0;
-        return pnCount !== colPN;
-      }
+      if (step1Filter === 'pn_mismatch') { const pnCount = pnDays.length; const colPN = Number(r.phepNam) || 0; return pnCount !== colPN; }
       return true;
     });
-  }, [baseFiltered, step1Filter]);
+  }, [baseFiltered, fWorkdays, fOT, fLate, fPN, step1Filter]);
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
-    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string; dayType:number}[]) => {
+    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: { code: string; name: string; dayType: number }[]) => {
       setLeaveTypes(Array.isArray(data) ? data : []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [monthId]);
+  const [sort, onSort] = useSort();
+  const sortedRows = useSortRows(filtered, sort);
   return (
     <div className={styles.tableOuter}>
       {step1Filter && (
@@ -533,20 +589,25 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
-              <th style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }}>NHÓM ĐẶC THÙ</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 40, color: '#15803d' }}>NGÀY CÔNG</th>
+              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 40, color: '#15803d' }} />
               <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
               <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+              <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+            </InlineFilterRow>
           </thead>
           <tbody>
-            {filtered.map((r: any, ri: number) => {
+            {sortedRows.map((r: any, ri: number) => {
               const days: { day: number; symbol: string }[] = r.days ?? [];
               return (
                 <tr key={r.code}>
@@ -571,8 +632,8 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
                     );
                   })}
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',','.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',','.')).toFixed(2)}h</span> : '—'}</td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',','.')) > 0 ? <span className={styles.lateTag}>{parseFloat(String(r.lateMinutes).replace(',','.')).toFixed(2)}</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',', '.')).toFixed(2)}h</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{parseFloat(String(r.lateMinutes).replace(',', '.')).toFixed(2)}</span> : '—'}</td>
                   <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r.phepNam || '—'}</td>
                 </tr>
               );
@@ -581,24 +642,33 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
         </table>
       </div>
       <div className={styles.legend}>
-        {(Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
-          const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
-          if (dt < 0) return null;
-          const sym = DT_SYMBOL[dt] ?? lt.code;
-          return (
-            <span key={lt.code} className={styles.legendItem}>
-              <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[dt], color: DT_TEXT[dt], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[dt]}30` }}>{sym}</span>
-              {lt.name}
-            </span>
-          );
-        })}
+        {(() => {
+          const usedDTs = new Set<number>();
+          for (const r of rows as any[]) {
+            for (const d of (r.days ?? []) as { day: number; symbol: string }[]) {
+              const dt = SYM_TO_DT[d.symbol ?? ''] ?? -1;
+              if (dt >= 0) usedDTs.add(dt);
+            }
+          }
+          return (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
+            const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+            if (dt < 0 || !usedDTs.has(dt)) return null;
+            const sym = DT_SYMBOL[dt] ?? lt.code;
+            return (
+              <span key={lt.code} className={styles.legendItem}>
+                <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[dt], color: DT_TEXT[dt], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[dt]}30` }}>{sym}</span>
+                {lt.name}
+              </span>
+            );
+          });
+        })()}
       </div>
     </div>
   );
 }
 
 /* === DayTypePicker (dropdown chọn loại ngày) === */
-const SYM_TO_DT: Record<string, number> = { X:0, L:1, LP:1, PN:2, Ô:3, TS:4, DS:5, O:6, NL:7, OF:8, P:9, 'X/2':10, LL:11, LN:12, H:13, B:14 };
+const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
@@ -606,20 +676,21 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   leaveTypes: { code: string; name: string; dayType: number }[];
 }) {
   const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
-  const top  = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
+  const top = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
   return (
     <>
       <div className={styles.dayPickerOverlay} onClick={onClose} />
       <div className={styles.dayPicker} style={{ left, top }}>
         {(Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
-          const dt = lt.dayType >= 0 ? lt.dayType : undefined;
-          const sym = (dt != null ? (DT_SYMBOL[dt] ?? lt.code) : lt.code);
-          const isActive = dt != null && dt === currentDT;
+          const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+          if (dt < 0) return null;
+          const sym = DT_SYMBOL[dt] ?? lt.code;
+          const isActive = dt === currentDT;
           return (
             <button key={lt.code}
               className={`${styles.dayPickerBtn} ${isActive ? styles.dayPickerBtnActive : ''}`}
-              style={{ color: dt != null ? (DT_TEXT[dt] ?? '#666') : '#374151', background: dt != null ? (DT_CELL_BG[dt] ?? '#fff') : '#f9fafb' }}
-              onClick={() => { if (dt != null) onPick(dt); }}
+              style={{ color: DT_TEXT[dt] ?? '#374151', background: DT_CELL_BG[dt] ?? '#f9fafb' }}
+              onClick={() => onPick(dt)}
               type="button"
             >
               <span>{sym}</span>
@@ -654,14 +725,24 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
 
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
-    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string; dayType:number}[]) => {
+    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: { code: string; name: string; dayType: number }[]) => {
       setLeaveTypes(Array.isArray(data) ? data : []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [monthId]);
 
   const deptList = useDeptList(rows);
+  const [sort, onSort] = useSort();
+  const [fWorkdays, setFWorkdays] = useState('');
+  const [fPN, setFPN] = useState('');
+  const workdaysList = useStatList(rows, 'workdays');
+  const pnList = useStatList(rows, 'phepNam');
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
-  const filtered = filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered;
+  const filtered = useMemo(() => {
+    let r = filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered;
+    if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
+    if (fPN) r = r.filter((x: any) => String(x.phepNam ?? '') === fPN);
+    return r;
+  }, [baseFiltered, filterCodes, fWorkdays, fPN]);
   const hasViolations = (filterCodes?.size ?? 0) > 0;
 
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
@@ -672,15 +753,15 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
   const handleDrop = (toCode: string, toDay: number) => {
     if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) { setDragSrc(null); setDragOver(null); return; }
     const fromDT = getEffectiveDT(dragSrc.code, dragSrc.day, (() => { const d = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((x: any) => x.day === dragSrc.day); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })());
-    const toDT   = getEffectiveDT(toCode, toDay, (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })());
+    const toDT = getEffectiveDT(toCode, toDay, (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })());
     const origFrom = (() => { const d = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((x: any) => x.day === dragSrc.day); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })();
-    const origTo   = (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })();
+    const origTo = (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })();
     setEdits(prev => {
       const next = new Map(prev);
       const kFrom: EditKey = `${dragSrc.code}_${dragSrc.day}`;
-      const kTo: EditKey   = `${toCode}_${toDay}`;
+      const kTo: EditKey = `${toCode}_${toDay}`;
       toDT === origFrom ? next.delete(kFrom) : next.set(kFrom, toDT);
-      fromDT === origTo  ? next.delete(kTo)   : next.set(kTo, fromDT);
+      fromDT === origTo ? next.delete(kTo) : next.set(kTo, fromDT);
       return next;
     });
     setDragSrc(null); setDragOver(null);
@@ -708,7 +789,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
     setSaving(true);
     try {
       const changes = Array.from(edits.entries()).map(([key, dayType]) => {
-        const [empCode, dayStr] = key.split('_');
+        const lastUnderscore = key.lastIndexOf('_');
+        const empCode = key.slice(0, lastUnderscore);
+        const dayStr = key.slice(lastUnderscore + 1);
         return { empCode, day: Number(dayStr), dayType };
       });
       const r = await fetch('/api/distribution/edit-day', {
@@ -740,19 +823,23 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 60, color: '#15803d' }}>NGÀY CÔNG</th>
-              <th style={{ minWidth: 36, color: '#7c3aed' }}>PHÉP NĂM</th>
+              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
+              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
               <th style={{ minWidth: 80, color: '#0369a1' }}>NGHỈ THÁNG TRƯỚC</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+              <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
+              <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
+              <th /><th /><th />
+            </InlineFilterRow>
           </thead>
-          <tbody>{filtered.map((r: any, ri) => {
+          <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
@@ -863,6 +950,7 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
+  const [sort, onSort] = useSort();
   const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
@@ -871,9 +959,9 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>
@@ -881,7 +969,7 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
-          <tbody>{filtered.map((r: any, ri) => {
+          <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
             const ca1Count = days.filter(d => d.shiftCode === 'C1').length;
             const ca2Count = days.filter(d => d.shiftCode === 'C2').length;
@@ -932,7 +1020,18 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
-  const filtered = useGridFilter(rows, fCode, fName, fDept);
+  const [sort, onSort] = useSort();
+  const [fOT, setFOT] = useState('');
+  const [fLate, setFLate] = useState('');
+  const otList = useStatList(rows, 'totalOT');
+  const lateList = useStatList(rows, 'totalLate');
+  const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
+  const filtered = useMemo(() => {
+    let r = baseFiltered as any[];
+    if (fOT) r = r.filter((x: any) => String(x.totalOT ?? '') === fOT);
+    if (fLate) r = r.filter((x: any) => String(x.totalLate ?? '') === fLate);
+    return r;
+  }, [baseFiltered, fOT, fLate]);
   return (
     <div className={styles.tableOuter}>
       <div className={styles.tableWrap}>
@@ -940,16 +1039,19 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 44, color: OT_CLR }}>TĂNG CA (H)</th>
-              <th style={{ minWidth: 50, color: LATE_CLR }}>TRỄ(PH)</th>
+              <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
+              <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={2} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+              <StatFilterTh list={otList} value={fOT} onChange={setFOT} />
+              <StatFilterTh list={lateList} value={fLate} onChange={setFLate} />
+            </InlineFilterRow>
           </thead>
-          <tbody>{filtered.map((r: any, ri) => {
+          <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
@@ -965,17 +1067,17 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
-                    label = <><span style={{ color: OT_CLR }}>{ot}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late}</span></>;
-                  } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot}h</>; }
-                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late}</>; }
+                    label = <><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late.toFixed(2)}</span></>;
+                  } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot.toFixed(2)}h</>; }
+                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(2)}</>; }
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: OT_CLR }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(1)}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: LATE_CLR }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{r.totalLate}ph</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: OT_CLR }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(2)}h</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: LATE_CLR }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Number(r.totalLate).toFixed(2)}</span> : '—'}</td>
               </tr>
             );
           })}</tbody>
@@ -993,6 +1095,7 @@ function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
+  const [sort, onSort] = useSort();
   const filtered = useGridFilter(rows, fCode, fName, fDept);
   return (
     <div className={styles.tableOuter}>
@@ -1001,14 +1104,14 @@ function TimeGrid({ rows, monthLabel, showCa }: { rows: Record<string, unknown>[
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
-          <tbody>{filtered.map((r: any, ri) => {
+          <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
             return (
               <tr key={r.code}>
@@ -1046,8 +1149,28 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [fGroup, setFGroup] = useState('');
-  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a,b) => a.localeCompare(b,'vi')); }, [rows]);
-  const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+  const [fWorkdays, setFWorkdays] = useState('');
+  const [fLP, setFLP] = useState('');
+  const [fPN2, setFPN2] = useState('');
+  const [fOT2, setFOT2] = useState('');
+  const [fLate2, setFLate2] = useState('');
+  const workdaysList2 = useStatList(rows, 'workdays');
+  const lpList2 = useStatList(rows, 'lpCount');
+  const pnList2 = useStatList(rows, 'pnCount');
+  const otList2 = useStatList(rows, 'totalOT');
+  const lateList2 = useStatList(rows, 'totalLate');
+  const baseFiltered2 = useGridFilter(rows, fCode, fName, fDept, fGroup);
+  const [sort, onSort] = useSort();
+  const filtered = useMemo(() => {
+    let r = baseFiltered2 as any[];
+    if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
+    if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
+    if (fPN2) r = r.filter((x: any) => String(x.pnCount ?? '') === fPN2);
+    if (fOT2) r = r.filter((x: any) => String(x.totalOT ?? '') === fOT2);
+    if (fLate2) r = r.filter((x: any) => String(x.totalLate ?? '') === fLate2);
+    return r;
+  }, [baseFiltered2, fWorkdays, fLP, fPN2, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
       <div className={styles.tableWrap}>
@@ -1055,37 +1178,43 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
           <thead>
             <tr>
               <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <th style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }}>MÃ NV</th>
-              <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
-              <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
-               <th style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }}>NHÓM ĐẶC THÙ</th>
-               <th style={{ minWidth: 70, color: '#92400e' }}>NGHỈ THÁNG TRƯỚC</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
+              <th style={{ minWidth: 70, color: '#92400e' }}>NGHỈ THÁNG TRƯỚC</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
-              <th style={{ minWidth: 44, color: '#15803d' }}>NGÀY CÔNG</th>
-              <th style={{ minWidth: 36, color: '#1d4ed8' }}>LP</th>
-              <th style={{ minWidth: 36, color: '#7c3aed' }}>PN</th>
-              <th style={{ minWidth: 50, color: '#1d4ed8' }}>TĂNG CA (H)</th>
-              <th style={{ minWidth: 44, color: '#c2410c' }}>TRỄ(PH)</th>
+              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
+              <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
+              <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
+              <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#1d4ed8' }} />
+              <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#c2410c' }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} extraMiddle={1} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} extraMiddle={1} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+              <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
+              <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />
+              <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
+              <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
+              <StatFilterTh list={lateList2} value={fLate2} onChange={setFLate2} />
+            </InlineFilterRow>
           </thead>
-          <tbody>{filtered.map((r: any, ri) => (
+          <tbody>{useSortRows(filtered, sort).map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
               <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
               <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
               <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
-               <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }}>{r.ngayNghiCuoiThangTruoc || '—'}</td>
-               {Array.from({ length: 31 }, (_, i) => {
-                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
-                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
-                 const dt = Number(d.dayType);
-                 const isWork = dt === 0;
-                 return <td key={i} style={{ background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }} title={(DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? '')}>
-                   {isWork ? <><span style={{ color: '#15803d', display: 'block', lineHeight: 1.2 }}>{d.checkIn}</span><span style={{ color: '#1d4ed8', display: 'block', lineHeight: 1.2 }}>{d.checkOut}</span></> : <span style={{ opacity: 0.85 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
-                 </td>;
-               })}
+              <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }}>{r.ngayNghiCuoiThangTruoc || '—'}</td>
+              {Array.from({ length: 31 }, (_, i) => {
+                const d = (r.days ?? []).find((x: any) => x.day === i + 1);
+                if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
+                const dt = Number(d.dayType);
+                const isWork = dt === 0;
+                return <td key={i} style={{ background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }} title={(DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? '')}>
+                  {isWork ? <><span style={{ color: '#15803d', display: 'block', lineHeight: 1.2 }}>{d.checkIn}</span><span style={{ color: '#1d4ed8', display: 'block', lineHeight: 1.2 }}>{d.checkOut}</span></> : <span style={{ opacity: 0.85 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
+                </td>;
+              })}
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
               <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
@@ -1106,180 +1235,242 @@ interface CheckResult { id: string; label: string; description: string; status: 
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
 const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (codes: Set<string> | null) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; }>(
-function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange }, ref) {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ValidateResult | null>(null);
-  const [fixing, setFixing] = useState(false);
-  const [fixingLp, setFixingLp] = useState(false);
-  const [fixingLpAfterPn, setFixingLpAfterPn] = useState(false);
-  const [fixingConsec, setFixingConsec] = useState(false);
-  const [fixingShift, setFixingShift] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
-  const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+  function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange }, ref) {
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<ValidateResult | null>(null);
+    const [fixing, setFixing] = useState(false);
+    const [fixingLp, setFixingLp] = useState(false);
+    const [fixingLpAfterPn, setFixingLpAfterPn] = useState(false);
+    const [fixingConsec, setFixingConsec] = useState(false);
+    const [fixingShift, setFixingShift] = useState(false);
+    const [fixingShiftAssigned, setFixingShiftAssigned] = useState(false);
+    const [fixingOtLate, setFixingOtLate] = useState(false);
+    const [fixingPnCount, setFixingPnCount] = useState(false);
+  const [fixingTime, setFixingTime] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+    const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
 
-  const run = useCallback(async () => {
-    setLoading(true); setError(null); onStatusChange?.({ loading: true, result: null });
-    try {
-      const r = await fetch(`/api/distribution/validate?month=${monthId}`);
-      if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      if (onlyIds?.length) {
-        data.results = (data.results as CheckResult[]).filter((c: CheckResult) => onlyIds.includes(c.id));
-        data.totalViolations = data.results.reduce((s: number, c: CheckResult) => s + c.violationCount, 0);
-        data.overallStatus = data.results.some((c: CheckResult) => c.status === 'error') ? 'error' : data.results.some((c: CheckResult) => c.status === 'warning') ? 'warning' : 'ok';
-      }
-      setResult(data);
-      onStatusChange?.({ loading: false, result: data });
-      onValidated?.();
-    } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
-  }, [monthId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const run = useCallback(async () => {
+      setLoading(true); setError(null); onStatusChange?.({ loading: true, result: null });
+      try {
+        const ids = onlyIds?.length ? `&ids=${onlyIds.join(',')}` : '';
+        const r = await fetch(`/api/distribution/validate?month=${monthId}${ids}`);
+        if (!r.ok) throw new Error(await r.text());
+        const data = await r.json();
+        setResult(data);
+        onStatusChange?.({ loading: false, result: data });
+        onValidated?.();
+      } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
+    }, [monthId, onlyIds?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useImperativeHandle(ref, () => ({ run }), [run]);
+    useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useImperativeHandle(ref, () => ({ run }), [run]);
 
-  const fixPn = async () => {
-    setFixing(true); setError(null);
-    try {
-      const r = await fetch('/api/distribution/fix-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-      if (!r.ok) throw new Error(await r.text());
-      setResult(null);
-      onFixed?.();
-    } catch (e) { setError(String(e)); } finally { setFixing(false); }
-  };
+    const fixPn = async () => {
+      setFixing(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixing(false); }
+    };
 
-  const fixConsec = async () => {
-    setFixingConsec(true); setError(null);
-    try {
-      const r = await fetch('/api/distribution/fix-consecutive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-      if (!r.ok) throw new Error(await r.text());
-      setResult(null);
-      onFixed?.();
-    } catch (e) { setError(String(e)); } finally { setFixingConsec(false); }
-  };
+    const fixConsec = async () => {
+      setFixingConsec(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-consecutive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingConsec(false); }
+    };
 
-  const fixLp = async () => {
-    setFixingLp(true); setError(null);
-    try {
-      const r = await fetch('/api/distribution/fix-lp-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-      if (!r.ok) throw new Error(await r.text());
-      setResult(null);
-      onFixed?.();
-    } catch (e) { setError(String(e)); } finally { setFixingLp(false); }
-  };
+    const fixLp = async () => {
+      setFixingLp(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-lp-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingLp(false); }
+    };
 
-  const fixShift = async () => {
-    setFixingShift(true); setError(null);
-    try {
-      const r = await fetch('/api/distribution/fix-shift-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-      if (!r.ok) throw new Error(await r.text());
-      setResult(null);
-      onFixed?.();
-    } catch (e) { setError(String(e)); } finally { setFixingShift(false); }
-  };
+    const fixShift = async () => {
+      setFixingShift(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-shift-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingShift(false); }
+    };
 
-  const fixLpAfterPn = async () => {    setFixingLpAfterPn(true); setError(null);
-    try {
-      const r = await fetch('/api/distribution/fix-lp-after-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-      if (!r.ok) throw new Error(await r.text());
-      onFixed?.();
-      await run();
-    } catch (e) { setError(String(e)); } finally { setFixingLpAfterPn(false); }
-  };
+    const fixShiftAssigned = async () => {
+      setFixingShiftAssigned(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/step/4', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingShiftAssigned(false); }
+    };
 
-  const statusClass: Record<CheckStatus, string> = { ok: styles.checkCardOk, warning: styles.checkCardWarn, error: styles.checkCardError };
-  const dotClass: Record<CheckStatus, string> = { ok: styles.dotOk, warning: styles.dotWarn, error: styles.dotError };
-  const countClass: Record<CheckStatus, string> = { ok: styles.countOk, warning: styles.countWarn, error: styles.countError };
-  const summaryClass: Record<CheckStatus, string> = { ok: styles.summaryOk, warning: styles.summaryWarn, error: styles.summaryError };
-  const summaryLabel: Record<CheckStatus, string> = { ok: '✅ Tất cả điều kiện đạt', warning: '⚠️ Có cảnh báo cần xem xét', error: '❌ Có điều kiện chưa thỏa mãn' };
+    const fixOtLate = async () => {
+      setFixingOtLate(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/step/5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingOtLate(false); }
+    };
 
-  return (
-    <div className={styles.validateWrap} style={{ borderTop: '2px solid #e2e8f0', marginTop: 4 }}>
-      {error && <div style={{ background: '#fef2f2', padding: 10, color: '#b91c1c' }}>⚠️ Lỗi: {error}</div>}
-      {result && (
-        <div className={styles.validateGrid}>
-          {result.results.map(check => (
-            <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilterId === check.id ? ` ${styles.checkCardActive ?? ''}` : ''}`}>
-              <div className={styles.checkCardHeader} onClick={() => {
-                if (check.violationCount > 0 && onFilterChange) {
-                  const newId = activeFilterId === check.id ? null : check.id;
-                  setActiveFilterId(newId);
-                  onFilterChange(newId ? new Set(check.violations.map(v => v.code)) : null);
-                }
-              }}>
-                <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
-                <span className={styles.checkLabel}>{check.label}</span>
-                <span className={`${styles.checkCount} ${countClass[check.status]}`}>{check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm`}</span>
-                {check.violationCount > 0 && (
-                  <span
-                    onClick={e => { e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }}
-                    style={{ fontSize: 11, color: '#2563eb', cursor: 'pointer', marginLeft: 4, textDecoration: 'underline', userSelect: 'none' }}
-                  >
-                    {expandedChecks.has(check.id) ? '(Ẩn)' : '(Chi tiết)'}
-                  </span>
+    const fixPnCount = async () => {
+      setFixingPnCount(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-pn-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingPnCount(false); }
+    };
+
+    const fixTime = async () => {
+      setFixingTime(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/step/5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.(); await run();
+      } catch (e) { setError(String(e)); } finally { setFixingTime(false); }
+    };
+
+    const fixLpAfterPn = async () => {
+      setFixingLpAfterPn(true); setError(null);
+      try {
+        const r = await fetch('/api/distribution/fix-lp-after-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        if (!r.ok) throw new Error(await r.text());
+        onFixed?.();
+        await run();
+      } catch (e) { setError(String(e)); } finally { setFixingLpAfterPn(false); }
+    };
+
+    const statusClass: Record<CheckStatus, string> = { ok: styles.checkCardOk, warning: styles.checkCardWarn, error: styles.checkCardError };
+    const dotClass: Record<CheckStatus, string> = { ok: styles.dotOk, warning: styles.dotWarn, error: styles.dotError };
+    const countClass: Record<CheckStatus, string> = { ok: styles.countOk, warning: styles.countWarn, error: styles.countError };
+    const summaryClass: Record<CheckStatus, string> = { ok: styles.summaryOk, warning: styles.summaryWarn, error: styles.summaryError };
+    const summaryLabel: Record<CheckStatus, string> = { ok: '✅ Tất cả điều kiện đạt', warning: '⚠️ Có cảnh báo cần xem xét', error: '❌ Có điều kiện chưa thỏa mãn' };
+
+    return (
+      <div className={styles.validateWrap} style={{ borderTop: '2px solid #e2e8f0', marginTop: 4 }}>
+        {error && <div style={{ background: '#fef2f2', padding: 10, color: '#b91c1c' }}>⚠️ Lỗi: {error}</div>}
+        {result && (
+          <div className={styles.validateGrid}>
+            {result.results.map(check => (
+              <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilterId === check.id ? ` ${styles.checkCardActive ?? ''}` : ''}`}>
+                <div className={styles.checkCardHeader} onClick={() => {
+                  if (check.violationCount > 0 && onFilterChange) {
+                    const newId = activeFilterId === check.id ? null : check.id;
+                    setActiveFilterId(newId);
+                    onFilterChange(newId ? new Set(check.violations.map(v => v.code)) : null);
+                  }
+                }}>
+                  <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
+                  <span className={styles.checkLabel}>{check.label}</span>
+                  <span className={`${styles.checkCount} ${countClass[check.status]}`}>{check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm`}</span>
+                  {check.violationCount > 0 && (
+                    <span
+                      onClick={e => { e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }}
+                      style={{ fontSize: 11, color: '#2563eb', cursor: 'pointer', marginLeft: 4, textDecoration: 'underline', userSelect: 'none' }}
+                    >
+                      {expandedChecks.has(check.id) ? '(Ẩn)' : '(Chi tiết)'}
+                    </span>
+                  )}
+                  {activeFilterId === check.id && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 10, background: '#1d4ed8', color: '#fff', marginLeft: 4 }}>🔍 Đang lọc</span>}
+                  {check.id === 'consecutive_days' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
+                  )}
+                  {check.id === 'pn_start_day' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPn(); }} disabled={fixing || loading} type="button">{fixing ? '...' : '🔧 Sửa vị trí PN'}</button>
+                  )}
+                  {check.id === 'pn_count' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPnCount(); }} disabled={fixingPnCount || loading} type="button">{fixingPnCount ? '...' : '🔧 Sửa số ngày PN'}</button>
+                  )}
+                  {check.id === 'pn_end_of_rest' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLpAfterPn(); }} disabled={fixingLpAfterPn || loading} type="button">{fixingLpAfterPn ? '...' : '🔄 Cập nhật'}</button>
+                  )}
+                  {check.id === 'lp_balance' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLp(); }} disabled={fixingLp || loading} type="button">{fixingLp ? '...' : '⚖️ Cân bằng LP'}</button>
+                  )}
+                  {check.id === 'shift_assigned' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixShiftAssigned(); }} disabled={fixingShiftAssigned || loading} type="button">{fixingShiftAssigned ? '...' : '🔧 Chia ca lại'}</button>
+                  )}
+                  {check.id === 'shift_balance' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixShift(); }} disabled={fixingShift || loading} type="button">{fixingShift ? '...' : '⚖️ Cân bằng ca'}</button>
+                  )}
+                  {(['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day'] as string[]).includes(check.id) && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixOtLate(); }} disabled={fixingOtLate || loading} type="button">{fixingOtLate ? '...' : '🔧 Phân bổ lại'}</button>
+                  )}
+                  {check.id === 'check_time' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
+                  )}
+                </div>
+                {(['consecutive_days', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {check.violations.map((v, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
+                        <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
+                        <span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span>
+                        <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                {activeFilterId === check.id && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 10, background: '#1d4ed8', color: '#fff', marginLeft: 4 }}>🔍 Đang lọc</span>}
-                {check.id === 'consecutive_days' && check.violationCount > 0 && (
-                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
+                {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {check.violations.map((v, i) => {
+                      const isSummary = v.code === '—' && v.name.startsWith('📊');
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'baseline', gap: 8,
+                          padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
+                          background: isSummary ? '#fef9c3' : 'transparent',
+                          borderRadius: isSummary ? 6 : 0,
+                          borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
+                          marginTop: isSummary ? 4 : 0,
+                        }}>
+                          {isSummary
+                            ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
+                            : <><span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span><span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span><span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span></>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                {check.id === 'pn_start_day' && check.violationCount > 0 && (
-                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPn(); }} disabled={fixing || loading} type="button">{fixing ? '...' : '🔧 Sửa PN'}</button>
-                )}
-                {check.id === 'pn_end_of_rest' && check.violationCount > 0 && (
-                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLpAfterPn(); }} disabled={fixingLpAfterPn || loading} type="button">{fixingLpAfterPn ? '...' : '🔄 Cập nhật'}</button>
-                )}
-                {check.id === 'lp_balance' && check.violationCount > 0 && (
-                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLp(); }} disabled={fixingLp || loading} type="button">{fixingLp ? '...' : '⚖️ Cân bằng LP'}</button>
+                {check.id === 'shift_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {check.violations.map((v, i) => {
+                      const isSummary = v.name.startsWith('📊');
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'baseline', gap: 8,
+                          padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
+                          background: isSummary ? '#fef9c3' : 'transparent',
+                          borderRadius: isSummary ? 6 : 0,
+                          borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
+                          marginTop: isSummary ? 4 : 0,
+                        }}>
+                          {isSummary
+                            ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
+                            : <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-              {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {check.violations.map((v, i) => {
-                    const isSummary = v.code === '—' && v.name.startsWith('📊');
-                    return (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'baseline', gap: 8,
-                        padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
-                        background: isSummary ? '#fef9c3' : 'transparent',
-                        borderRadius: isSummary ? 6 : 0,
-                        borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
-                        marginTop: isSummary ? 4 : 0,
-                      }}>
-                        {!isSummary && v.code !== '—' && <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>}
-                        {!isSummary && v.code !== '—' && <span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span>}
-                        <span style={{ fontSize: isSummary ? 12 : 11, color: isSummary ? '#92400e' : '#475569', fontWeight: isSummary ? 600 : 400 }}>{v.detail}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {check.id === 'shift_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {check.violations.map((v, i) => {
-                    const isSummary = v.name.startsWith('📊');
-                    return (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'baseline', gap: 8,
-                        padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
-                        background: isSummary ? '#eff6ff' : 'transparent',
-                        borderRadius: isSummary ? 6 : 0,
-                        borderLeft: isSummary ? '3px solid #3b82f6' : '2px solid #e2e8f0',
-                        marginTop: isSummary ? 4 : 0,
-                      }}>
-                        <span style={{ fontSize: isSummary ? 12 : 11, color: isSummary ? '#1d4ed8' : '#475569', fontWeight: isSummary ? 600 : 400 }}>{isSummary ? v.name : v.detail}</span>
-                        {isSummary && <span style={{ fontSize: 11, color: '#64748b' }}>{v.detail}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  });
 
 
 /* === AllocConfigPanel — Cấu hình áp dụng cho Bước 2 === */
@@ -1291,7 +1482,7 @@ function AllocConfigPanel({ monthId }: { monthId: string }) {
     fetch(`/api/alloc-rules?month=${monthId}`).then(r => r.json()).then((d: { value?: unknown[] }) => {
       const list = Array.isArray(d) ? d : (d.value ?? []);
       setRules((list as { paramKey: string; defaultParam: string; active: boolean }[]).filter(r => STEP2_PARAM_KEYS.includes(r.paramKey)));
-    }).catch(() => {});
+    }).catch(() => { });
   }, [monthId]);
   if (!rules.length) return null;
   return (
@@ -1323,7 +1514,7 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
   useEffect(() => {
     setLoading(true);
     fetch(`/api/distribution/dept-summary?month=${monthId}`)
-      .then(r => r.json()).then(setData).catch(() => {}).finally(() => setLoading(false));
+      .then(r => r.json()).then(setData).catch(() => { }).finally(() => setLoading(false));
   }, [monthId]);
 
   if (loading) return <div className={styles.emptyState}>Đang tải...</div>;
@@ -1387,7 +1578,7 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
                       <td key={d.day} style={{
                         textAlign: 'center', fontWeight: 600,
                         color: d.off === 0 ? '#d1d5db' : '#92400e',
-                        background: d.off === 0 ? '#fff' : `rgba(253,224,71,${0.2 + (d.off / (dept.days.reduce((s,x)=>Math.max(s,x.off),0)||1)) * 0.5})`,
+                        background: d.off === 0 ? '#fff' : `rgba(253,224,71,${0.2 + (d.off / (dept.days.reduce((s, x) => Math.max(s, x.off), 0) || 1)) * 0.5})`,
                         borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
                       }}>
                         {d.off || '·'}
@@ -1439,25 +1630,25 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   if (step === 3) return (
     <>
       <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
       </div>
       <ShiftGrid rows={rows} monthLabel={monthLabel} />
     </>
   );
   if (step === 4) return (
     <>
-      <OtLateGrid rows={rows} monthLabel={monthLabel} />
       <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra OT & Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
       </div>
+      <OtLateGrid rows={rows} monthLabel={monthLabel} />
     </>
   );
   if (step === 5) return (
     <>
-      <TimeGrid rows={rows} monthLabel={monthLabel} showCa={showCa ?? false} />
       <div style={validateOpen ? undefined : { display: 'none' }}>
         <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
       </div>
+      <TimeGrid rows={rows} monthLabel={monthLabel} showCa={showCa ?? false} />
     </>
   );
   if (step === 6) return <FinalGrid rows={rows} monthLabel={monthLabel} />;

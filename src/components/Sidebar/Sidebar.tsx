@@ -15,21 +15,21 @@ const MODULE0: NavItem[] = [
   { key: 'config-month', icon: '📅', label: 'Tháng Phân Bổ' },
 ];
 
-/* ── Module I – Cấu hình ───────────────────────── */
+/* ── Cấu hình Phân bổ ───────────────────────── */
 const MODULE1: NavItem[] = [
-  { key: 'departments',      icon: '🏢', label: 'Phòng Ban' },
-  { key: 'shifts',           icon: '🕐', label: 'Ca Làm Việc' },
-  { key: 'leave-types',      icon: '📋', label: 'Loại Nghỉ Phép' },
-  { key: 'special-groups',   icon: '👥', label: 'Nhóm Đặc Thù' },
-  { key: 'import-employees', icon: '👥', label: 'Danh sách nhân viên' },
-  { key: 'alloc-rules',      icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
-  { key: 'export-config',    icon: '📤', label: 'Xuất Cấu Hình' },
+  { key: 'departments', icon: '🏢', label: 'Phòng Ban' },
+  { key: 'shifts', icon: '🕐', label: 'Ca Làm Việc' },
+  { key: 'leave-types', icon: '📋', label: 'Loại Nghỉ Phép' },
+  { key: 'special-groups', icon: '👥', label: 'Nhóm Đặc Thù' },
+  { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
+  { key: 'alloc-rules', icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
+  { key: 'export-config', icon: '📤', label: 'Xuất Cấu Hình' },
 ];
 
-/* ── Module II – Phân bổ chấm công ────────────── */
+/* ── PHÂN BỔ CHẤM CÔNG ────────────── */
 const MODULE2: NavItem[] = [
-  { key: 'auto-alloc',        icon: '🤖', label: 'Phân Bổ Tự Động' },
-  { key: 'attendance-grid',   icon: '📊', label: 'Bảng Chấm Công', badge: 'Mới' },
+  { key: 'auto-alloc', icon: '🤖', label: 'Phân Bổ Tự Động' },
+  { key: 'attendance-grid', icon: '📊', label: 'Bảng Chấm Công', badge: 'Mới' },
   { key: 'export-attendance', icon: '📑', label: 'Xuất Báo Cáo' },
 ];
 
@@ -94,10 +94,10 @@ export default function Sidebar() {
 
         <div className={styles.divider} />
 
-        {/* ── Module I – Cấu hình ── */}
+        {/* ── Cấu hình Phân bổ ── */}
         <div className={styles.section}>
           {!sidebarCollapsed && (
-            <div className={styles.sectionTitle}>MODULE I – CẤU HÌNH</div>
+            <div className={styles.sectionTitle}>Cấu hình Phân bổ</div>
           )}
           <NavList items={MODULE1} currentPage={currentPage} navigate={navigate} collapsed={sidebarCollapsed} />
         </div>
@@ -107,7 +107,7 @@ export default function Sidebar() {
         {/* ── Module II – Phân bổ ── */}
         <div className={styles.section}>
           {!sidebarCollapsed && (
-            <div className={styles.sectionTitle}>MODULE II – PHÂN BỔ CHẤM CÔNG</div>
+            <div className={styles.sectionTitle}>PHÂN BỔ CHẤM CÔNG</div>
           )}
           <NavList items={MODULE2} currentPage={currentPage} navigate={navigate} collapsed={sidebarCollapsed} />
         </div>

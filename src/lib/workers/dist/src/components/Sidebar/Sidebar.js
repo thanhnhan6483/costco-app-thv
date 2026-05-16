@@ -12,17 +12,17 @@ const AppContext_1 = require("@/context/AppContext");
 const MODULE0 = [
     { key: 'config-month', icon: '📅', label: 'Tháng Phân Bổ' },
 ];
-/* ── Module I – Cấu hình ───────────────────────── */
+/* ── Cấu hình Phân bổ ───────────────────────── */
 const MODULE1 = [
     { key: 'departments', icon: '🏢', label: 'Phòng Ban' },
     { key: 'shifts', icon: '🕐', label: 'Ca Làm Việc' },
     { key: 'leave-types', icon: '📋', label: 'Loại Nghỉ Phép' },
     { key: 'special-groups', icon: '👥', label: 'Nhóm Đặc Thù' },
-    { key: 'import-employees', icon: '👥', label: 'Danh sách nhân viên' },
+    { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
     { key: 'alloc-rules', icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
     { key: 'export-config', icon: '📤', label: 'Xuất Cấu Hình' },
 ];
-/* ── Module II – Phân bổ chấm công ────────────── */
+/* ── PHÂN BỔ CHẤM CÔNG ────────────── */
 const MODULE2 = [
     { key: 'auto-alloc', icon: '🤖', label: 'Phân Bổ Tự Động' },
     { key: 'attendance-grid', icon: '📊', label: 'Bảng Chấm Công', badge: 'Mới' },

@@ -26,6 +26,8 @@ interface CheckResult {
 export async function GET(req: NextRequest) {
   const monthId = req.nextUrl.searchParams.get('month') ?? '';
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
+  const idsParam = req.nextUrl.searchParams.get('ids');
+  const filterIds = idsParam ? new Set(idsParam.split(',')) : null;
 
   const conn = await getConn();
   try {
@@ -115,7 +117,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check2: CheckResult = {
       id: 'pn_start_day',
-      label: 'Vị trí phép năm (ngày)',
+      label: 'Vị trí phép năm',
       description: activeKeys.has('pn_start_from_day')
         ? `PN chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`
         : 'Không áp dụng (rule đã tắt)',
@@ -165,11 +167,11 @@ export async function GET(req: NextRequest) {
     /* check3 (pn_end_of_rest) đã bỏ — engine không đảm bảo PN đứng cuối LP trong step1 */
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 4: OT tối đa maxOtPerDayHours h/ngày
+       Check 4: Tăng ca tối đa maxOtPerDayHours h/ngày
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check4: CheckResult = {
       id: 'ot_max_per_day',
-      label: 'OT tối đa/ngày',
+      label: 'Tăng ca tối đa/ngày',
       description: `OT không quá ${params.maxOtPerDayHours}h mỗi ngày`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -193,8 +195,8 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check5: CheckResult = {
       id: 'ot_start_day',
-      label: 'OT từ ngày thứ mấy',
-      description: `OT chỉ phân bổ từ ngày ${params.otStartFromDay}`,
+      label: 'Tăng ca từ ngày thứ mấy',
+      description: `Tăng ca chỉ phân bổ từ ngày ${params.otStartFromDay}`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     for (const emp of emps) {
@@ -433,9 +435,10 @@ export async function GET(req: NextRequest) {
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const totalViolations = results.reduce((s, r) => s + r.violationCount, 0);
-    const hasError   = results.some(r => r.status === 'error');
-    const hasWarning = results.some(r => r.status === 'warning');
+    const filtered = filterIds ? results.filter(r => filterIds.has(r.id)) : results;
+    const totalViolations = filtered.reduce((s, r) => s + r.violationCount, 0);
+    const hasError = filtered.some(r => r.status === 'error');
+    const hasWarning = filtered.some(r => r.status === 'warning');
     const overallStatus = hasError ? 'error' : hasWarning ? 'warning' : 'ok';
 
     await conn.close();
@@ -445,7 +448,7 @@ export async function GET(req: NextRequest) {
       totalViolations,
       overallStatus,
       checkedAt: new Date().toISOString(),
-      results,
+      results: filtered,
     });
   } catch (e) {
     await conn.close();

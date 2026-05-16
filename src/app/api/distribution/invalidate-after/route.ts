@@ -9,20 +9,20 @@ export const runtime = 'nodejs';
  * Reset trạng thái "done" của tất cả bước CÓ displayStep > afterDisplayStep.
  *
  * Mapping display step → DB column:
- *   display 1 → step2_done
- *   display 2 → step1_done
- *   display 3 → step4_done
- *   display 4 → step5_done
- *   display 5 → step6_done
+ *   display 1 → step1_done
+ *   display 2 → step2_done
+ *   display 3 → step3_done
+ *   display 4 → step4_done
+ *   display 5 → step5_done
  */
 
 // Thứ tự display step → tên cột trong distribution_status
 const STEP_ORDER: { displayNum: number; col: string }[] = [
-  { displayNum: 1, col: 'step2_done' },
-  { displayNum: 2, col: 'step1_done' },
-  { displayNum: 3, col: 'step4_done' },
-  { displayNum: 4, col: 'step5_done' },
-  { displayNum: 5, col: 'step6_done' },
+  { displayNum: 1, col: 'step1_done' },
+  { displayNum: 2, col: 'step2_done' },
+  { displayNum: 3, col: 'step3_done' },
+  { displayNum: 4, col: 'step4_done' },
+  { displayNum: 5, col: 'step5_done' },
 ];
 
 export async function POST(req: NextRequest) {

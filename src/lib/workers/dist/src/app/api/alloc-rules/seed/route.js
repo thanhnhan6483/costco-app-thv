@@ -14,7 +14,7 @@ const RULES = [
     { id: '6', name: 'Đi trễ tối đa/ngày', defaultParam: '9 phút/ngày', description: 'Không có ngày nào có số phút trễ > 9 phút.' },
     { id: '7', name: 'Tăng ca tối thiểu/ngày', defaultParam: '60 phút/ngày', description: 'Nếu có tăng ca, số phút OT trong ngày phải ≥ 60 phút.' },
     { id: '8', name: 'OT cân bằng trong phòng ban', defaultParam: 'Chênh lệch ≤ 30 phút/ngày', description: 'Nhân viên cùng phòng ban có số giờ OT trong cùng ngày gần bằng nhau.' },
-    { id: '9', name: 'OT tối đa giữa hai ngày nghỉ tour', defaultParam: '12 giờ', description: 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt 12 tiếng.' },
+    { id: '9', name: 'Tăng ca tối đa giữa hai ngày nghỉ tour', defaultParam: '12 giờ', description: 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt 12 tiếng.' },
 ];
 /* GET /api/alloc-rules/seed — xóa và seed lại 9 quy tắc mặc định với UTF-8 chuẩn */
 async function GET() {

@@ -82,7 +82,7 @@ async function GET(req) {
            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
         const check2 = {
             id: 'pn_start_day',
-            label: 'Vị trí phép năm (ngày)',
+            label: 'Vị trí phép năm',
             description: activeKeys.has('pn_start_from_day')
                 ? `PN chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`
                 : 'Không áp dụng (rule đã tắt)',
@@ -139,11 +139,11 @@ async function GET(req) {
         // pn_end_of_rest không còn là lỗi — PN sau ngày làm (X) vẫn chấp nhận được
         // results.push(check3);
         /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-           Check 4: OT tối đa maxOtPerDayHours h/ngày
+           Check 4: Tăng ca tối đa maxOtPerDayHours h/ngày
            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
         const check4 = {
             id: 'ot_max_per_day',
-            label: 'OT tối đa/ngày',
+            label: 'Tăng ca tối đa/ngày',
             description: `OT không quá ${params.maxOtPerDayHours}h mỗi ngày`,
             status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
         };
@@ -162,12 +162,12 @@ async function GET(req) {
         check4.status = check4.violationCount === 0 ? 'ok' : 'error';
         results.push(check4);
         /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-           Check 5: OT chỉ từ ngày otStartFromDay
+           Check 5: Tăng ca chỉ từ ngày otStartFromDay
            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
         const check5 = {
             id: 'ot_start_day',
-            label: 'OT từ ngày thứ mấy',
-            description: `OT chỉ phân bổ từ ngày ${params.otStartFromDay}`,
+            label: 'Tăng ca từ ngày thứ mấy',
+            description: `Tăng ca chỉ phân bổ từ ngày ${params.otStartFromDay}`,
             status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
         };
         for (const emp of emps) {
