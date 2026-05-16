@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadParams, loadSpecialDeptIds, markStepDone, loadMonthInfo, DAY_COLS } from '@/lib/stepHelpers';
-import { step1_generateArrangement, EmployeeInput } from '@/lib/distributionEngine';
+import { EmployeeInput } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
+import { Worker } from 'worker_threads';
+import { cpus } from 'os';
+import path from 'path';
 export const runtime = 'nodejs';
+export const maxDuration = 300; // 5 phút timeout cho local
+
+function runWorker(workerData: unknown): Promise<unknown[][]> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(
+      path.join(process.cwd(), 'src/lib/workers/compiled/lib/workers/step1Worker.js'),
+      { workerData }
+    );
+    worker.on('message', resolve);
+    worker.on('error', reject);
+    worker.on('exit', code => { if (code !== 0) reject(new Error(`Worker exit ${code}`)); });
+  });
+}
 
 export async function POST(req: NextRequest) {
-  const { monthId } = await req.json();
+  const { monthId, algo = 'backtracking' } = await req.json();
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
   const conn = await getConn();
   try {
@@ -14,6 +30,7 @@ export async function POST(req: NextRequest) {
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
     const { accountingIds } = await loadSpecialDeptIds(monthId);
     const now = new Date().toISOString().slice(0, 10);
+    const t_start = Date.now();
 
     // Load map deptId → code để tra cứu skipEqualRestDeptCodes
     const deptCodeRows = await conn.all<{ id: string; code: string }>(
@@ -72,33 +89,51 @@ export async function POST(req: NextRequest) {
     // Clear chỉ day_type — giữ các cột khác
     await conn.run(`DELETE FROM distribution_results WHERE month_id = ?`, monthId);
 
-    let processed = 0;
-    for (const emp of emps) {
-      // Dùng workdays đã chuẩn hóa theo phòng ban
-      const normalizedWorkdays = String(clampedWorkdays.get(emp.id) ?? emp.workdays ?? '27');
-      const empInput: EmployeeInput = {
-        id: emp.id, departmentId: emp.departmentId ?? '',
-        specialGroup: emp.specialGroup ?? '', groupCodeEndDate: emp.groupCodeEndDate ?? '',
-        ngayNghiCuoiThangTruoc: emp.ngayNghiCuoiThangTruoc ?? '',
-        workdays: normalizedWorkdays, overtimeHours: emp.overtimeHours ?? '0',
-        lateMinutes: emp.lateMinutes ?? '0', phepNam: emp.phepNam ?? '1',
-        days: DAY_COLS.map(c => emp[c] ?? ''),
-      };
-      const arrangement = step1_generateArrangement(
-        empInput, daysInMonth, month, year, params,
-        accountingIds.has(emp.departmentId ?? '')
-      );
-      // Insert rows với chỉ day_type (check_in/out/shift trống)
-      for (let d = 0; d < daysInMonth; d++) {
-        const rid = `${emp.id}_${monthId}_d${d + 1}`;
+    // Chuẩn bị dữ liệu NV với workdays đã normalize
+    const empInputs = emps.map(emp => ({
+      id: emp.id, departmentId: emp.departmentId ?? '',
+      specialGroup: emp.specialGroup ?? '', groupCodeEndDate: emp.groupCodeEndDate ?? '',
+      ngayNghiCuoiThangTruoc: emp.ngayNghiCuoiThangTruoc ?? '',
+      workdays: emp.workdays ?? '27', overtimeHours: emp.overtimeHours ?? '0',
+      lateMinutes: emp.lateMinutes ?? '0', phepNam: emp.phepNam ?? '1',
+      days: DAY_COLS.map(c => emp[c] ?? ''),
+      _normalizedWorkdays: String(clampedWorkdays.get(emp.id) ?? emp.workdays ?? '27'),
+    }));
+
+    // Chia NV thành chunks, mỗi chunk chạy trên 1 worker thread
+    const numWorkers = Math.min(8, Math.max(1, cpus().length - 1));
+    const chunkSize = Math.ceil(empInputs.length / numWorkers);
+    const chunks = Array.from({ length: numWorkers }, (_, i) =>
+      empInputs.slice(i * chunkSize, (i + 1) * chunkSize)
+    ).filter(c => c.length > 0);
+
+    const workerResults = await Promise.all(chunks.map(chunk =>
+      runWorker({ emps: chunk, daysInMonth, month, year, params,
+        accountingIds: [...accountingIds], monthId, now, algo })
+    ));
+    const allRows = workerResults.flat();
+    console.log(`[step1] workers done: ${Date.now() - t_start}ms, rows: ${allRows.length}`);
+
+    // Batch INSERT theo chunk 500 rows/lần trong 1 transaction
+    const CHUNK = 2000;
+    await conn.run('BEGIN TRANSACTION');
+    try {
+      for (let i = 0; i < allRows.length; i += CHUNK) {
+        const chunk = allRows.slice(i, i + CHUNK);
+        const placeholders = chunk.map(() => `(?,?,?,?,?,'','','',0,0,?)`).join(',');
         await conn.run(
-          `INSERT INTO distribution_results (id,month_id,employee_id,day,day_type,check_in,check_out,shift_code,ot_hours,late_mins,created_at)
-           VALUES (?,?,?,?,?,'','','',0,0,?)`,
-          rid, monthId, emp.id, d + 1, arrangement[d], now
+          `INSERT INTO distribution_results (id,month_id,employee_id,day,day_type,check_in,check_out,shift_code,ot_hours,late_mins,created_at) VALUES ${placeholders}`,
+          ...chunk.flat()
         );
       }
-      processed++;
+      await conn.run('COMMIT');
+      console.log(`[step1] insert done: ${Date.now() - t_start}ms`);
+    } catch (e) {
+      await conn.run('ROLLBACK');
+      throw e;
     }
+
+    const processed = emps.length;
     await markStepDone(monthId, 1);
     await conn.close();
     return NextResponse.json({ ok: true, step: 1, processed });
@@ -134,7 +169,7 @@ export async function GET(req: NextRequest) {
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
-              e.workdays,
+              e.workdays, e.phep_nam AS phepNam,
               dr.day, dr.day_type
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
@@ -145,8 +180,8 @@ export async function GET(req: NextRequest) {
     await conn.close();
     const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; days: {day:number;dayType:number}[] }>();
     for (const r of rows as any[]) {
-      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', days: [] });
-      map.get(r.code)!.days.push({ day: r.day, dayType: r.day_type });
+      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', phepNam: r.phepNam ?? '', days: [] });
+      map.get(r.code)!.days.push({ day: Number(r.day), dayType: Number(r.day_type) });
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
   } catch (e) {

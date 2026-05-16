@@ -1,0 +1,495 @@
+"use strict";
+/**
+ * distributionEngine.ts
+ * Port giải thuật từ hr_monthly_attendance_distribution.py
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.calcConsecutiveDays = calcConsecutiveDays;
+exports.markSundays = markSundays;
+exports.encodeInputArray = encodeInputArray;
+exports.generateOneArrangement = generateOneArrangement;
+exports.generateOneArrangementGreedy = generateOneArrangementGreedy;
+exports.placePNAtEndOfRestPeriod = placePNAtEndOfRestPeriod;
+exports.generateCalendarArray = generateCalendarArray;
+exports.distributeOT = distributeOT;
+exports.distributeLate = distributeLate;
+exports.step1_generateArrangement = step1_generateArrangement;
+exports.step4_assignShift = step4_assignShift;
+exports.step4_assignShiftsBatch = step4_assignShiftsBatch;
+exports.step5_distributeOTLate = step5_distributeOTLate;
+exports.step6_generateTime = step6_generateTime;
+/* ── Bảng mã ──────────────────────────────────────── */
+const SYMBOL_TO_CODE = {
+    '': 0, 'X': 0, 'x': 0,
+    'L': 1, 'LP': 1,
+    'PN': 2,
+    'Ô': 3,
+    'TS': 4,
+    'DS': 5,
+    'O': 6,
+    'NL': 7,
+    'OF': 8,
+    'P': 9,
+};
+/* ── Helpers ─────────────────────────────────────── */
+function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = randInt(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+function randomTime(startHHMM, endHHMM) {
+    const [sh, sm] = startHHMM.split(':').map(Number);
+    const [eh, em] = endHHMM.split(':').map(Number);
+    const startM = sh * 60 + sm;
+    const endM = eh * 60 + em;
+    const r = startM + randInt(0, Math.max(0, endM - startM));
+    return `${String(Math.floor(r / 60)).padStart(2, '0')}:${String(r % 60).padStart(2, '0')}`;
+}
+function addMins(hhMM, mins) {
+    const [h, m] = hhMM.split(':').map(Number);
+    const t = h * 60 + m + Math.round(mins);
+    return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+function encodeDay(s) {
+    const v = (s ?? '').trim();
+    return SYMBOL_TO_CODE[v] ?? 0;
+}
+/** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
+function calcConsecutiveDays(ngayNghi) {
+    if (!ngayNghi)
+        return 0;
+    let d, m, y;
+    if (ngayNghi.includes('/')) {
+        const parts = ngayNghi.split('/').map(Number);
+        if (parts.length < 2)
+            return 0;
+        [d, m, y] = parts;
+    }
+    else {
+        // Format: YYYY-MM-DD hoặc YYYY-MM-DD HH:MM:SS
+        const parts = ngayNghi.split('T')[0].split(' ')[0].split('-').map(Number);
+        if (parts.length < 3)
+            return 0;
+        [y, m, d] = parts;
+    }
+    const lastDay = new Date(y, m, 0).getDate();
+    return Math.max(0, lastDay - d);
+}
+/** Đánh dấu tất cả Chủ Nhật là LP (code 1) — slot 0 còn trống mới đánh */
+function markSundays(inputArray, daysInMonth, month, year) {
+    const arr = [...inputArray];
+    for (let d = 1; d <= daysInMonth; d++) {
+        const weekday = new Date(year, month - 1, d).getDay(); // 0 = Chủ Nhật
+        if (weekday === 0 && arr[d - 1] === 0) {
+            arr[d - 1] = 1; // LP – nghỉ Chủ Nhật
+        }
+    }
+    return arr;
+}
+/* ── Bước 1: Encode input ────────────────────────── */
+function encodeInputArray(days) {
+    const arr = Array(31).fill(0);
+    for (let i = 0; i < Math.min(days.length, 31); i++) {
+        arr[i] = encodeDay(days[i]);
+    }
+    return arr;
+}
+/**
+ * Tính ones (số ngày nghỉ LP) và zeros (số ngày làm X) cần đặt vào ô FREE
+ *
+ * Python: ones=4, zeros=26 cho workdays=27 (31-day month)
+ * Vì PN đã được tính trong workdays nên zeros = workdays - 1
+ * ones = freeSlots - zeros - 1(PN)
+ */
+function calcArrangementParams(fixedArray, daysInMonth, workdays, phepNam = 1, // số ngày PN cần phân bổ
+threshold = 27) {
+    const freeSlots = fixedArray.slice(0, daysInMonth).filter(v => v === 0).length;
+    // Python: zeros = threshold - phepNam (dùng threshold làm chuẩn)
+    // Nếu workdays < threshold (có ngày đặc biệt Ô/TS): dùng workdays thực tế
+    const base = workdays >= threshold ? threshold : Math.round(workdays);
+    const zeros = Math.min(base - phepNam, freeSlots - phepNam);
+    // ones = ngày nghỉ LP còn lại trong free slots
+    const ones = Math.max(0, freeSlots - zeros - phepNam);
+    return { ones, zeros };
+}
+/* ── Bước 2A: generate_random_arrangement (Python port) ── */
+/**
+ * Sinh arrangement mà KHÔNG đặt PN (PN luôn = false / bỏ qua option 2).
+ * PN sẽ được đặt riêng bằng placePNAtEndOfRestPeriod() sau khi
+ * backtracking hoàn tất, đảm bảo PN rơi vào cuối kỳ nghỉ.
+ */
+function generateOneArrangement(pos, ones, zeros, twoPlaced, lastZeros, fixedArray, current, params, skipPN = false) {
+    const total = fixedArray.length;
+    if (pos === total)
+        return (skipPN || twoPlaced) ? current : null;
+    const fixed = fixedArray[pos];
+    // Python: if fixed_array[pos] not in {0,1,2}: pass through, reset last_zeros=0
+    if (fixed > 2) {
+        return generateOneArrangement(pos + 1, ones, zeros, twoPlaced, 0, fixedArray, [...current, fixed], params, skipPN);
+    }
+    const options = [];
+    if (fixed === 0) {
+        if (ones > 0)
+            options.push([ones - 1, zeros, twoPlaced, 0, 1]);
+        if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
+            options.push([ones, zeros - 1, twoPlaced, lastZeros + 1, 0]);
+        if (!skipPN && !twoPlaced && pos >= params.pnStartFromDay - 1)
+            options.push([ones, zeros, true, 0, 2]);
+    }
+    // fixed === 1 hoặc 2: không có option → return null (backtrack) — đúng Python gốc
+    shuffle(options);
+    for (const [no, nz, ntp, nlz, val] of options) {
+        const result = generateOneArrangement(pos + 1, no, nz, ntp, nlz, fixedArray, [...current, val], params, skipPN);
+        if (result)
+            return result;
+    }
+    return null;
+}
+/**
+ * Greedy O(n) — thay thế backtracking, giữ nguyên signature tương thích.
+ * Không retry, không đệ quy: chọn ngẫu nhiên vị trí LP bằng partial Fisher-Yates,
+ * sau đó sửa vi phạm maxConsecutiveDays bằng 1 lượt quét.
+ */
+function generateOneArrangementGreedy(fixedArray, params, targetLP) {
+    const total = fixedArray.length;
+    const arr = [...fixedArray];
+    const freeIdx = [];
+    for (let i = 0; i < total; i++)
+        if (arr[i] === 0)
+            freeIdx.push(i);
+    const ONES = targetLP !== undefined
+        ? Math.min(targetLP, freeIdx.length)
+        : Math.min(Math.round(4 * total / 31), Math.max(0, freeIdx.length - 1));
+    // Partial Fisher-Yates: chọn ONES vị trí ngẫu nhiên để đặt LP
+    const pool = [...freeIdx];
+    for (let i = 0; i < ONES; i++) {
+        const j = i + randInt(0, pool.length - 1 - i);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    for (let i = 0; i < ONES; i++)
+        arr[pool[i]] = 1;
+    // Sửa vi phạm maxConsecutiveDays — 1 lượt quét
+    const max = params.maxConsecutiveDays;
+    let run = 0;
+    for (let i = 0; i < total; i++) {
+        if (arr[i] === 0) {
+            run++;
+            if (run > max) {
+                let fixed = false;
+                for (let j = i + 1; j < total; j++) {
+                    if (arr[j] === 1) {
+                        arr[j] = 0;
+                        arr[i] = 1;
+                        run = 0;
+                        fixed = true;
+                        break;
+                    }
+                }
+                if (!fixed) {
+                    arr[i] = 1;
+                    run = 0;
+                }
+            }
+        }
+        else {
+            run = 0;
+        }
+    }
+    return arr;
+}
+/**
+ * Đặt PN vào cuối kỳ nghỉ:
+ * Tìm chuỗi ngày LP liên tiếp dài nhất bắt đầu từ pnStartFromDay,
+ * lấy ngày CUỐI của chuỗi đó → đổi thành PN (code 2).
+ * Nếu không có chuỗi LP nào, lấy ngày LP cuối cùng trong tháng.
+ * Nếu hoàn toàn không có LP nào khả dụng, bỏ qua (trường hợp hiếm).
+ */
+function placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam = 1) {
+    const arr = [...arrangement];
+    const startIdx = params.pnStartFromDay - 1; // 0-based
+    for (let pn = 0; pn < phepNam; pn++) {
+        const runs = [];
+        let runStart = -1;
+        for (let i = startIdx; i < daysInMonth; i++) {
+            if (arr[i] === 1) {
+                if (runStart === -1)
+                    runStart = i;
+            }
+            else {
+                if (runStart !== -1) {
+                    runs.push({ start: runStart, end: i - 1, len: i - runStart });
+                    runStart = -1;
+                }
+            }
+        }
+        if (runStart !== -1)
+            runs.push({ start: runStart, end: daysInMonth - 1, len: daysInMonth - runStart });
+        let targetIdx = -1;
+        if (runs.length > 0) {
+            runs.sort((a, b) => b.len - a.len || b.end - a.end);
+            targetIdx = runs[0].end;
+        }
+        else {
+            // Không có LP từ pnStartFromDay → tìm ngày X (làm) gần cuối tháng từ startIdx để chuyển LP→PN
+            for (let i = daysInMonth - 1; i >= startIdx; i--) {
+                if (arr[i] === 0) {
+                    targetIdx = i;
+                    break;
+                }
+            }
+            if (targetIdx >= 0) {
+                arr[targetIdx] = 1; // X → LP tạm, sẽ bị đổi thành PN ngay bên dưới
+            }
+            else {
+                // Không có X nào từ pnStartFromDay → fallback lấy LP cuối cùng trong toàn tháng
+                for (let i = daysInMonth - 1; i >= 0; i--) {
+                    if (arr[i] === 1) {
+                        targetIdx = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (targetIdx < 0)
+            break; // Không có LP nào để đặt PN
+        // Đảm bảo LP liền trước PN
+        if (targetIdx > 0 && arr[targetIdx - 1] !== 1) {
+            const dayBefore = targetIdx - 1;
+            if (arr[dayBefore] === 0) {
+                // Tìm LP trước pnStartFromDay để mượn
+                let borrowIdx = -1;
+                for (let i = startIdx - 1; i >= 0; i--) {
+                    if (arr[i] === 1) {
+                        borrowIdx = i;
+                        break;
+                    }
+                }
+                if (borrowIdx >= 0) {
+                    // Kiểm tra an toàn: xóa LP tại borrowIdx có gây ra consecutive run > maxConsecutiveDays không?
+                    const maxConsec = params.maxConsecutiveDays;
+                    let runLen = 0;
+                    for (let i = borrowIdx - 1; i >= 0 && arr[i] === 0; i--)
+                        runLen++;
+                    for (let i = borrowIdx + 1; i < daysInMonth && arr[i] === 0; i++)
+                        runLen++;
+                    // runLen = X ngày liền kề borrowIdx (nếu xóa LP → chúng hợp thành 1 run)
+                    if (runLen < maxConsec) {
+                        // An toàn → thực hiện swap
+                        arr[borrowIdx] = 0;
+                        arr[dayBefore] = 1;
+                    }
+                    // Không an toàn → bỏ qua swap, PN có thể đứng cô lập (acceptable)
+                }
+            }
+        }
+        arr[targetIdx] = 2; // LP → PN
+    }
+    return arr;
+}
+/* ── Bước 2B: generate_calendar_array (Kế Toán) ── */
+function generateCalendarArray(month, year, inputArray, params) {
+    const arr = [...inputArray];
+    while (arr.length < 31)
+        arr.push(0);
+    // Chọn ngẫu nhiên nghỉ Thứ 7 hoặc Chủ Nhật
+    const isSaturday = Math.random() < 0.5;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+        const weekday = new Date(year, month - 1, d).getDay(); // 0=CN, 6=T7
+        if (arr[d - 1] === 0) {
+            if ((isSaturday && weekday === 6) || (!isSaturday && weekday === 0)) {
+                arr[d - 1] = 1;
+            }
+        }
+    }
+    // 2 tuần cuối → chọn 1 tuần, đặt PN vào cuối tuần đối diện
+    const lastTwoWeeks = [];
+    for (let d = daysInMonth - 13; d <= daysInMonth; d++) {
+        if (d >= 1)
+            lastTwoWeeks.push(d);
+    }
+    const chosenWeek = Math.random() < 0.5
+        ? lastTwoWeeks.slice(0, 7)
+        : lastTwoWeeks.slice(7);
+    const oppWeekday = isSaturday ? 0 : 6; // CN nếu chọn T7, ngược lại
+    const oppDays = chosenWeek.filter(d => {
+        const wd = new Date(year, month - 1, d).getDay();
+        return wd === oppWeekday;
+    });
+    if (oppDays.length > 0) {
+        const chosen = oppDays[randInt(0, oppDays.length - 1)];
+        if (arr[chosen - 1] === 0)
+            arr[chosen - 1] = 2;
+    }
+    return arr;
+}
+/* ── Bước 3: Phân bổ OT ─────────────────────────── */
+function distributeOT(arrangement, totalHours, params) {
+    const result = arrangement.map(v => (v !== 0 ? -1 : 0));
+    let remaining = totalHours;
+    let idx = params.otStartFromDay - 1;
+    while (remaining > 0 && idx < result.length) {
+        if (result[idx] === 0) {
+            const amount = Math.min(randInt(1, params.maxOtPerDayHours), remaining);
+            result[idx] = amount;
+            remaining -= amount;
+        }
+        idx++;
+    }
+    return result;
+}
+/* ── Bước 4: Phân bổ Trễ ────────────────────────── */
+function distributeLate(arrangement, totalMinutes, params) {
+    const result = arrangement.map(v => (v !== 0 ? -1 : 0));
+    let remaining = totalMinutes;
+    let idx = params.lateStartFromDay - 1;
+    while (remaining > 0 && idx < result.length) {
+        if (result[idx] === 0) {
+            const amount = Math.min(randInt(1, params.maxLatePerDayMinutes), remaining);
+            result[idx] = amount;
+            remaining -= amount;
+        }
+        idx++;
+    }
+    return result;
+}
+/* ══════════════════════════════════════════════════════
+   Step functions — mỗi bước có thể gọi độc lập
+   ══════════════════════════════════════════════════════ */
+/** Step 1 — Sinh arrangement (day_type)
+ *  Thiết kế theo Python gốc generate_random_arrangement:
+ *  - workdays >= threshold: ones=4, zeros=26 cứng, fixedArray toàn 0
+ *  - workdays < threshold: ones=4, zeros=26 cứng, dùng inputArray thực tế
+ *  - PN đặt ngẫu nhiên trong backtracking (pos >= pnStartFromDay)
+ *  - Kế toán: dùng generateCalendarArray
+ */
+function step1_generateArrangement(emp, daysInMonth, month, year, params, isAccountingDept, algo = 'backtracking') {
+    const workdays = emp.workdays !== '' && emp.workdays !== null && emp.workdays !== undefined
+        ? (parseFloat(String(emp.workdays)) || 0)
+        : 27;
+    // Python: luôn dùng 31 ô, pad 0 nếu tháng ngắn hơn
+    const inputArray = encodeInputArray(emp.days); // length 31
+    if (isAccountingDept)
+        return generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
+    // Trường hợp workdays = 0: NV nghỉ toàn bộ tháng → giữ nguyên inputArray (NL, Ô, TS...), phần còn lại là LP
+    if (workdays === 0) {
+        const arr = inputArray.slice(0, daysInMonth);
+        for (let i = 0; i < daysInMonth; i++) {
+            if (arr[i] === 0)
+                arr[i] = 1; // X → LP, giữ nguyên NL/Ô/TS/PN...
+        }
+        return arr;
+    }
+    // Python gốc: ones=4, zeros=26 cho tháng 31 ngày (4+26+1PN=31)
+    // Điều chỉnh theo daysInMonth: giữ tỉ lệ LP/X, tổng = daysInMonth
+    const totalDays = daysInMonth;
+    const PN = 1;
+    const ONES = Math.round(4 * totalDays / 31); // ~4 LP cho 31 ngày
+    const ZEROS = Math.max(0, totalDays - ONES - PN); // phần còn lại là X
+    const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
+    // targetLP = số ngày LP mục tiêu dựa trên normalizedWorkdays (đã cân bằng theo phòng)
+    // LP = daysInMonth - normalizedWorkdays - phepNam
+    const normalizedWd = parseFloat(emp._normalizedWorkdays ?? emp.workdays) || workdays;
+    const targetLP = Math.max(0, totalDays - Math.round(normalizedWd) - phepNam);
+    let arrangement = null;
+    const fixedArray = inputArray.slice(0, totalDays);
+    if (workdays >= params.workdaysThreshold) {
+        // Giữ nguyên ngày cố định (NL, Ô, TS, PN...), chỉ reset X và LP về 0
+        for (let i = 0; i < totalDays; i++) {
+            if (fixedArray[i] <= 1)
+                fixedArray[i] = 0;
+        }
+    }
+    if (algo === 'greedy') {
+        arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP);
+    }
+    else {
+        // Retry tối đa 20 lần — shuffle ngẫu nhiên có thể dẫn vào ngõ cụt
+        // skipPN=true để backtracking không tự đặt PN (PN sẽ đặt bên dưới)
+        for (let attempt = 0; attempt < 20 && !arrangement; attempt++) {
+            arrangement = generateOneArrangement(0, ONES, ZEROS, false, 0, fixedArray, [], params, true);
+        }
+    }
+    if (!arrangement)
+        arrangement = fixedArray;
+    if (phepNam > 0)
+        arrangement = placePNAtEndOfRestPeriod(arrangement, totalDays, params, phepNam);
+    return arrangement;
+}
+/** Step 4 — Chia ca cho 1 ngày (dùng khi chỉ có 1 ca) */
+function step4_assignShift(dayType, shift1, shift2) {
+    if (dayType !== 0)
+        return '';
+    if (shift1 && shift2)
+        return randInt(1, 2) === 1 ? 'C1' : 'C2';
+    if (shift1)
+        return shift1.shiftType || '';
+    return '';
+}
+/**
+ * Step 4 — Chia ca cho toàn bộ ngày làm của 1 NV.
+ * Nếu có cả Ca 1 và Ca 2: phân bổ đều 50/50, xen kẽ theo tuần
+ * (tuần lẻ Ca 1, tuần chẵn Ca 2, hoặc ngược lại — chọn ngẫu nhiên 1 lần/NV).
+ */
+function step4_assignShiftsBatch(days, shift1, shift2, isCommonShift = false) {
+    if (!shift1 || !shift2) {
+        // Chỉ 1 ca → gán tất cả ngày làm cùng ca đó
+        const single = shift1 ?? shift2;
+        const code = isCommonShift ? 'C' : (single ? (single.shiftType || '') : '');
+        return days.map(d => ({ day: d.day, shiftCode: d.dayType === 0 ? code : '' }));
+    }
+    // Có 2 ca → xen kẽ theo tuần: tuần 1,3,5 = Ca A; tuần 2,4 = Ca B
+    // Chọn ngẫu nhiên Ca A là Ca 1 hay Ca 2 cho mỗi NV
+    const startWithCa1 = randInt(0, 1) === 0;
+    return days.map(d => {
+        if (d.dayType !== 0)
+            return { day: d.day, shiftCode: '' };
+        // Tuần trong tháng (1-indexed): ngày 1-7 = tuần 1, 8-14 = tuần 2, ...
+        const week = Math.ceil(d.day / 7);
+        const useCa1 = startWithCa1 ? (week % 2 === 1) : (week % 2 === 0);
+        return { day: d.day, shiftCode: useCa1 ? 'C1' : 'C2' };
+    });
+}
+/** Step 5 — Phân phối OT & Trễ cho từng ngày */
+function step5_distributeOTLate(arrangement, otHours, lateMinutes, params) {
+    const otArr = otHours > 0 ? distributeOT(arrangement, otHours, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+    const lateArr = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+    return arrangement.map((_, i) => ({
+        otH: otArr[i] > 0 ? otArr[i] : 0,
+        lateM: lateArr[i] > 0 ? lateArr[i] : 0,
+    }));
+}
+const DEFAULT_SHIFT = {
+    departmentId: null, shiftType: '',
+    windowStart: '07:05', clockIn: '07:45',
+    clockOut: '16:25', windowEnd: '16:40',
+};
+/** Step 6 — Sinh giờ IN/OUT cho 1 ngày */
+function step6_generateTime(dayType, otHours, lateMins, shiftCode, shift1, shift2, groupWorkHours, // null = bình thường; số = giờ làm nhóm ĐT
+params) {
+    if (dayType === 1)
+        return { checkIn: '00:00', checkOut: '00:00' };
+    if (dayType === 2)
+        return { checkIn: 'PN', checkOut: 'PN' };
+    if (dayType !== 0)
+        return { checkIn: '', checkOut: '' };
+    const shift = shiftCode === 'C2' && shift2 ? shift2
+        : shift1 ?? DEFAULT_SHIFT;
+    let checkIn = randomTime(shift.windowStart, shift.clockIn);
+    let checkOut = randomTime(shift.clockOut, shift.windowEnd);
+    if (otHours > 0)
+        checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
+    if (lateMins > 0)
+        checkIn = addMins(shift.clockIn, lateMins + 15);
+    if (groupWorkHours !== null) {
+        const reduction = 8 - groupWorkHours;
+        if (reduction > 0)
+            checkOut = addMins(checkOut, -reduction * 60);
+    }
+    return { checkIn, checkOut };
+}

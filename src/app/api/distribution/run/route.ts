@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
       `SELECT param_key AS paramKey, param_value AS paramValue FROM alloc_rules WHERE month_id = ?`, monthId
     );
     const ruleMap = Object.fromEntries(rawRules.map(r => [r.paramKey, r.paramValue]));
+    const activeKeys = new Set(rawRules.map(r => r.paramKey));
     const params: AllocParams = {
       maxConsecutiveDays:        ruleMap['max_consecutive_days']          ?? 6,
       workdaysThreshold:         ruleMap['workdays_algorithm_threshold']  ?? 27,
       pnStartFromDay:            ruleMap['pn_start_from_day']             ?? 15,
+      usePnPreferredPosition:    activeKeys.has('pn_preferred_position'),
       maxOtPerDayHours:          ruleMap['max_ot_per_day_hours']          ?? 4,
       otStartFromDay:            ruleMap['ot_distribution_start_day']     ?? 15,
       maxLatePerDayMinutes:      ruleMap['max_late_per_day_minutes']      ?? 14,

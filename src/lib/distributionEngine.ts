@@ -14,15 +14,15 @@ export interface ShiftInfo {
 }
 
 export interface AllocParams {
-  maxConsecutiveDays: number;        // 6
-  workdaysThreshold: number;         // 27
-  pnStartFromDay: number;            // 15 (1-indexed)
-  maxOtPerDayHours: number;          // 4
-  otStartFromDay: number;            // 15
-  maxLatePerDayMinutes: number;      // 14
-  lateStartFromDay: number;          // 15
-  specialGroupHourReduction: number; // 1
-  skipEqualRestDeptCodes: string[];  // ['BGD'] — mã PB không phân bổ đồng đều LP
+  maxConsecutiveDays: number;
+  workdaysThreshold: number;
+  pnStartFromDay: number;
+  maxOtPerDayHours: number;
+  otStartFromDay: number;
+  maxLatePerDayMinutes: number;
+  lateStartFromDay: number;
+  specialGroupHourReduction: number;
+  skipEqualRestDeptCodes: string[];
 }
 
 export interface EmployeeInput {
@@ -98,9 +98,17 @@ function encodeDay(s: string): number {
 /** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
 export function calcConsecutiveDays(ngayNghi: string): number {
   if (!ngayNghi) return 0;
-  const parts = ngayNghi.split('/').map(Number);
-  if (parts.length < 2) return 0;
-  const [d, m, y] = parts;
+  let d: number, m: number, y: number;
+  if (ngayNghi.includes('/')) {
+    const parts = ngayNghi.split('/').map(Number);
+    if (parts.length < 2) return 0;
+    [d, m, y] = parts;
+  } else {
+    // Format: YYYY-MM-DD hoặc YYYY-MM-DD HH:MM:SS
+    const parts = ngayNghi.split('T')[0].split(' ')[0].split('-').map(Number);
+    if (parts.length < 3) return 0;
+    [y, m, d] = parts;
+  }
   const lastDay = new Date(y, m, 0).getDate();
   return Math.max(0, lastDay - d);
 }
@@ -172,16 +180,14 @@ export function generateOneArrangement(
   fixedArray: number[],
   current: number[],
   params: AllocParams,
-  skipPN = false,  // true = không tự đặt PN trong backtracking
+  skipPN = false,
 ): number[] | null {
   const total = fixedArray.length;
-  // Khi skipPN=true, kết thúc mà không yêu cầu twoPlaced
   if (pos === total) return (skipPN || twoPlaced) ? current : null;
 
   const fixed = fixedArray[pos];
 
-  // Ngày đặc biệt (3..9: Ô,TS,DS,O,NL,OF,P) → giữ nguyên, reset lastZeros
-  // Python: `if fixed_array[pos] not in {0,1,2}: pass through`
+  // Python: if fixed_array[pos] not in {0,1,2}: pass through, reset last_zeros=0
   if (fixed > 2) {
     return generateOneArrangement(
       pos + 1, ones, zeros, twoPlaced, 0,
@@ -189,48 +195,74 @@ export function generateOneArrangement(
     );
   }
 
-  // Ngày đã đánh dấu LP/CN (1) từ markSundays hoặc input → pass through, không tiêu ones
-  if (fixed === 1) {
-    return generateOneArrangement(
-      pos + 1, ones, zeros, twoPlaced, 0,
-      fixedArray, [...current, 1], params, skipPN,
-    );
-  }
-
-  // Ngày đã đánh dấu PN (2) từ input → pass through, đánh dấu twoPlaced
-  if (fixed === 2) {
-    return generateOneArrangement(
-      pos + 1, ones, zeros, true, 0,
-      fixedArray, [...current, 2], params, skipPN,
-    );
-  }
-
-  // fixed === 0: slot tự do → có thể đặt 0, 1, hoặc 2
-  type Option = [number, number, boolean, number, number]; // ones, zeros, twoPlaced, lastZeros, value
+  // fixed ∈ {0,1,2}: chỉ thêm options khi fixed === 0 (đúng Python gốc)
+  type Option = [number, number, boolean, number, number];
   const options: Option[] = [];
 
-  // Option 1: đặt ngày nghỉ (1)
-  if (ones > 0)
-    options.push([ones - 1, zeros, twoPlaced, 0, 1]);
-
-  // Option 0: đặt ngày làm (0)
-  if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
-    options.push([ones, zeros - 1, twoPlaced, lastZeros + 1, 0]);
-
-  // Option 2: đặt phép năm (2) — chỉ khi KHÔNG dùng chế độ skipPN
-  if (!skipPN && !twoPlaced && pos >= params.pnStartFromDay - 1)
-    options.push([ones, zeros, true, 0, 2]);
+  if (fixed === 0) {
+    if (ones > 0)
+      options.push([ones - 1, zeros, twoPlaced, 0, 1]);
+    if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
+      options.push([ones, zeros - 1, twoPlaced, lastZeros + 1, 0]);
+    if (!skipPN && !twoPlaced && pos >= params.pnStartFromDay - 1)
+      options.push([ones, zeros, true, 0, 2]);
+  }
+  // fixed === 1 hoặc 2: không có option → return null (backtrack) — đúng Python gốc
 
   shuffle(options);
-
   for (const [no, nz, ntp, nlz, val] of options) {
-    const result = generateOneArrangement(
-      pos + 1, no, nz, ntp, nlz,
-      fixedArray, [...current, val], params, skipPN,
-    );
+    const result = generateOneArrangement(pos + 1, no, nz, ntp, nlz, fixedArray, [...current, val], params, skipPN);
     if (result) return result;
   }
   return null;
+}
+
+/**
+ * Greedy O(n) — thay thế backtracking, giữ nguyên signature tương thích.
+ * Không retry, không đệ quy: chọn ngẫu nhiên vị trí LP bằng partial Fisher-Yates,
+ * sau đó sửa vi phạm maxConsecutiveDays bằng 1 lượt quét.
+ */
+export function generateOneArrangementGreedy(
+  fixedArray: number[],
+  params: AllocParams,
+  targetLP?: number,  // số LP mục tiêu; nếu không truyền thì tự tính ~4/31
+): number[] {
+  const total = fixedArray.length;
+  const arr = [...fixedArray];
+
+  const freeIdx: number[] = [];
+  for (let i = 0; i < total; i++) if (arr[i] === 0) freeIdx.push(i);
+
+  const ONES = targetLP !== undefined
+    ? Math.min(targetLP, freeIdx.length)
+    : Math.min(Math.round(4 * total / 31), Math.max(0, freeIdx.length - 1));
+
+  // Partial Fisher-Yates: chọn ONES vị trí ngẫu nhiên để đặt LP
+  const pool = [...freeIdx];
+  for (let i = 0; i < ONES; i++) {
+    const j = i + randInt(0, pool.length - 1 - i);
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  for (let i = 0; i < ONES; i++) arr[pool[i]] = 1;
+
+  // Sửa vi phạm maxConsecutiveDays — 1 lượt quét
+  const max = params.maxConsecutiveDays;
+  let run = 0;
+  for (let i = 0; i < total; i++) {
+    if (arr[i] === 0) {
+      run++;
+      if (run > max) {
+        let fixed = false;
+        for (let j = i + 1; j < total; j++) {
+          if (arr[j] === 1) { arr[j] = 0; arr[i] = 1; run = 0; fixed = true; break; }
+        }
+        if (!fixed) { arr[i] = 1; run = 0; }
+      }
+    } else {
+      run = 0;
+    }
+  }
+  return arr;
 }
 
 /**
@@ -271,9 +303,17 @@ export function placePNAtEndOfRestPeriod(
       runs.sort((a, b) => b.len - a.len || b.end - a.end);
       targetIdx = runs[0].end;
     } else {
-      // Không có LP từ pnStartFromDay → lấy LP cuối cùng trong toàn tháng
-      for (let i = daysInMonth - 1; i >= 0; i--) {
-        if (arr[i] === 1) { targetIdx = i; break; }
+      // Không có LP từ pnStartFromDay → tìm ngày X (làm) gần cuối tháng từ startIdx để chuyển LP→PN
+      for (let i = daysInMonth - 1; i >= startIdx; i--) {
+        if (arr[i] === 0) { targetIdx = i; break; }
+      }
+      if (targetIdx >= 0) {
+        arr[targetIdx] = 1; // X → LP tạm, sẽ bị đổi thành PN ngay bên dưới
+      } else {
+        // Không có X nào từ pnStartFromDay → fallback lấy LP cuối cùng trong toàn tháng
+        for (let i = daysInMonth - 1; i >= 0; i--) {
+          if (arr[i] === 1) { targetIdx = i; break; }
+        }
       }
     }
 
@@ -357,7 +397,7 @@ export function distributeOT(
   totalHours: number,
   params: AllocParams,
 ): number[] {
-  const result = arrangement.map(v => (v !== 0 ? -1 : 0));
+  const result: number[] = arrangement.map(v => (v !== 0 ? -1 : 0));
   let remaining = totalHours;
   let idx = params.otStartFromDay - 1;
   while (remaining > 0 && idx < result.length) {
@@ -377,7 +417,7 @@ export function distributeLate(
   totalMinutes: number,
   params: AllocParams,
 ): number[] {
-  const result = arrangement.map(v => (v !== 0 ? -1 : 0));
+  const result: number[] = arrangement.map(v => (v !== 0 ? -1 : 0));
   let remaining = totalMinutes;
   let idx = params.lateStartFromDay - 1;
   while (remaining > 0 && idx < result.length) {
@@ -391,136 +431,16 @@ export function distributeLate(
   return result;
 }
 
-/* ── Bước 5: Sinh giờ IN/OUT ─────────────────────── */
-export function generateDayResults(
-  daysInMonth: number,
-  arrangement: number[],
-  otArray: number[],
-  lateArray: number[],
-  shift1: ShiftInfo | null,
-  shift2: ShiftInfo | null,
-  groupWorkHours: number | null,  // null = không phải nhóm ĐT; số = giờ làm thực tế (VD: 7)
-  params: AllocParams,
-): DayResult[] {
-  const results: DayResult[] = [];
-
-  const defaultShift: ShiftInfo = {
-    departmentId: null, shiftType: '',
-    windowStart: '07:05', clockIn: '07:30',
-    clockOut: '16:30', windowEnd: '16:35',
-  };
-
-  for (let d = 0; d < daysInMonth; d++) {
-    const dayType = arrangement[d];
-    const dayNum = d + 1;
-    const result: DayResult = {
-      day: dayNum, dayType, checkIn: '', checkOut: '',
-      shiftCode: '', otHours: 0, lateMins: 0,
-    };
-
-    if (dayType === 0) {
-      // Ngày làm việc
-      let useShift: ShiftInfo;
-      let shiftCode = '';
-
-      if (shift1 && shift2) {
-        // Dept có 2 ca: random Ca 1 hoặc Ca 2
-        const pick = randInt(1, 2);
-        useShift = pick === 1 ? shift1 : shift2;
-        shiftCode = pick === 1 ? 'Ca 1' : 'Ca 2';
-      } else if (shift1) {
-        useShift = shift1;
-        shiftCode = shift1.shiftType || '';
-      } else {
-        useShift = defaultShift;
-      }
-
-      result.shiftCode = shiftCode;
-      let checkIn  = randomTime(useShift.windowStart, useShift.clockIn);
-      let checkOut = randomTime(useShift.clockOut, useShift.windowEnd);
-
-      // Điều chỉnh OT
-      const ot = otArray[d];
-      if (ot > 0 && ot !== -1) {
-        checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10));
-        result.otHours = ot;
-      }
-      // Điều chỉnh Trễ
-      const late = lateArray[d];
-      if (late > 0 && late !== -1) {
-        checkIn = addMins(useShift.clockIn, late + 15); // +15 buffer
-        result.lateMins = late;
-      }
-      // Nhóm đặc thù → checkout sớm hơn theo work_hours của nhóm
-      if (groupWorkHours !== null) {
-        const stdHours = 8; // giờ làm tiêu chuẩn
-        const reduction = stdHours - groupWorkHours;
-        if (reduction > 0) checkOut = addMins(checkOut, -reduction * 60);
-      }
-
-      result.checkIn  = typeof checkIn  === 'string' ? checkIn  : checkIn;
-      result.checkOut = typeof checkOut === 'string' ? checkOut : checkOut;
-
-    } else if (dayType === 1) {
-      result.checkIn = '00:00'; result.checkOut = '00:00';
-    } else if (dayType === 2) {
-      result.checkIn = 'PN'; result.checkOut = 'PN';
-    }
-    // 3..9: check_in/out để trống, day_type giữ nguyên
-
-    results.push(result);
-  }
-  return results;
-}
-
-/* ── Main: processEmployee ───────────────────────── */
-export function processEmployee(
-  emp: EmployeeInput,
-  daysInMonth: number,
-  month: number,
-  year: number,
-  params: AllocParams,
-  shift1: ShiftInfo | null,
-  shift2: ShiftInfo | null,
-  isAccountingDept: boolean,
-  groupWorkHours: number | null,  // null = bình thường; số = giờ làm nhóm ĐT (từ special_groups.work_hours)
-): DayResult[] {
-  const workdays     = parseFloat(emp.workdays)     || 27;
-  const otHours      = parseFloat(emp.overtimeHours) || 0;
-  const lateMinutes  = parseFloat(emp.lateMinutes)   || 0;
-
-  const inputArray       = encodeInputArray(emp.days);
-  const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
-
-  let arrangement: number[];
-
-  if (isAccountingDept) {
-    arrangement = generateCalendarArray(month, year, inputArray, params);
-  } else if (workdays < params.workdaysThreshold) {
-    // < 27: có ngày cố định (Ô/TS) → tính chính xác từ free slots
-    const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays);
-    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, inputArray, [], params) ?? inputArray;
-  } else {
-    // >= 27: không có ngày cố định → dùng emptyFixed, tính theo daysInMonth
-    const emptyFixed = Array(daysInMonth).fill(0);
-    const { ones, zeros } = calcArrangementParams(emptyFixed, daysInMonth, workdays);
-    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, emptyFixed, [], params) ?? emptyFixed;
-  }
-
-  const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)    : arrangement.map(v => v !== 0 ? -1 : 0);
-  const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
-
-  return generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1, shift2, groupWorkHours, params);
-}
-
 /* ══════════════════════════════════════════════════════
    Step functions — mỗi bước có thể gọi độc lập
    ══════════════════════════════════════════════════════ */
 
 /** Step 1 — Sinh arrangement (day_type)
- *  LP phân bổ hoàn toàn ngẫu nhiên vào bất kỳ ngày nào (không ép vào CN)
- *  Quy tắc PN: Ngày phép năm được ưu tiên xếp vào cuối kỳ nghỉ (cuối chuỗi LP dài nhất
- *  từ ngày pnStartFromDay trở đi). PN không còn được đặt ngẫu nhiên trong backtracking.
+ *  Thiết kế theo Python gốc generate_random_arrangement:
+ *  - workdays >= threshold: ones=4, zeros=26 cứng, fixedArray toàn 0
+ *  - workdays < threshold: ones=4, zeros=26 cứng, dùng inputArray thực tế
+ *  - PN đặt ngẫu nhiên trong backtracking (pos >= pnStartFromDay)
+ *  - Kế toán: dùng generateCalendarArray
  */
 export function step1_generateArrangement(
   emp: EmployeeInput,
@@ -529,69 +449,62 @@ export function step1_generateArrangement(
   year: number,
   params: AllocParams,
   isAccountingDept: boolean,
+  algo: 'backtracking' | 'greedy' = 'backtracking',
 ): number[] {
-  const workdays         = parseFloat(emp.workdays) || 27;
-  const phepNam          = Math.max(0, parseInt(emp.phepNam) || 1); // mặc định 1 PN (như Python)
-  // Slice về đúng daysInMonth: fixedArray.length = daysInMonth
-  // → backtracking dừng tại pos===daysInMonth (không phải luôn 31)
-  // Python: luôn dùng 31 và budget=31, TS cần khớp budget với fixedArray.length
-  const inputArray       = encodeInputArray(emp.days).slice(0, daysInMonth);
-  const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
+  const workdays = emp.workdays !== '' && emp.workdays !== null && emp.workdays !== undefined
+    ? (parseFloat(String(emp.workdays)) || 0)
+    : 27;
 
-  if (isAccountingDept) return generateCalendarArray(month, year, inputArray, params);
+  // Python: luôn dùng 31 ô, pad 0 nếu tháng ngắn hơn
+  const inputArray = encodeInputArray(emp.days); // length 31
 
-  // Không có ngày PN nào cần phân bổ
-  if (phepNam === 0) {
-    const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays, 0, params.workdaysThreshold);
-    return generateOneArrangement(0, ones, zeros, true, initialLastZeros, inputArray, [], params, true) ?? inputArray;
-  }
+  if (isAccountingDept) return generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
 
-  // Kiểm tra: input đã có PN cố định (từ file import)
-  const fixedPnCount = inputArray.slice(0, daysInMonth).filter(v => v === 2).length;
-  if (fixedPnCount >= phepNam) {
-    // Đủ PN cố định → chỉ cần điền X và LP
-    const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays, fixedPnCount, params.workdaysThreshold);
-    return generateOneArrangement(0, ones, zeros, true, initialLastZeros, inputArray, [], params, true) ?? inputArray;
-  }
-  // Một số PN đã cố định, còn lại cần sinh
-  const remainingPn = phepNam - fixedPnCount;
-
-  // ── Quy tắc mới: PN đặt vào cuối kỳ nghỉ ──
-  const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays, phepNam, params.workdaysThreshold);
-  const MAX_RETRIES = 12;
-  const startIdx = params.pnStartFromDay - 1; // 0-based
-
-  /** Tính LP run dài nhất từ startIdx trong arrangement */
-  function maxLpRun(arr: number[]): number {
-    let best = 0, run = 0;
-    for (let i = startIdx; i < daysInMonth; i++) {
-      if (arr[i] === 1) { run++; if (run > best) best = run; }
-      else { run = 0; }
+  // Trường hợp workdays = 0: NV nghỉ toàn bộ tháng → giữ nguyên inputArray (NL, Ô, TS...), phần còn lại là LP
+  if (workdays === 0) {
+    const arr = inputArray.slice(0, daysInMonth);
+    for (let i = 0; i < daysInMonth; i++) {
+      if (arr[i] === 0) arr[i] = 1; // X → LP, giữ nguyên NL/Ô/TS/PN...
     }
-    return best;
+    return arr;
   }
 
-  let bestArr: number[] | null = null;
-  let bestRunLen = -1;
+  // Python gốc: ones=4, zeros=26 cho tháng 31 ngày (4+26+1PN=31)
+  // Điều chỉnh theo daysInMonth: giữ tỉ lệ LP/X, tổng = daysInMonth
+  const totalDays = daysInMonth;
+  const PN = 1;
+  const ONES = Math.round(4 * totalDays / 31);          // ~4 LP cho 31 ngày
+  const ZEROS = Math.max(0, totalDays - ONES - PN);     // phần còn lại là X
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const trial = generateOneArrangement(
-      0, ones + remainingPn, zeros, true, initialLastZeros, inputArray, [], params, true,
-    );
-    if (!trial) continue;
-    const runLen = maxLpRun(trial);
-    if (runLen > bestRunLen) {
-      bestRunLen = runLen;
-      bestArr = trial;
-      if (runLen >= 2) break;
+  const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
+  // targetLP = số ngày LP mục tiêu dựa trên normalizedWorkdays (đã cân bằng theo phòng)
+  // LP = daysInMonth - normalizedWorkdays - phepNam
+  const normalizedWd = parseFloat((emp as any)._normalizedWorkdays ?? emp.workdays) || workdays;
+  const targetLP = Math.max(0, totalDays - Math.round(normalizedWd) - phepNam);
+
+  let arrangement: number[] | null = null;
+  const fixedArray = inputArray.slice(0, totalDays);
+  if (workdays >= params.workdaysThreshold) {
+    // Giữ nguyên ngày cố định (NL, Ô, TS, PN...), chỉ reset X và LP về 0
+    for (let i = 0; i < totalDays; i++) {
+      if (fixedArray[i] <= 1) fixedArray[i] = 0;
     }
   }
+  if (algo === 'greedy') {
+    arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP);
+  } else {
+    // Retry tối đa 20 lần — shuffle ngẫu nhiên có thể dẫn vào ngõ cụt
+    // skipPN=true để backtracking không tự đặt PN (PN sẽ đặt bên dưới)
+    for (let attempt = 0; attempt < 20 && !arrangement; attempt++) {
+      arrangement = generateOneArrangement(0, ONES, ZEROS, false, 0, fixedArray, [], params, true);
+    }
+  }
+  if (!arrangement) arrangement = fixedArray;
 
-  const rawArr = bestArr
-    ?? generateOneArrangement(0, ones + remainingPn, zeros, true, initialLastZeros, inputArray, [], params, true)
-    ?? inputArray;
+  if (phepNam > 0)
+    arrangement = placePNAtEndOfRestPeriod(arrangement, totalDays, params, phepNam);
 
-  return placePNAtEndOfRestPeriod(rawArr, daysInMonth, params, phepNam);
+  return arrangement;
 }
 
 /** Step 4 — Chia ca cho 1 ngày (dùng khi chỉ có 1 ca) */
@@ -601,7 +514,7 @@ export function step4_assignShift(
   shift2: ShiftInfo | null,
 ): string {
   if (dayType !== 0) return '';
-  if (shift1 && shift2) return randInt(1, 2) === 1 ? 'Ca 1' : 'Ca 2';
+  if (shift1 && shift2) return randInt(1, 2) === 1 ? 'C1' : 'C2';
   if (shift1) return shift1.shiftType || '';
   return '';
 }
@@ -624,16 +537,10 @@ export function step4_assignShiftsBatch(
     return days.map(d => ({ day: d.day, shiftCode: d.dayType === 0 ? code : '' }));
   }
 
-  // Có 2 ca → xen kẽ theo tuần: tuần 1,3,5 = Ca A; tuần 2,4 = Ca B
-  // Chọn ngẫu nhiên Ca A là Ca 1 hay Ca 2 cho mỗi NV
-  const startWithCa1 = randInt(0, 1) === 0;
-
+  // Có 2 ca → random mỗi ngày độc lập (theo Python gốc: random.randint(1,2))
   return days.map(d => {
     if (d.dayType !== 0) return { day: d.day, shiftCode: '' };
-    // Tuần trong tháng (1-indexed): ngày 1-7 = tuần 1, 8-14 = tuần 2, ...
-    const week = Math.ceil(d.day / 7);
-    const useCa1 = startWithCa1 ? (week % 2 === 1) : (week % 2 === 0);
-    return { day: d.day, shiftCode: useCa1 ? 'Ca 1' : 'Ca 2' };
+    return { day: d.day, shiftCode: randInt(1, 2) === 1 ? 'C1' : 'C2' };
   });
 }
 
@@ -654,8 +561,8 @@ export function step5_distributeOTLate(
 
 const DEFAULT_SHIFT: ShiftInfo = {
   departmentId: null, shiftType: '',
-  windowStart: '07:05', clockIn: '07:30',
-  clockOut: '16:30', windowEnd: '16:35',
+  windowStart: '07:05', clockIn: '07:45',
+  clockOut: '16:25', windowEnd: '16:40',
 };
 
 /** Step 6 — Sinh giờ IN/OUT cho 1 ngày */
@@ -673,7 +580,7 @@ export function step6_generateTime(
   if (dayType === 2) return { checkIn: 'PN', checkOut: 'PN' };
   if (dayType !== 0) return { checkIn: '', checkOut: '' };
 
-  const shift = shiftCode === 'Ca 2' && shift2 ? shift2
+  const shift = shiftCode === 'C2' && shift2 ? shift2
     : shift1 ?? DEFAULT_SHIFT;
 
   let checkIn  = randomTime(shift.windowStart, shift.clockIn);

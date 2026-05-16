@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
     const params = await loadParams(monthId);
     const shiftMap = await loadShiftMap(monthId);
 
-    // Load special_groups → map groupCode → work_hours
     const rawGroups = await conn.all<{ code: string; workHours: number }>(
       `SELECT code, work_hours AS workHours FROM special_groups WHERE month_id=?`, monthId
     );
@@ -22,26 +21,50 @@ export async function POST(req: NextRequest) {
       `SELECT id, department_id AS departmentId, special_group AS specialGroup
        FROM employees WHERE month_id=? AND active=TRUE`, monthId
     );
+    const allDays = await conn.all<{ empId: string; day: number; dayType: number; shiftCode: string; otHours: number; lateMins: number }>(
+      `SELECT employee_id AS empId, day, day_type AS dayType,
+              COALESCE(shift_code,'') AS shiftCode,
+              COALESCE(ot_hours,0) AS otHours, COALESCE(late_mins,0) AS lateMins
+       FROM distribution_results WHERE month_id=? ORDER BY employee_id, day`, monthId
+    );
+    const daysByEmp = new Map<string, typeof allDays>();
+    for (const d of allDays) {
+      if (!daysByEmp.has(d.empId)) daysByEmp.set(d.empId, []);
+      daysByEmp.get(d.empId)!.push(d);
+    }
+
+    const rows: string[] = [];
     for (const emp of emps) {
       const groupCode = (emp.specialGroup ?? '').toUpperCase();
       const groupWorkHours = groupCode ? (specialGroupHours.get(groupCode) ?? null) : null;
       const entry = getShiftEntry(shiftMap, emp.departmentId ?? null);
-      const days = await conn.all<{ day: number; dayType: number; shiftCode: string; otHours: number; lateMins: number }>(
-        `SELECT day, day_type AS dayType, shift_code AS shiftCode, ot_hours AS otHours, late_mins AS lateMins
-         FROM distribution_results WHERE month_id=? AND employee_id=? ORDER BY day`,
-        monthId, emp.id
-      );
+      const days = daysByEmp.get(emp.id) ?? [];
       for (const d of days) {
         const { checkIn, checkOut } = step6_generateTime(
           d.dayType, d.otHours, d.lateMins, d.shiftCode,
           entry.ca1, entry.ca2, groupWorkHours, params
         );
-        await conn.run(
-          `UPDATE distribution_results SET check_in=?, check_out=? WHERE month_id=? AND employee_id=? AND day=?`,
-          checkIn, checkOut, monthId, emp.id, d.day
-        );
+        const ci = checkIn.replace(/'/g, "''");
+        const co = checkOut.replace(/'/g, "''");
+        rows.push(`('${emp.id}',${d.day},'${ci}','${co}')`);
       }
     }
+
+    if (rows.length > 0) {
+      const chunkSize = 500;
+      await conn.run(`CREATE TEMP TABLE IF NOT EXISTS _tmp_time (emp_id VARCHAR, day INTEGER, check_in VARCHAR, check_out VARCHAR)`);
+      await conn.run(`DELETE FROM _tmp_time`);
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        await conn.run(`INSERT INTO _tmp_time VALUES ${rows.slice(i, i + chunkSize).join(',')}`);
+      }
+      await conn.run(
+        `UPDATE distribution_results dr
+         SET check_in = t.check_in, check_out = t.check_out
+         FROM _tmp_time t
+         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+      );
+    }
+
     await markStepDone(monthId, 6);
     await conn.close();
     return NextResponse.json({ ok: true, step: 6, processed: emps.length });
@@ -50,7 +73,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
-
 export async function GET(req: NextRequest) {
   const url     = new URL(req.url);
   const monthId = url.searchParams.get('month') ?? '';

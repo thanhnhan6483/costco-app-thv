@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
       const maxLP = Math.max(...lpCounts);
       if (maxLP - minLP <= 1) continue;
 
-      // Target: tất cả NV trong phòng nên có LP = median (làm tròn về minLP+1 hoặc minLP)
-      // Chiến lược: đưa tất cả về target = minLP+1 (hoặc minLP nếu không đủ X để đổi)
-      const target = minLP + 1;
+      const sorted = [...lpCounts].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const target = sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 
       for (let mi = 0; mi < members.length; mi++) {
         const empId = members[mi];
@@ -72,12 +72,11 @@ export async function POST(req: NextRequest) {
         if (currentLP === target) continue;
 
         if (currentLP > target) {
-          // Quá nhiều LP → đổi LP thừa → X (ngày làm)
-          // Ưu tiên đổi LP ở đầu tháng (trước pnStartFromDay) để ít ảnh hưởng nhất
+          // Quá nhiều LP → đổi LP thừa → X
           let toRemove = currentLP - target;
           for (let i = 0; i < daysInMonth && toRemove > 0; i++) {
             if (arr[i] !== 1) continue;
-            // Kiểm tra: nếu đổi LP→X có tạo run X > maxConsecutiveDays không?
+            // Kiểm tra run X sau khi đổi LP→X
             let runLen = 1;
             for (let j = i - 1; j >= 0 && arr[j] === 0; j--) runLen++;
             for (let j = i + 1; j < daysInMonth && arr[j] === 0; j++) runLen++;
@@ -87,13 +86,10 @@ export async function POST(req: NextRequest) {
             toRemove--;
           }
         } else {
-          // Quá ít LP → đổi X thừa → LP
-          // Ưu tiên đổi X ở đầu tháng (trước pnStartFromDay)
+          // Quá ít LP → đổi X → LP (chỉ đổi ngày X thuần, không đụng PN/NL/Ô...)
           let toAdd = target - currentLP;
           for (let i = 0; i < daysInMonth && toAdd > 0; i++) {
-            if (arr[i] !== 0) continue;
-            // Kiểm tra: nếu đổi X→LP, run X liền kề không bị phá vỡ quá mức
-            // (thêm LP thì run X ngắn lại → an toàn)
+            if (arr[i] !== 0) continue; // chỉ đổi ngày X (dayType=0)
             arr[i] = 1;
             changes.push({ empId, day: i + 1, dayType: 1 });
             toAdd--;

@@ -92,10 +92,10 @@ export default function AttendanceGrid() {
                       );
                     })}
                     <td className={styles.sumCell}><strong>{emp.workdays}</strong></td>
-                    <td className={styles.sumCell}>{emp.overtimeHours}</td>
+                    <td className={styles.sumCell}>{parseFloat(String(emp.overtimeHours).replace(',','.') || '0').toFixed(2)}</td>
                     <td className={styles.sumCell}>
                       <span className={emp.lateMinutes > 30 ? styles.lateDanger : ''}>
-                        {emp.lateMinutes}
+                        {parseFloat(String(emp.lateMinutes).replace(',','.') || '0').toFixed(2)}
                       </span>
                     </td>
                   </tr>

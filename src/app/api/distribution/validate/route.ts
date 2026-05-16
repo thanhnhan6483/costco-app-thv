@@ -47,11 +47,13 @@ export async function GET(req: NextRequest) {
     // Load distribution_results gộp theo NV
     const rawRows = await conn.all<{
       empId: string; empCode: string; empName: string; deptId: string;
+      phepNam: number;
       day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string;
       checkIn: string; checkOut: string;
     }>(
       `SELECT dr.employee_id AS empId, e.code AS empCode, e.name AS empName,
               e.department_id AS deptId,
+              COALESCE(CAST(e.phep_nam AS INTEGER), 0) AS phepNam,
               dr.day, dr.day_type AS dayType,
               dr.ot_hours AS otHours, dr.late_mins AS lateMins,
               COALESCE(dr.shift_code, '') AS shiftCode,
@@ -64,13 +66,13 @@ export async function GET(req: NextRequest) {
 
     // Group by empId
     type DayData = { day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string; checkIn: string; checkOut: string };
-    type EmpData = { empId: string; code: string; name: string; deptId: string; days: DayData[] };
+    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; days: DayData[] };
     const empMap = new Map<string, EmpData>();
     for (const r of rawRows) {
       if (!empMap.has(r.empId)) {
-        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, days: [] });
+        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, days: [] });
       }
-      empMap.get(r.empId)!.days.push({ day: r.day, dayType: r.dayType, otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
+      empMap.get(r.empId)!.days.push({ day: Number(r.day), dayType: Number(r.dayType), otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
     }
     const emps = Array.from(empMap.values());
     const totalEmps = emps.length;
@@ -137,39 +139,30 @@ export async function GET(req: NextRequest) {
     results.push(check2);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 3: PN ở cuối kỳ nghỉ (PN nên đứng sau LP)
+       Check 2b: Số ngày PN phải đúng bằng phepNam
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const check3: CheckResult = {
-      id: 'pn_end_of_rest',
-      label: 'PN cuối kỳ nghỉ',
-      description: activeKeys.has('pn_start_from_day')
-        ? 'PN phải đứng sau ít nhất 1 ngày LP liên tiếp (cuối kỳ nghỉ)'
-        : 'Không áp dụng (rule đã tắt)',
+    const checkPnCount: CheckResult = {
+      id: 'pn_count',
+      label: 'Số ngày phép năm',
+      description: 'Số ngày PN trong tháng phải đúng bằng phép năm của NV',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
-    if (activeKeys.has('pn_start_from_day')) {
-      for (const emp of emps) {
-        const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-        const dayArr = Array.from({ length: daysInMonth + 1 }, (_, i) => {
-          const d = emp.days.find(x => x.day === i);
-          return d?.dayType ?? -1;
+    for (const emp of emps) {
+      if (emp.phepNam === 0) continue;
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      const pnCount = emp.days.filter(d => d.dayType === 2).length;
+      if (pnCount !== emp.phepNam) {
+        checkPnCount.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `Có ${pnCount} ngày PN, cần ${emp.phepNam}`,
         });
-        const pnDay = emp.days.find(d => d.dayType === 2)?.day;
-        if (pnDay && pnDay >= params.pnStartFromDay) {
-          const prevDay = pnDay - 1;
-          if (prevDay >= 1 && dayArr[prevDay] !== 1) {
-            check3.violations.push({
-              code: emp.code, name: emp.name, deptName, day: pnDay,
-              detail: `PN ngày ${pnDay}: ngày trước (${prevDay}) không phải LP (code=${dayArr[prevDay]})`,
-            });
-          }
-        }
       }
     }
-    check3.violationCount = check3.violations.length;
-    check3.status = check3.violationCount === 0 ? 'ok' : 'warning';
-    // pn_end_of_rest không còn là lỗi — PN sau ngày làm (X) vẫn chấp nhận được
-    // results.push(check3);
+    checkPnCount.violationCount = checkPnCount.violations.length;
+    checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkPnCount);
+
+    /* check3 (pn_end_of_rest) đã bỏ — engine không đảm bảo PN đứng cuối LP trong step1 */
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 4: OT tối đa maxOtPerDayHours h/ngày
@@ -293,6 +286,47 @@ export async function GET(req: NextRequest) {
     results.push(checkShift);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Cân bằng Ca1/Ca2 theo phòng mỗi ngày (chênh ≤ 1)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkShiftBalance: CheckResult = {
+      id: 'shift_balance',
+      label: 'Cân bằng ca trong phòng',
+      description: 'Số NV Ca1 và Ca2 trong cùng phòng mỗi ngày chênh ≤ 1',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    const deptDayShift = new Map<string, Map<number, { c1: number; c2: number }>>();
+    for (const emp of emps) {
+      for (const d of emp.days) {
+        if (d.dayType !== 0 || !d.shiftCode) continue;
+        if (!deptDayShift.has(emp.deptId)) deptDayShift.set(emp.deptId, new Map());
+        const dayMap = deptDayShift.get(emp.deptId)!;
+        if (!dayMap.has(d.day)) dayMap.set(d.day, { c1: 0, c2: 0 });
+        const stat = dayMap.get(d.day)!;
+        if (d.shiftCode === 'C1') stat.c1++;
+        else if (d.shiftCode === 'C2') stat.c2++;
+      }
+    }
+    for (const [deptId, dayMap] of deptDayShift) {
+      const deptName = deptMap.get(deptId)?.name ?? '—';
+      // Dòng summary phòng nếu có vi phạm
+      const deptViolDays: string[] = [];
+      for (const [day, stat] of dayMap) {
+        if (stat.c1 === 0 || stat.c2 === 0) continue;
+        const diff = Math.abs(stat.c1 - stat.c2);
+        if (diff > 1) deptViolDays.push(`Ngày ${day}: Ca1=${stat.c1}, Ca2=${stat.c2} (chênh ${diff})`);
+      }
+      if (deptViolDays.length > 0) {
+        checkShiftBalance.violations.push({ code: '—', name: `📊 ${deptName}`, deptName, day: 0, detail: `${deptViolDays.length} ngày vi phạm` });
+        for (const detail of deptViolDays) {
+          checkShiftBalance.violations.push({ code: '—', name: deptName, deptName, day: 0, detail });
+        }
+      }
+    }
+    checkShiftBalance.violationCount = checkShiftBalance.violations.length;
+    checkShiftBalance.status = checkShiftBalance.violationCount === 0 ? 'ok' : 'warning';
+    results.push(checkShiftBalance);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check: Giờ vào/ra hợp lệ
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkTime: CheckResult = {
@@ -343,20 +377,58 @@ export async function GET(req: NextRequest) {
       const minLP = Math.min(...lpCounts);
       const maxLP = Math.max(...lpCounts);
       if (maxLP - minLP > 1) {
-        // Tìm các NV có LP bất thường
+        // Dòng summary cho phòng
+        check8.violations.push({
+          code: '—', name: `📊 ${deptName}`, deptName, day: 0,
+          detail: `Min=${minLP} | Max=${maxLP} | Chênh=${maxLP - minLP} | ${members.length} NV`,
+        });
+        // Chi tiết từng NV lệch
         for (const m of members) {
-          if (m.lpCount === maxLP || m.lpCount === minLP) {
-            check8.violations.push({
-              code: m.code, name: m.name, deptName, day: 0,
-              detail: `${deptName}: LP=${m.lpCount} ngày (phòng có LP từ ${minLP}→${maxLP}, chênh ${maxLP - minLP})`,
-            });
-          }
+          if (m.lpCount !== minLP && m.lpCount !== maxLP) continue;
+          check8.violations.push({
+            code: m.code, name: m.name, deptName, day: 0,
+            detail: `LP = ${m.lpCount} ngày ${m.lpCount === maxLP ? '⬆ nhiều nhất' : '⬇ ít nhất'}`,
+          });
         }
       }
     }
     check8.violationCount = check8.violations.length;
     check8.status = check8.violationCount === 0 ? 'ok' : 'warning';
     results.push(check8);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: PN trong dữ liệu import (employees) từ ngày pnStartFromDay
+       Đọc từ bảng employees.day_X (symbol gốc), không phải distribution_results
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
+    const empImportRows = await conn.all<Record<string, string>>(
+      `SELECT e.code, e.name, d.name AS deptName, ${DAY_COLS.map(c => `e.${c}`).join(', ')}
+       FROM employees e
+       LEFT JOIN departments d ON e.department_id = d.id
+       WHERE e.month_id = ? AND e.active = TRUE`, monthId
+    );
+    const checkImportPN: CheckResult = {
+      id: 'pn_start_day_import',
+      label: 'PN trong dữ liệu import',
+      description: `PN trong file import chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`,
+      status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
+    };
+    const PN_SYMBOLS = new Set(['PN', 'pn']);
+    for (const r of empImportRows) {
+      for (let d = 1; d < params.pnStartFromDay; d++) {
+        const sym = (r[`day_${d}`] ?? '').trim();
+        if (PN_SYMBOLS.has(sym)) {
+          checkImportPN.violations.push({
+            code: r.code, name: r.name, deptName: r.deptName ?? '—', day: d,
+            detail: `PN tại ngày ${d} trong dữ liệu import (trước ngày ${params.pnStartFromDay})`,
+          });
+          break; // 1 vi phạm/NV là đủ
+        }
+      }
+    }
+    checkImportPN.violationCount = checkImportPN.violations.length;
+    checkImportPN.status = checkImportPN.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkImportPN);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary

@@ -10,27 +10,52 @@ export async function POST(req: NextRequest) {
   const conn = await getConn();
   try {
     const shiftMap = await loadShiftMap(monthId);
+
     const emps = await conn.all<{ id: string; departmentId: string }>(
       `SELECT id, department_id AS departmentId FROM employees WHERE month_id = ? AND active = TRUE`, monthId
     );
+    const allDays = await conn.all<{ empId: string; day: number; dayType: number }>(
+      `SELECT employee_id AS empId, day, day_type AS dayType
+       FROM distribution_results WHERE month_id = ? ORDER BY employee_id, day`, monthId
+    );
+
+    // Group days by empId
+    const daysByEmp = new Map<string, { day: number; dayType: number }[]>();
+    for (const d of allDays) {
+      if (!daysByEmp.has(d.empId)) daysByEmp.set(d.empId, []);
+      daysByEmp.get(d.empId)!.push({ day: d.day, dayType: d.dayType });
+    }
+
+    // Tính toán tất cả changes in-memory
+    const rows: string[] = [];
     for (const emp of emps) {
       const deptId = emp.departmentId ?? null;
       const entry = getShiftEntry(shiftMap, deptId);
-      // isCommonShift = true nếu phòng ban không có ca riêng (dùng ca DEFAULT)
-      const hasDeptShift = deptId ? shiftMap.has(deptId) : false;
-      const isCommonShift = !hasDeptShift;
-      const days = await conn.all<{ day: number; dayType: number }>(
-        `SELECT day, day_type AS dayType FROM distribution_results WHERE month_id = ? AND employee_id = ? ORDER BY day`,
-        monthId, emp.id
-      );
-      const assigned = step4_assignShiftsBatch(days as { day: number; dayType: number }[], entry.ca1, entry.ca2, isCommonShift);
+      const isCommonShift = !deptId || !shiftMap.has(deptId);
+      const days = daysByEmp.get(emp.id) ?? [];
+      const assigned = step4_assignShiftsBatch(days, entry.ca1, entry.ca2, isCommonShift);
       for (const a of assigned) {
-        await conn.run(
-          `UPDATE distribution_results SET shift_code=? WHERE month_id=? AND employee_id=? AND day=?`,
-          a.shiftCode, monthId, emp.id, a.day
-        );
+        const sc = (a.shiftCode ?? '').replace(/'/g, "''");
+        rows.push(`('${emp.id}',${a.day},'${sc}')`);
       }
     }
+
+    if (rows.length > 0) {
+      // Bulk INSERT vào temp table rồi UPDATE JOIN 1 lần
+      const chunkSize = 500;
+      await conn.run(`CREATE TEMP TABLE IF NOT EXISTS _tmp_shift (emp_id VARCHAR, day INTEGER, shift_code VARCHAR)`);
+      await conn.run(`DELETE FROM _tmp_shift`);
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        await conn.run(`INSERT INTO _tmp_shift VALUES ${rows.slice(i, i + chunkSize).join(',')}`);
+      }
+      await conn.run(
+        `UPDATE distribution_results dr
+         SET shift_code = t.shift_code
+         FROM _tmp_shift t
+         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+      );
+    }
+
     await markStepDone(monthId, 4);
     await conn.close();
     return NextResponse.json({ ok: true, step: 4, processed: emps.length });

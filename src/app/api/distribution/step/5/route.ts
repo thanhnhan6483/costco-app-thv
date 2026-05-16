@@ -10,26 +10,50 @@ export async function POST(req: NextRequest) {
   const conn = await getConn();
   try {
     const params = await loadParams(monthId);
-    const emps = await conn.all<Record<string, string>>(
+
+    const emps = await conn.all<{ id: string; overtimeHours: string; lateMinutes: string }>(
       `SELECT id, overtime_hours AS overtimeHours, late_minutes AS lateMinutes
        FROM employees WHERE month_id = ? AND active = TRUE`, monthId
     );
+    const allDays = await conn.all<{ empId: string; day: number; dayType: number }>(
+      `SELECT employee_id AS empId, day, day_type AS dayType
+       FROM distribution_results WHERE month_id = ? ORDER BY employee_id, day`, monthId
+    );
+
+    const daysByEmp = new Map<string, { day: number; dayType: number }[]>();
+    for (const d of allDays) {
+      if (!daysByEmp.has(d.empId)) daysByEmp.set(d.empId, []);
+      daysByEmp.get(d.empId)!.push({ day: d.day, dayType: d.dayType });
+    }
+
+    const rows: string[] = [];
     for (const emp of emps) {
-      const days = await conn.all<{ day: number; dayType: number }>(
-        `SELECT day, day_type AS dayType FROM distribution_results WHERE month_id=? AND employee_id=? ORDER BY day`,
-        monthId, emp.id
-      );
+      const days = daysByEmp.get(emp.id) ?? [];
+      if (days.length === 0) continue;
       const arrangement = days.map(d => d.dayType);
       const otH  = parseFloat(emp.overtimeHours) || 0;
       const latM = parseFloat(emp.lateMinutes)   || 0;
       const dist = step5_distributeOTLate(arrangement, otH, latM, params);
       for (let i = 0; i < days.length; i++) {
-        await conn.run(
-          `UPDATE distribution_results SET ot_hours=?, late_mins=? WHERE month_id=? AND employee_id=? AND day=?`,
-          dist[i].otH, dist[i].lateM, monthId, emp.id, days[i].day
-        );
+        rows.push(`('${emp.id}',${days[i].day},${dist[i].otH},${dist[i].lateM})`);
       }
     }
+
+    if (rows.length > 0) {
+      const chunkSize = 500;
+      await conn.run(`CREATE TEMP TABLE IF NOT EXISTS _tmp_otlate (emp_id VARCHAR, day INTEGER, ot_hours DOUBLE, late_mins DOUBLE)`);
+      await conn.run(`DELETE FROM _tmp_otlate`);
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        await conn.run(`INSERT INTO _tmp_otlate VALUES ${rows.slice(i, i + chunkSize).join(',')}`);
+      }
+      await conn.run(
+        `UPDATE distribution_results dr
+         SET ot_hours = t.ot_hours, late_mins = t.late_mins
+         FROM _tmp_otlate t
+         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+      );
+    }
+
     await markStepDone(monthId, 5);
     await conn.close();
     return NextResponse.json({ ok: true, step: 5, processed: emps.length });
@@ -38,7 +62,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
-
 export async function GET(req: NextRequest) {
   const url     = new URL(req.url);
   const monthId = url.searchParams.get('month') ?? '';

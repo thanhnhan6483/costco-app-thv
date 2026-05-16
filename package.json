@@ -6,14 +6,17 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:worker": "tsc -p src/lib/workers/tsconfig.worker.json"
   },
   "dependencies": {
     "duckdb": "^1.4.4",
     "duckdb-async": "^1.4.2",
     "next": "16.2.6",
+    "piscina": "4.7.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "tsx": "4.19.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

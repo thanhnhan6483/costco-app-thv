@@ -1,5 +1,5 @@
-﻿'use client';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+'use client';
+import React, { useState, useCallback, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
@@ -91,6 +91,11 @@ export default function AutoAlloc() {
   const [elapsed, setElapsed] = useState(0);
   const [pageSizes, setPageSizes] = useState<Record<number, number>>({}); // size riêng cho từng bước
   const [showCa, setShowCa] = useState(false);
+  const [validateOpen, setValidateOpen] = useState(false);
+  const [validate2Status, setValidate2Status] = useState<{ loading: boolean; result: ValidateResult | null }>({ loading: false, result: null });
+  const [step1Filter, setStep1Filter] = useState<'pn_before_15' | 'pn_mismatch' | null>(null);
+  const validateRef = useRef<{ run: () => void }>(null);
+
   const [completionInfo, setCompletionInfo] = useState<{
     stepNum: number | 'all'; stepLabel: string; stepIcon: string; elapsedSec: number;
     onConfirm: () => void;
@@ -132,6 +137,12 @@ export default function AutoAlloc() {
     setStepData({}); setStepCache({}); setPageNum({});
   }, [activeMonthId, refreshStatus, refreshLocked]);
 
+  useEffect(() => {
+    setValidateOpen(false);
+    setValidate2Status({ loading: false, result: null });
+    setStep1Filter(null);
+  }, [activeStep, activeMonthId]);
+
   const clearAll = useCallback(async () => {
     if (!confirm('Xóa toàn bộ dữ liệu phân bổ của tháng này? Không thể khôi phục!')) return;
     setClearing(true);
@@ -152,14 +163,17 @@ export default function AutoAlloc() {
     }
     const step = STEPS.find(s => s.num === displayStep);
     if (!step) return;
-    const r = await fetch(`/api/distribution/step/${step.apiNum}?month=${activeMonthId}&page=${page}&limit=${limit}`);
+    // Bước 2 chưa chạy phân bổ → dùng dữ liệu gốc từ step/2 (employees)
+    // force=true sau khi chạy xong → luôn dùng step.apiNum (step/1)
+    const apiNum = (displayStep === 2 && !status['step1Done'] && !force) ? 2 : step.apiNum;
+    const r = await fetch(`/api/distribution/step/${apiNum}?month=${activeMonthId}&page=${page}&limit=${limit}`);
     if (r.ok) {
       const json: StepPage = await r.json();
       setStepCache(prev => ({ ...prev, [displayStep]: { ...(prev[displayStep] ?? {}), [cacheKey]: json } }));
       setStepData(prev => ({ ...prev, [displayStep]: json }));
       setPageNum(prev => ({ ...prev, [displayStep]: page }));
     }
-  }, [activeMonthId, stepCache, pageSizes]);
+  }, [activeMonthId, stepCache, pageSizes, status]);
 
   const handleStepClick = useCallback(async (num: number) => {
     setActiveStep(num);
@@ -173,9 +187,19 @@ export default function AutoAlloc() {
     const { apiNum } = step;
     if (apiNum === 2) {
       await fetch(`/api/distribution/step/${apiNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId }) });
-      await refreshStatus(); return;
+      setValidateOpen(false);
+      setValidate2Status({ loading: false, result: null });
+      await refreshStatus();
+      // Chuyển sang Bước 2 và load dữ liệu
+      setActiveStep(2);
+      setStepCache(prev => { const n = { ...prev }; delete n[2]; return n; });
+      setStepData(prev => { const n = { ...prev }; delete n[2]; return n; });
+      await loadStepData(2, 1, undefined, true);
+      return;
     }
     setRunning(displayStep);
+    setValidateOpen(false);
+    setValidate2Status({ loading: false, result: null });
     const t0 = Date.now();
     const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
     try {
@@ -190,8 +214,8 @@ export default function AutoAlloc() {
         stepNum: displayStep, stepLabel: step.label, stepIcon: step.icon, elapsedSec,
         onConfirm: async () => {
           setCompletionInfo(null);
-          await loadStepData(displayStep, 1, undefined, true);
           await refreshStatus();
+          await loadStepData(displayStep, 1, undefined, true);
         },
       });
     } catch (e) { clearInterval(timer); setRunning(null); setElapsed(0); throw e; }
@@ -217,7 +241,26 @@ export default function AutoAlloc() {
     } catch (e) { clearInterval(timer); setRunning(null); setElapsed(0); throw e; }
   }, [activeMonthId, refreshStatus, loadStepData, activeStep]);
 
-  const isRunning = running !== null;
+  const [algoRunning, setAlgoRunning] = useState<'backtracking' | 'greedy' | null>(null);
+
+  const runStep2WithAlgo = useCallback(async (algo: 'backtracking' | 'greedy') => {
+    setAlgoRunning(algo);
+    setValidateOpen(false);
+    setValidate2Status({ loading: false, result: null });
+    const t0 = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
+    try {
+      await fetch('/api/distribution/step/1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, algo }) });
+      clearInterval(timer); setAlgoRunning(null); setElapsed(0);
+      await fetch('/api/distribution/invalidate-after', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, afterDisplayStep: 2 }) });
+      const laterSteps = STEPS.filter(s => s.num > 2 && !s.viewOnly).map(s => s.num);
+      setStepCache(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); delete n[2]; return n; });
+      setStepData(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); delete n[2]; return n; });
+      await refreshStatus();
+      await loadStepData(2, 1, undefined, true);
+    } catch (e) { clearInterval(timer); setAlgoRunning(null); setElapsed(0); throw e; }
+  }, [activeMonthId, refreshStatus, loadStepData]);
+  const isRunning = running !== null || algoRunning !== null;
   const curStep = STEPS.find(s => s.num === activeStep);
 
   return (
@@ -244,14 +287,30 @@ export default function AutoAlloc() {
         <div className={styles.stepperRunWrap}>
           {!curStep?.viewOnly && (
           <button
-            className={`${styles.btnRunStep} ${running === activeStep ? styles.btnRunning : ''}`}
-            onClick={() => runStep(activeStep)} disabled={isRunning || locked}
+            className={`${styles.btnRunStep} ${(running === activeStep || algoRunning !== null) ? styles.btnRunning : ''}`}
+            onClick={() => activeStep === 2 ? runStep2WithAlgo('greedy') : runStep(activeStep)}
+            disabled={isRunning || locked}
             id={`btn-run-step-${activeStep}`}
           >
-            {running === activeStep ? <><span className={styles.spinnerSm} /> {elapsed}s</>
+            {(running === activeStep || (activeStep === 2 && algoRunning !== null))
+              ? <><span className={styles.spinnerSm} /> {elapsed}s</>
               : curStep?.apiNum === 2 ? <><IconCheck /> Xác nhận</>
                 : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
           </button>
+          )}
+          {activeStep === 2 && !curStep?.viewOnly && (
+            <>
+              <div className={styles.dividerV} />
+              <button
+                className={`${styles.btnRunStep} ${algoRunning === 'backtracking' ? styles.btnRunning : ''}`}
+                onClick={() => runStep2WithAlgo('backtracking')}
+                disabled={isRunning || locked}
+                id="btn-run-backtracking"
+                style={{ background: algoRunning === 'backtracking' ? undefined : '#f5f3ff', color: algoRunning === 'backtracking' ? undefined : '#6d28d9', borderColor: '#c4b5fd' }}
+              >
+                {algoRunning === 'backtracking' ? <><span className={styles.spinnerSm} /> {elapsed}s</> : <><IconPlay /> Backtracking</>}
+              </button>
+            </>
           )}
           <div className={styles.dividerV} />
           {!locked && (
@@ -292,6 +351,34 @@ export default function AutoAlloc() {
                 {showCa ? 'Ẩn Ca' : 'Hiện Ca'}
               </button>
             )}
+            {[2,3,4,5].includes(activeStep) && (() => {
+              const { loading, result } = validate2Status;
+              const doRun = () => { setValidateOpen(true); validateRef.current?.run(); };
+              if (loading) return <button className={styles.btnExport} disabled style={{ minWidth: 130, justifyContent: 'center' }}>⏳ Đang kiểm tra...</button>;
+              if (result) return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button className={styles.btnExport} onClick={() => setValidateOpen(v => !v)}
+                    style={{ minWidth: 130, justifyContent: 'center', background: result.overallStatus === 'ok' ? '#f0fdf4' : '#fef2f2', color: result.overallStatus === 'ok' ? '#15803d' : '#b91c1c', borderColor: result.overallStatus === 'ok' ? '#86efac' : '#fca5a5' }}>
+                    {validateOpen ? '▴ ' : '▾ '}{result.overallStatus === 'ok' ? '✅ Đạt' : `❌ ${result.totalViolations} vi phạm`}
+                  </button>
+                  <button className={styles.btnExport} title="Kiểm tra lại" onClick={doRun}
+                    style={{ minWidth: 32, padding: '0 8px', justifyContent: 'center', color: '#64748b' }}>🔄</button>
+                </div>
+              );
+              return <button className={styles.btnExport} style={{ minWidth: 130, justifyContent: 'center' }} onClick={doRun}>🔍 Kiểm tra</button>;
+            })()}
+            {activeStep === 1 && (
+              <>
+                <button className={styles.btnExport} onClick={() => setStep1Filter(v => v === 'pn_before_15' ? null : 'pn_before_15')}
+                  style={{ minWidth: 130, justifyContent: 'center', background: step1Filter === 'pn_before_15' ? '#f5f3ff' : undefined, color: step1Filter === 'pn_before_15' ? '#6d28d9' : undefined, borderColor: step1Filter === 'pn_before_15' ? '#a78bfa' : undefined }}>
+                  {step1Filter === 'pn_before_15' ? '✕ ' : ''}PN trước ngày 15
+                </button>
+                <button className={styles.btnExport} onClick={() => setStep1Filter(v => v === 'pn_mismatch' ? null : 'pn_mismatch')}
+                  style={{ minWidth: 140, justifyContent: 'center', background: step1Filter === 'pn_mismatch' ? '#f5f3ff' : undefined, color: step1Filter === 'pn_mismatch' ? '#6d28d9' : undefined, borderColor: step1Filter === 'pn_mismatch' ? '#a78bfa' : undefined }}>
+                  {step1Filter === 'pn_mismatch' ? '✕ ' : ''}PN khác SL ngày cột
+                </button>
+              </>
+            )}
             <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#'} className={styles.btnExport} download id={`btn-export-step-${activeStep}`} style={{ minWidth: 110, justifyContent: 'center' }}>
               <IconDl /> Tải Excel
             </a>
@@ -331,6 +418,11 @@ export default function AutoAlloc() {
             monthLabel={activeMonthLabel}
             showCa={showCa}
             locked={locked}
+            validateOpen={validateOpen}
+            onValidateOpen={() => setValidateOpen(true)}
+            onValidateStatusChange={setValidate2Status}
+            validateRef={validateRef}
+            step1Filter={step1Filter}
           />
         </div>
       </div>
@@ -401,16 +493,41 @@ const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d
 const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff', 10: '#d1fae5', 11: '#fef3c7', 12: '#fef9c3', 13: '#dbeafe', 14: '#f3f4f6' };
 
 /* === ImportGrid (Step 1) === */
-function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
+function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [fGroup, setFGroup] = useState('');
   const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a,b) => a.localeCompare(b,'vi')); }, [rows]);
-  const filtered = useGridFilter(rows, fCode, fName, fDept, fGroup);
+  const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
+  const filtered = useMemo(() => {
+    if (!step1Filter) return baseFiltered;
+    return (baseFiltered as any[]).filter(r => {
+      const days: { day: number; symbol: string }[] = r.days ?? [];
+      const pnDays = days.filter(d => d.symbol === 'PN').map(d => d.day);
+      if (step1Filter === 'pn_before_15') return pnDays.some(d => d < 15);
+      if (step1Filter === 'pn_mismatch') {
+        const pnCount = pnDays.length;
+        const colPN = Number(r.phepNam) || 0;
+        return pnCount !== colPN;
+      }
+      return true;
+    });
+  }, [baseFiltered, step1Filter]);
+  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
+  useEffect(() => {
+    fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: {code:string; name:string; dayType:number}[]) => {
+      setLeaveTypes(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, [monthId]);
   return (
     <div className={styles.tableOuter}>
+      {step1Filter && (
+        <div style={{ padding: '4px 12px', background: '#f5f3ff', borderBottom: '1px solid #ddd6fe', fontSize: 12, color: '#6d28d9' }}>
+          🔍 Đang lọc: <strong>{step1Filter === 'pn_before_15' ? 'PN trước ngày 15' : 'PN khác SL ngày cột'}</strong> — {filtered.length} dòng
+        </div>
+      )}
       <div className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
           <thead>
@@ -454,8 +571,8 @@ function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
                     );
                   })}
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
-                  <td style={{ textAlign: 'center' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag}>{r.overtimeHours}h</span> : '—'}</td>
-                  <td style={{ textAlign: 'center' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag}>{r.lateMinutes}ph</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',','.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',','.')).toFixed(2)}h</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',','.')) > 0 ? <span className={styles.lateTag}>{parseFloat(String(r.lateMinutes).replace(',','.')).toFixed(2)}</span> : '—'}</td>
                   <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r.phepNam || '—'}</td>
                 </tr>
               );
@@ -464,15 +581,17 @@ function ImportGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
         </table>
       </div>
       <div className={styles.legend}>
-        {Object.entries(SYM_CLR).filter(([k]) => k !== '').map(([sym, clr]) => (
-          <span key={sym} className={styles.legendItem}>
-            <span style={{
-              display: 'inline-block', padding: '1px 6px', borderRadius: 4,
-              background: SYM_BG[sym], color: clr, fontWeight: 700,
-              fontSize: '0.7rem', marginRight: 3, border: `1px solid ${clr}30`,
-            }}>{sym}</span>
-          </span>
-        ))}
+        {(Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
+          const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+          if (dt < 0) return null;
+          const sym = DT_SYMBOL[dt] ?? lt.code;
+          return (
+            <span key={lt.code} className={styles.legendItem}>
+              <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[dt], color: DT_TEXT[dt], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[dt]}30` }}>{sym}</span>
+              {lt.name}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -516,12 +635,13 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
 /* === DayTypeGrid (Step 2) – Editable === */
 type EditKey = `${string}_${number}`; // "empCode_day"
 const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
+function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }: {
   rows: Record<string, unknown>[];
   monthId: string;
   monthLabel: string;
   onSaved?: () => void;
   locked?: boolean;
+  filterCodes?: Set<string> | null;
 }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
@@ -540,7 +660,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
   }, [monthId]);
 
   const deptList = useDeptList(rows);
-  const filtered = useGridFilter(rows, fCode, fName, fDept);
+  const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
+  const filtered = filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered;
+  const hasViolations = (filterCodes?.size ?? 0) > 0;
 
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -549,10 +671,10 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
 
   const handleDrop = (toCode: string, toDay: number) => {
     if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) { setDragSrc(null); setDragOver(null); return; }
-    const fromDT = getEffectiveDT(dragSrc.code, dragSrc.day, (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((d: any) => d.day === dragSrc.day)?.dayType ?? -1);
-    const toDT   = getEffectiveDT(toCode, toDay, (rows.find((r: any) => r.code === toCode) as any)?.days?.find((d: any) => d.day === toDay)?.dayType ?? -1);
-    const origFrom = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((d: any) => d.day === dragSrc.day)?.dayType ?? -1;
-    const origTo   = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((d: any) => d.day === toDay)?.dayType ?? -1;
+    const fromDT = getEffectiveDT(dragSrc.code, dragSrc.day, (() => { const d = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((x: any) => x.day === dragSrc.day); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })());
+    const toDT   = getEffectiveDT(toCode, toDay, (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })());
+    const origFrom = (() => { const d = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((x: any) => x.day === dragSrc.day); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })();
+    const origTo   = (() => { const d = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((x: any) => x.day === toDay); return d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[d?.symbol ?? ''] ?? -1); })();
     setEdits(prev => {
       const next = new Map(prev);
       const kFrom: EditKey = `${dragSrc.code}_${dragSrc.day}`;
@@ -568,7 +690,8 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
     if (!picker) return;
     const key: EditKey = `${picker.code}_${picker.day}`;
     const origRow = rows.find((r: any) => r.code === picker.code) as any;
-    const origDT = origRow?.days?.find((d: any) => d.day === picker.day)?.dayType ?? -1;
+    const origDayData = origRow?.days?.find((d: any) => d.day === picker.day);
+    const origDT = origDayData?.dayType !== undefined ? Number(origDayData.dayType) : (SYM_TO_DT[origDayData?.symbol ?? ''] ?? -1);
     setEdits(prev => {
       const next = new Map(prev);
       if (dt === origDT) next.delete(key);
@@ -607,6 +730,11 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
 
   return (
     <div className={styles.tableOuter}>
+      {filterCodes && filterCodes.size > 0 && (
+        <div style={{ padding: '4px 12px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', fontSize: 12, color: '#1d4ed8' }}>
+          🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào điều kiện bên dưới để bỏ lọc
+        </div>
+      )}
       <div className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -617,11 +745,12 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 60, color: '#15803d' }}>NGÀY CÔNG</th>
+              <th style={{ minWidth: 36, color: '#7c3aed' }}>PHÉP NĂM</th>
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
               <th style={{ minWidth: 80, color: '#0369a1' }}>NGHỈ THÁNG TRƯỚC</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={4} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={5} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number }[] = r.days ?? [];
@@ -633,7 +762,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
-                  const origDT = d?.dayType ?? -1;
+                  const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
                   const dt = getEffectiveDT(r.code, i + 1, origDT);
                   const sym = DT_SYMBOL[dt] ?? '';
                   const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
@@ -662,6 +791,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
                   );
                 })}
                 <td className={styles.statCell} style={{ color: '#15803d' }}>{r.workdays || '—'}</td>
+                <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>
                 <td className={styles.statCell}>
                   {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length}
                 </td>
@@ -675,15 +805,26 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked }: {
         </table>
       </div>
       <div className={styles.legend}>
-        {(Array.isArray(leaveTypes) ? leaveTypes : []).filter(lt => lt.dayType >= 0).map(lt => {
-          const sym = DT_SYMBOL[lt.dayType] ?? lt.code;
-          return (
-            <span key={lt.code} className={styles.legendItem}>
-              <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[lt.dayType], color: DT_TEXT[lt.dayType], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[lt.dayType]}30` }}>{sym}</span>
-              {lt.name}
-            </span>
-          );
-        })}
+        {(() => {
+          const usedDTs = new Set<number>();
+          for (const r of rows as any[]) {
+            for (const d of (r.days ?? []) as { day: number; dayType: number }[]) {
+              const dt = getEffectiveDT(r.code, d.day, Number(d.dayType));
+              if (dt >= 0) usedDTs.add(dt);
+            }
+          }
+          return (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
+            const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+            if (dt < 0 || !usedDTs.has(dt)) return null;
+            const sym = DT_SYMBOL[dt] ?? lt.code;
+            return (
+              <span key={lt.code} className={styles.legendItem}>
+                <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: DT_CELL_BG[dt], color: DT_TEXT[dt], fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${DT_TEXT[dt]}30` }}>{sym}</span>
+                {lt.name}
+              </span>
+            );
+          });
+        })()}
       </div>
       {/* Picker dropdown */}
       {picker && (
@@ -734,16 +875,16 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <th style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }}>TÊN NHÂN VIÊN</th>
               <th style={{ textAlign: 'left', minWidth: 70 }}>PHÒNG BAN</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 40, color: CA1_CLR }}>Ca 1</th>
-              <th style={{ minWidth: 40, color: CA2_CLR }}>Ca 2</th>
+              <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>
+              <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>
               <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{filtered.map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
-            const ca1Count = days.filter(d => d.shiftCode === 'Ca 1').length;
-            const ca2Count = days.filter(d => d.shiftCode === 'Ca 2').length;
+            const ca1Count = days.filter(d => d.shiftCode === 'C1').length;
+            const ca2Count = days.filter(d => d.shiftCode === 'C2').length;
             const caCCount = days.filter(d => d.shiftCode === 'C').length;
             return (
               <tr key={r.code}>
@@ -756,8 +897,8 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
                   const dt = d?.dayType ?? -1;
                   const sc = d?.shiftCode ?? '';
                   let bg = '#fff', clr = '#9ca3af', label: string = DT_SYMBOL[dt] ?? '';
-                  if (dt === 0 && sc === 'Ca 1') { bg = CA1_BG; clr = CA1_CLR; label = 'Ca 1'; }
-                  else if (dt === 0 && sc === 'Ca 2') { bg = CA2_BG; clr = CA2_CLR; label = 'Ca 2'; }
+                  if (dt === 0 && sc === 'C1') { bg = CA1_BG; clr = CA1_CLR; label = 'C1'; }
+                  else if (dt === 0 && sc === 'C2') { bg = CA2_BG; clr = CA2_CLR; label = 'C2'; }
                   else if (dt === 0 && sc === 'C') { bg = CAC_BG; clr = CAC_CLR; label = 'C'; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; }
                   return (
@@ -775,8 +916,8 @@ function ShiftGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
         </table>
       </div>
       <div className={styles.legend}>
-        <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>Ca 1</span> Ca 1</span>
-        <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>Ca 2</span> Ca 2</span>
+        <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C1</span> C1</span>
+        <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C2</span> C2</span>
         <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CAC_BG, color: CAC_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C</span> Ca chung</span>
       </div>
     </div>
@@ -964,16 +1105,38 @@ interface ViolationItem { code: string; name: string; deptName: string; day: num
 interface CheckResult { id: string; label: string; description: string; status: CheckStatus; violations: ViolationItem[]; violationCount: number; checkedCount: number; }
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
-function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun }: { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; }) {
+const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (codes: Set<string> | null) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; }>(
+function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange }, ref) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [fixing, setFixing] = useState(false);
   const [fixingLp, setFixingLp] = useState(false);
+  const [fixingLpAfterPn, setFixingLpAfterPn] = useState(false);
   const [fixingConsec, setFixingConsec] = useState(false);
+  const [fixingShift, setFixingShift] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+  const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+
+  const run = useCallback(async () => {
+    setLoading(true); setError(null); onStatusChange?.({ loading: true, result: null });
+    try {
+      const r = await fetch(`/api/distribution/validate?month=${monthId}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      if (onlyIds?.length) {
+        data.results = (data.results as CheckResult[]).filter((c: CheckResult) => onlyIds.includes(c.id));
+        data.totalViolations = data.results.reduce((s: number, c: CheckResult) => s + c.violationCount, 0);
+        data.overallStatus = data.results.some((c: CheckResult) => c.status === 'error') ? 'error' : data.results.some((c: CheckResult) => c.status === 'warning') ? 'warning' : 'ok';
+      }
+      setResult(data);
+      onStatusChange?.({ loading: false, result: data });
+      onValidated?.();
+    } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
+  }, [monthId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useImperativeHandle(ref, () => ({ run }), [run]);
 
   const fixPn = async () => {
     setFixing(true); setError(null);
@@ -1005,20 +1168,23 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
     } catch (e) { setError(String(e)); } finally { setFixingLp(false); }
   };
 
-  const run = async () => {
-    setLoading(true); setError(null);
+  const fixShift = async () => {
+    setFixingShift(true); setError(null);
     try {
-      const r = await fetch(`/api/distribution/validate?month=${monthId}`);
+      const r = await fetch('/api/distribution/fix-shift-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
       if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      if (onlyIds?.length) {
-        data.results = (data.results as CheckResult[]).filter(c => onlyIds.includes(c.id));
-        data.totalViolations = data.results.reduce((s: number, c: CheckResult) => s + c.violationCount, 0);
-        data.overallStatus = data.results.some((c: CheckResult) => c.status === 'error') ? 'error' : data.results.some((c: CheckResult) => c.status === 'warning') ? 'warning' : 'ok';
-      }
-      setResult(data);
-      setOpenIds(new Set((data.results as CheckResult[]).filter(c => c.violationCount > 0).map(c => c.id)));
-    } catch (e) { setError(String(e)); } finally { setLoading(false); }
+      setResult(null);
+      onFixed?.();
+    } catch (e) { setError(String(e)); } finally { setFixingShift(false); }
+  };
+
+  const fixLpAfterPn = async () => {    setFixingLpAfterPn(true); setError(null);
+    try {
+      const r = await fetch('/api/distribution/fix-lp-after-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+      if (!r.ok) throw new Error(await r.text());
+      onFixed?.();
+      await run();
+    } catch (e) { setError(String(e)); } finally { setFixingLpAfterPn(false); }
   };
 
   const statusClass: Record<CheckStatus, string> = { ok: styles.checkCardOk, warning: styles.checkCardWarn, error: styles.checkCardError };
@@ -1029,49 +1195,82 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
 
   return (
     <div className={styles.validateWrap} style={{ borderTop: '2px solid #e2e8f0', marginTop: 4 }}>
-      <div className={styles.validateHeader}>
-        <div>
-          <div className={styles.validateTitle}>{title ?? '🔍 Kiểm tra điều kiện phân bổ'}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: 2 }}>{subtitle ?? 'Xác minh các quy tắc nghiệp vụ'}</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {result && (
-            <div className={styles.validateSummary}>
-              <span className={`${styles.validateSummaryBadge} ${summaryClass[result.overallStatus]}`}>{summaryLabel[result.overallStatus]}</span>
-              <span style={{ color: 'var(--gray-500)', fontSize: '0.75rem' }}>{result.totalEmps} NV · {result.totalViolations} vi phạm</span>
-            </div>
-          )}
-          <button className={styles.btnValidate} onClick={run} disabled={loading} id={btnId}>{loading ? 'Đang kiểm tra...' : '🔍 Kiểm tra'}</button>
-        </div>
-      </div>
       {error && <div style={{ background: '#fef2f2', padding: 10, color: '#b91c1c' }}>⚠️ Lỗi: {error}</div>}
       {result && (
         <div className={styles.validateGrid}>
           {result.results.map(check => (
-            <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}`}>
-              <div className={styles.checkCardHeader} onClick={() => setOpenIds(prev => { const n = new Set(prev); if (n.has(check.id)) n.delete(check.id); else n.add(check.id); return n; })}>
+            <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilterId === check.id ? ` ${styles.checkCardActive ?? ''}` : ''}`}>
+              <div className={styles.checkCardHeader} onClick={() => {
+                if (check.violationCount > 0 && onFilterChange) {
+                  const newId = activeFilterId === check.id ? null : check.id;
+                  setActiveFilterId(newId);
+                  onFilterChange(newId ? new Set(check.violations.map(v => v.code)) : null);
+                }
+              }}>
                 <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                 <span className={styles.checkLabel}>{check.label}</span>
                 <span className={`${styles.checkCount} ${countClass[check.status]}`}>{check.violationCount === 0 ? `✓ ${check.checkedCount} đạt` : `${check.violationCount} vi phạm`}</span>
+                {check.violationCount > 0 && (
+                  <span
+                    onClick={e => { e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }}
+                    style={{ fontSize: 11, color: '#2563eb', cursor: 'pointer', marginLeft: 4, textDecoration: 'underline', userSelect: 'none' }}
+                  >
+                    {expandedChecks.has(check.id) ? '(Ẩn)' : '(Chi tiết)'}
+                  </span>
+                )}
+                {activeFilterId === check.id && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 10, background: '#1d4ed8', color: '#fff', marginLeft: 4 }}>🔍 Đang lọc</span>}
                 {check.id === 'consecutive_days' && check.violationCount > 0 && (
                   <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
                 )}
                 {check.id === 'pn_start_day' && check.violationCount > 0 && (
                   <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPn(); }} disabled={fixing || loading} type="button">{fixing ? '...' : '🔧 Sửa PN'}</button>
                 )}
+                {check.id === 'pn_end_of_rest' && check.violationCount > 0 && (
+                  <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLpAfterPn(); }} disabled={fixingLpAfterPn || loading} type="button">{fixingLpAfterPn ? '...' : '🔄 Cập nhật'}</button>
+                )}
                 {check.id === 'lp_balance' && check.violationCount > 0 && (
                   <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLp(); }} disabled={fixingLp || loading} type="button">{fixingLp ? '...' : '⚖️ Cân bằng LP'}</button>
                 )}
               </div>
-              {openIds.has(check.id) && check.violationCount > 0 && (
-                <div className={styles.violationList}>
-                  {check.violations.slice(0, 8).map((v, i) => (
-                    <div key={i} className={styles.violationRow}>
-                      <span className={styles.violationCode}>{v.code}</span>
-                      <span className={styles.violationName}>{v.name}</span>
-                      <span className={styles.violationDetail}>{v.detail}</span>
-                    </div>
-                  ))}
+              {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {check.violations.map((v, i) => {
+                    const isSummary = v.code === '—' && v.name.startsWith('📊');
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'baseline', gap: 8,
+                        padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
+                        background: isSummary ? '#fef9c3' : 'transparent',
+                        borderRadius: isSummary ? 6 : 0,
+                        borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
+                        marginTop: isSummary ? 4 : 0,
+                      }}>
+                        {!isSummary && v.code !== '—' && <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>}
+                        {!isSummary && v.code !== '—' && <span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span>}
+                        <span style={{ fontSize: isSummary ? 12 : 11, color: isSummary ? '#92400e' : '#475569', fontWeight: isSummary ? 600 : 400 }}>{v.detail}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {check.id === 'shift_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {check.violations.map((v, i) => {
+                    const isSummary = v.name.startsWith('📊');
+                    return (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'baseline', gap: 8,
+                        padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
+                        background: isSummary ? '#eff6ff' : 'transparent',
+                        borderRadius: isSummary ? 6 : 0,
+                        borderLeft: isSummary ? '3px solid #3b82f6' : '2px solid #e2e8f0',
+                        marginTop: isSummary ? 4 : 0,
+                      }}>
+                        <span style={{ fontSize: isSummary ? 12 : 11, color: isSummary ? '#1d4ed8' : '#475569', fontWeight: isSummary ? 600 : 400 }}>{isSummary ? v.name : v.detail}</span>
+                        {isSummary && <span style={{ fontSize: 11, color: '#64748b' }}>{v.detail}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1080,48 +1279,188 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
       )}
     </div>
   );
+});
+
+
+/* === AllocConfigPanel — Cấu hình áp dụng cho Bước 2 === */
+const STEP2_PARAM_KEYS: string[] = [];
+const STEP2_LABELS: Record<string, string> = {};
+function AllocConfigPanel({ monthId }: { monthId: string }) {
+  const [rules, setRules] = useState<{ paramKey: string; defaultParam: string; active: boolean }[]>([]);
+  useEffect(() => {
+    fetch(`/api/alloc-rules?month=${monthId}`).then(r => r.json()).then((d: { value?: unknown[] }) => {
+      const list = Array.isArray(d) ? d : (d.value ?? []);
+      setRules((list as { paramKey: string; defaultParam: string; active: boolean }[]).filter(r => STEP2_PARAM_KEYS.includes(r.paramKey)));
+    }).catch(() => {});
+  }, [monthId]);
+  if (!rules.length) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+      {STEP2_PARAM_KEYS.map(key => {
+        const r = rules.find(x => x.paramKey === key);
+        if (!r) return null;
+        return (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, background: r.active ? '#f0fdf4' : '#f1f5f9', border: `1px solid ${r.active ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 6, padding: '4px 10px', fontSize: 12 }}>
+            <span style={{ color: r.active ? '#15803d' : '#94a3b8', fontWeight: 600 }}>{STEP2_LABELS[key] ?? key}</span>
+            <span style={{ color: '#64748b' }}>:</span>
+            <span style={{ color: r.active ? '#0f172a' : '#94a3b8', fontWeight: 500 }}>{r.defaultParam || '—'}</span>
+            {!r.active && <span style={{ color: '#94a3b8', fontSize: 11 }}>(tắt)</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* === DeptSummaryGrid === */
+type DeptDayStat = { day: number; work: number; off: number };
+type DeptSummary = { deptId: string; deptName: string; totalWork: number; totalOff: number; days: DeptDayStat[] };
+
+function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel: string }) {
+  const [data, setData] = useState<{ daysInMonth: number; depts: DeptSummary[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/distribution/dept-summary?month=${monthId}`)
+      .then(r => r.json()).then(setData).catch(() => {}).finally(() => setLoading(false));
+  }, [monthId]);
+
+  if (loading) return <div className={styles.emptyState}>Đang tải...</div>;
+  if (!data || !data.depts.length) return <div className={styles.emptyState}>Chưa có dữ liệu phân bổ.</div>;
+
+  const { daysInMonth, depts } = data;
+  const [mm, yyyy] = monthLabel.split('/');
+
+  return (
+    <div className={styles.tableOuter}>
+      <div className={styles.tableWrap}>
+        <table className={styles.gridTable} style={{ fontSize: '0.7rem' }}>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 140, textAlign: 'left' }}>PHÒNG BAN</th>
+              <th style={{ minWidth: 36, color: '#64748b' }}>LOẠI</th>
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const dow = new Date(parseInt(yyyy), parseInt(mm) - 1, i + 1).getDay();
+                const isSun = dow === 0, isSat = dow === 6;
+                return (
+                  <th key={i} className={styles.dayNum} style={{ color: isSun ? '#dc2626' : isSat ? '#2563eb' : undefined }}>
+                    {i + 1}
+                  </th>
+                );
+              })}
+              <th style={{ minWidth: 50, color: '#15803d' }}>TỔNG LÀM</th>
+              <th style={{ minWidth: 50, color: '#64748b' }}>TỔNG NGHỈ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {depts.map((dept, di) => {
+              const maxWork = Math.max(...depts.map(d => Math.max(...d.days.map(x => x.work))));
+              return (
+                <React.Fragment key={dept.deptId}>
+                  {/* Dòng đi làm */}
+                  <tr style={{ background: di % 2 === 0 ? '#f0fdf4' : '#f8fafc' }}>
+                    <td rowSpan={2} style={{ fontWeight: 600, color: '#0f172a', verticalAlign: 'middle', borderRight: '2px solid #e2e8f0' }}>
+                      {dept.deptName}
+                    </td>
+                    <td style={{ color: '#15803d', fontWeight: 600, whiteSpace: 'nowrap' }}>🟢 Làm</td>
+                    {dept.days.map(d => {
+                      const pct = maxWork > 0 ? d.work / maxWork : 0;
+                      return (
+                        <td key={d.day} style={{
+                          textAlign: 'center', fontWeight: 700,
+                          color: d.work === 0 ? '#d1d5db' : '#15803d',
+                          background: d.work === 0 ? '#fff' : `rgba(134,239,172,${0.2 + pct * 0.6})`,
+                          borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                        }}>
+                          {d.work || '·'}
+                        </td>
+                      );
+                    })}
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#15803d' }}>{dept.totalWork}</td>
+                    <td rowSpan={2} style={{ verticalAlign: 'middle' }} />
+                  </tr>
+                  {/* Dòng nghỉ */}
+                  <tr style={{ background: di % 2 === 0 ? '#fefce8' : '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                    <td style={{ color: '#92400e', fontWeight: 600, whiteSpace: 'nowrap' }}>🔴 Nghỉ</td>
+                    {dept.days.map(d => (
+                      <td key={d.day} style={{
+                        textAlign: 'center', fontWeight: 600,
+                        color: d.off === 0 ? '#d1d5db' : '#92400e',
+                        background: d.off === 0 ? '#fff' : `rgba(253,224,71,${0.2 + (d.off / (dept.days.reduce((s,x)=>Math.max(s,x.off),0)||1)) * 0.5})`,
+                        borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                      }}>
+                        {d.off || '·'}
+                      </td>
+                    ))}
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: '#92400e' }}>{dept.totalOff}</td>
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked }: {
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter }: {
   step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
+  validateOpen?: boolean; onValidateOpen?: () => void; onValidateStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void;
+  validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null;
 }) {
-  useEffect(() => { if (!data) onLoad(); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [filterCodes, setFilterCodes] = useState<Set<string> | null>(null);
+  const [showDeptSummary, setShowDeptSummary] = useState(false);
+  useEffect(() => { if (!validateOpen) setFilterCodes(null); }, [validateOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!data) onLoad(); setShowDeptSummary(false); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <div className={styles.emptyState}>Đang tải...</div>;
   if (!Array.isArray(data)) return <div className={styles.emptyState}>Lỗi dữ liệu — vui lòng restart server.</div>;
   const rows = data as Record<string, unknown>[];
 
-  if (step === 1) return <ImportGrid rows={rows} monthLabel={monthLabel} />;
+  if (step === 1) return (
+    <>
+      <div style={validateOpen ? undefined : { display: 'none' }}>
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['pn_start_day_import']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra PN trong file import không được trước ngày quy định" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+      </div>
+      <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} />
+    </>
+  );
   if (step === 2) return (
     <>
-      <DayTypeGrid rows={rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} locked={locked} />
-      <ValidatePanel monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_end_of_rest', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, cân bằng LP giữa NV cùng phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} />
+      <AllocConfigPanel monthId={monthId} />
+      <div style={validateOpen ? undefined : { display: 'none' }}>
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_count', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, số ngày PN, cân bằng LP trong phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={setFilterCodes} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} />
+      </div>
+      <DayTypeGrid rows={rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} />
     </>
   );
   if (step === 3) return (
     <>
-    <ShiftGrid rows={rows} monthLabel={monthLabel} />
-      <ValidatePanel monthId={monthId} onlyIds={['shift_assigned']} title="Kiểm tra chia ca" subtitle="Kiểm tra tất cả ngày làm đã được gán ca" btnId="btn-validate-step3" />
+      <div style={validateOpen ? undefined : { display: 'none' }}>
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+      </div>
+      <ShiftGrid rows={rows} monthLabel={monthLabel} />
     </>
   );
   if (step === 4) return (
     <>
-    <OtLateGrid rows={rows} monthLabel={monthLabel} />
-      <ValidatePanel monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra OT & Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" />
+      <OtLateGrid rows={rows} monthLabel={monthLabel} />
+      <div style={validateOpen ? undefined : { display: 'none' }}>
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra OT & Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+      </div>
     </>
   );
   if (step === 5) return (
     <>
-    <TimeGrid rows={rows} monthLabel={monthLabel} showCa={showCa ?? false} />
-      <ValidatePanel monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" />
+      <TimeGrid rows={rows} monthLabel={monthLabel} showCa={showCa ?? false} />
+      <div style={validateOpen ? undefined : { display: 'none' }}>
+        <ValidatePanel ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} />
+      </div>
     </>
   );
-  if (step === 6) return (
-    <>
-    <FinalGrid rows={rows} monthLabel={monthLabel} />
-      <ValidatePanel monthId={monthId} autoRun title="🔍 Tổng hợp kiểm tra tất cả quy tắc" subtitle="Kiểm tra toàn bộ: ngày công, chia ca, OT/trễ, giờ vào/ra, cân bằng LP" btnId="btn-validate-step6" onFixed={onRefresh ?? onLoad} />
-    </>
-  );
+  if (step === 6) return <FinalGrid rows={rows} monthLabel={monthLabel} />;
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }

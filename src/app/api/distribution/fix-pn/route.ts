@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Kiểm tra vi phạm PN cho từng NV
-    const toFix: { empId: string; code: string; arrangement: number[] }[] = [];
+    const toFix: { empId: string; code: string; arrangement: number[]; phepNam: number }[] = [];
 
     for (const emp of empMap.values()) {
       const arr = Array.from({ length: daysInMonth }, (_, i) => emp.days.get(i + 1) ?? -1);
@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
       }
       if (!violated) continue;
 
+      const phepNam = arr.filter(v => v === 2).length || 1;
       // Xây arrangement: thay PN → LP để placePNAtEndOfRestPeriod có thể tái đặt
       const arrangement = arr.map(v => v === 2 ? 1 : (v < 0 ? 0 : v));
-      toFix.push({ empId: emp.empId, code: emp.code, arrangement });
+      toFix.push({ empId: emp.empId, code: emp.code, arrangement, phepNam });
     }
 
     if (toFix.length === 0) {
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     // Sửa từng NV
     let fixed = 0;
     for (const emp of toFix) {
-      const phepNam = emp.arrangement.filter(v => v === 2).length || 1;
+      const phepNam = emp.phepNam;
       // arrangement đã thay PN→LP ở trên, giờ đặt lại PN đúng vị trí
       const fixed_arr = placePNAtEndOfRestPeriod(emp.arrangement, daysInMonth, params, phepNam);
 

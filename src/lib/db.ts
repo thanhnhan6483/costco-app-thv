@@ -374,6 +374,50 @@ async function initSchema(db: Database): Promise<void> {
     await conn.run(`UPDATE employees SET month_id = '${DEFAULT_MONTH_ID}' WHERE month_id IS NULL OR month_id = ''`);
   } catch { /* bảng chưa tồn tại */ }
 
+  /* Xóa UNIQUE(code, month_id) nếu tồn tại — rebuild bảng không có constraint này.
+     Kiểm tra bằng cách thử insert 2 dòng cùng code+month_id. */
+  try {
+    const t1 = '__rm_uq_1__', t2 = '__rm_uq_2__', tm = '__rm_uq_month__';
+    await conn.run(`DELETE FROM employees WHERE id IN (?, ?)`, t1, t2);
+    await conn.run(`INSERT INTO employees (id, month_id, code, name, created_at) VALUES (?, ?, '__rm_uq__', '__rm_uq__', '2000-01-01')`, t1, tm);
+    try {
+      await conn.run(`INSERT INTO employees (id, month_id, code, name, created_at) VALUES (?, ?, '__rm_uq__', '__rm_uq__', '2000-01-01')`, t2, tm);
+      // Thành công → không có constraint, dọn test rows
+      await conn.run(`DELETE FROM employees WHERE id IN (?, ?)`, t1, t2);
+    } catch {
+      // Có constraint → rebuild bảng không có UNIQUE
+      await conn.run(`DELETE FROM employees WHERE id = ?`, t1);
+      const eCols = await conn.all<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns WHERE table_name='employees' ORDER BY ordinal_position`
+      );
+      const colNames = eCols.map(c => c.column_name).join(', ');
+      await conn.run(`ALTER TABLE employees RENAME TO employees_bak`);
+      await conn.run(`
+        CREATE TABLE employees (
+          id                             VARCHAR PRIMARY KEY,
+          month_id                       VARCHAR NOT NULL DEFAULT '${DEFAULT_MONTH_ID}',
+          code                           VARCHAR NOT NULL,
+          name                           VARCHAR NOT NULL,
+          department_id                  VARCHAR DEFAULT '',
+          ma_pb                          VARCHAR DEFAULT '',
+          special_group                  VARCHAR DEFAULT '',
+          group_code_end_date            VARCHAR DEFAULT '',
+          ngay_nghi_cuoi_thang_truoc     VARCHAR DEFAULT '',
+          so_ngay_lam_cuoi_thang_truoc   INTEGER DEFAULT 0,
+          workdays                       VARCHAR DEFAULT '',
+          overtime_hours                 VARCHAR DEFAULT '',
+          late_minutes                   VARCHAR DEFAULT '',
+          phep_nam                       VARCHAR DEFAULT '',
+          active                         BOOLEAN DEFAULT TRUE,
+          created_at                     VARCHAR NOT NULL,
+          ${Array.from({ length: 31 }, (_, i) => `day_${i + 1} VARCHAR DEFAULT ''`).join(',\n          ')}
+        )
+      `);
+      await conn.run(`INSERT INTO employees SELECT ${colNames} FROM employees_bak`);
+      await conn.run(`DROP TABLE employees_bak`);
+    }
+  } catch { /* ignore */ }
+
   /* distribution_results — Kết quả phân bổ tự động (per-NV per-day) */
   await conn.run(`
     CREATE TABLE IF NOT EXISTS distribution_results (

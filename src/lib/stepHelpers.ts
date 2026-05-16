@@ -21,6 +21,7 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
   await conn.close();
   const m = Object.fromEntries(rules.map(r => [r.paramKey, r.paramValue]));
   const sv = Object.fromEntries(rules.map(r => [r.paramKey, r.specificValue ?? '']));
+  const activeParamKeys = new Set(rules.map(r => r.paramKey));
 
   // Parse danh sách mã PB từ specific_value (ví dụ: "BGD,KD")
   const skipCodes = (sv['skip_equal_rest_dept_codes'] || 'BGD')
@@ -30,7 +31,7 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
 
   return {
     maxConsecutiveDays:        m['max_consecutive_days']          ?? 6,
-    workdaysThreshold:         m['workdays_algorithm_threshold']  ?? 27,
+    workdaysThreshold:         27, // hardcode như Python gốc
     pnStartFromDay:            m['pn_start_from_day']             ?? 15,
     maxOtPerDayHours:          m['max_ot_per_day_hours']          ?? 4,
     otStartFromDay:            m['ot_distribution_start_day']     ?? 15,

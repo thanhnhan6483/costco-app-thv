@@ -58,7 +58,7 @@ function getDay(emp: Employee, i: number): string {
 }
 
 /** Parse giá trị số từ string. Trả về NaN nếu rỗng/không phải số. */
-function numVal(s: string): number { return s?.trim() ? parseFloat(s) : NaN; }
+function numVal(s: string): number { return s?.trim() ? parseFloat(s.replace(',', '.')) : NaN; }
 
 function ColFilter({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
   return (
@@ -724,7 +724,7 @@ export default function ImportEmployees() {
                   {Array.from({ length: DAY_COUNT }, (_, i) => (
                     <th key={i} className={`${styles.th} ${styles.thDay}`}>{i + 1}</th>
                   ))}
-                  <SortTh label="TĂNG CA" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="TĂNG CA(H)" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="TRỄ (ph)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="PHÉP NĂM" sortKey="phepNam" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
@@ -787,7 +787,7 @@ export default function ImportEmployees() {
                       {r.departmentName || ''}
                     </td>
                     <td className={styles.td}>{r.specialGroupName || ''}</td>
-                    <td className={`${styles.td} ${styles.tdMono} ${r.specialGroup && !r.groupCodeEndDate ? styles.tdNoEndDate : ''}`}>
+                    <td className={`${styles.td} ${styles.tdMono}`}>
                       {r.groupCodeEndDate || <span className={s.noNote}>—</span>}
                     </td>
                     {(() => { const n = numVal(r.workdays); const warn = !isNaN(n) && n <= 0; return (
@@ -804,11 +804,11 @@ export default function ImportEmployees() {
                     })}
                     {(() => { const n = numVal(r.overtimeHours); const warn = !isNaN(n) && n < 0; return (
                     <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                      {r.overtimeHours || '—'}
+                      {isNaN(n) ? (r.overtimeHours || '—') : n.toFixed(2)}
                     </td>); })()}
                     {(() => { const n = numVal(r.lateMinutes); const warn = !isNaN(n) && n < 0; return (
                     <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                      {r.lateMinutes || '—'}
+                      {isNaN(n) ? (r.lateMinutes || '—') : n.toFixed(2)}
                     </td>); })()}
                     <td className={`${styles.td} ${styles.tdNum}`}>{r.phepNam || '—'}</td>
                     <td className={`${styles.td} ${styles.tdNum} ${r.ngayNghiCuoiThangTruoc ? styles.tdNghiCTT : ''}`}>

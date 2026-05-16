@@ -9,7 +9,7 @@ export async function GET() {
   const header = [
     'employee_code', 'employee_name', 'department_code', 'group_code', 'group_code_end_date', 'workdays',
     ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
-    'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_cuoi_thang_truoc',
+    'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_thang_truoc',
   ];
   const sample = [
     'NV001', 'Nguyễn Văn A', 'KD', 'FULL', '31/12/2026', 26,
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       const overtimeHours = String(row['overtime_hours'] ?? '').trim();
       const lateMinutes = String(row['late_minutes'] ?? '').trim();
       const phepNam = String(row['phep_nam'] ?? '').trim();
-      const ngayNghiCuoiThangTruoc = String(row['ngay_nghi_cuoi_thang_truoc'] ?? '').trim();
+      const ngayNghiCuoiThangTruoc = String(row['ngay_nghi_thang_truoc'] ?? '').trim();
       const dayVals = Array.from({ length: 31 }, (_, i) => String(row[`Day ${i + 1}`] ?? '').trim());
 
       if (maPbRaw && !departmentId) {
@@ -117,8 +117,7 @@ export async function POST(req: NextRequest) {
         inserted++;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('UNIQUE')) { skipped++; skippedCodes.push(code); }
-        else errors.push(`${code}: ${msg}`);
+        errors.push(`${code}: ${msg}`);
       }
     }
 

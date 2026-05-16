@@ -49,6 +49,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const paramKey = req.nextUrl.searchParams.get('paramKey');
+    if (!paramKey) return NextResponse.json({ error: 'Thiếu paramKey' }, { status: 400 });
+    const conn = await getConn();
+    await conn.run(`DELETE FROM alloc_rules WHERE param_key = ?`, paramKey);
+    await conn.close();
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { id, name, defaultParam, specificValue, description, createdAt, monthId, groupCode, groupName, paramKey, paramValue } = await req.json();

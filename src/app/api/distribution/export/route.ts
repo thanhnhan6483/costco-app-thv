@@ -156,13 +156,13 @@ export async function GET(req: NextRequest) {
         }), '', '', ''];
       }
 
-      const header3 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'Ca 1', 'Ca 2', 'C'];
+      const header3 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng\nban', ...days.map(d => String(d)), 'C1', 'C2', 'C'];
       const empArr3 = Array.from(empMap3.values());
       const data3 = empArr3.map((r, idx) => {
         const dayVals = days.map(d => String(r[`d${d}`] ?? ''));
         return [idx + 1, r.code, r.name, r.deptName, ...dayVals,
-          dayVals.filter(v => v === 'Ca 1').length,
-          dayVals.filter(v => v === 'Ca 2').length,
+          dayVals.filter(v => v === 'C1').length,
+          dayVals.filter(v => v === 'C2').length,
           dayVals.filter(v => v === 'C').length,
         ];
       });

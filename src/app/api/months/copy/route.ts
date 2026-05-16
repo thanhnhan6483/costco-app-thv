@@ -100,14 +100,20 @@ export async function POST(req: NextRequest) {
 
     /* 5. Alloc Rules */
     const ars = await conn.all<{
-      name: string; default_param: string; description: string; active: boolean;
-    }>(`SELECT name, default_param, description, active FROM alloc_rules WHERE month_id = ?`, fromMonthId);
+      group_code: string; group_name: string; name: string; param_key: string;
+      param_value: number | null; default_param: string; specific_value: string;
+      description: string; active: boolean;
+    }>(`SELECT group_code, group_name, name, param_key, param_value,
+               default_param, specific_value, description, active
+        FROM alloc_rules WHERE month_id = ?`, fromMonthId);
 
     for (const ar of ars) {
       await conn.run(
-        `INSERT INTO alloc_rules (id, month_id, name, default_param, description, active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        newId('ar'), toMonthId, ar.name, ar.default_param, ar.description, ar.active, now
+        `INSERT INTO alloc_rules (id, month_id, group_code, group_name, name, param_key, param_value,
+           default_param, specific_value, description, active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        newId('ar'), toMonthId, ar.group_code, ar.group_name, ar.name, ar.param_key, ar.param_value,
+        ar.default_param, ar.specific_value, ar.description, ar.active, now
       );
     }
 
