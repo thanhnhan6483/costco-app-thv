@@ -1,7 +1,15 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import s from '@/styles/table.module.css';
-import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh, IconToggle } from '@/lib/icons';
+import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
+
+const IconDownload = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
 import { useApp } from '@/context/AppContext';
 
 /* ── Types ─────────────────────────────────── */
@@ -142,7 +150,6 @@ export default function AllocRules() {
     finally { setSaving(false); }
   };
 
-  const toggleActive = async (id: string) => { await fetch(`/api/alloc-rules/${id}`, { method: 'PATCH' }); load(); };
   const doDelete = async () => {
     if (!deleteId) return; setSaving(true);
     await fetch(`/api/alloc-rules/${deleteId}`, { method: 'DELETE' });
@@ -155,9 +162,6 @@ export default function AllocRules() {
       {/* Action bar */}
       <div className={s.actionBar}>
         <div className={s.actionBarLeft}>
-          <span style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 500 }}>
-            {rows.length} quy tắc
-          </span>
           {hasFilter && (
             <button className={s.btnClearAll} onClick={() => setCol(BLANK_FILTER)}>
               ✕ Xóa bộ lọc ({filtered.length}/{rows.length})
@@ -165,9 +169,19 @@ export default function AllocRules() {
           )}
         </div>
         <div className={s.actionBarRight}>
-          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={() => openCreate()} disabled={loading}>
+          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={() => openCreate()} disabled>
             <IconPlus /><span>Thêm Mới</span>
           </button>
+          <div className={s.dividerV} />
+          <a
+            className={s.btnAction}
+            href={`/api/alloc-rules/export?month=${activeMonthId}`}
+            download
+            title="Xuất quy tắc phân bổ ra Excel"
+            style={{ color: '#0f766e' }}
+          >
+            <IconDownload /><span>Xuất Excel</span>
+          </a>
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={load} disabled={loading}>
             <span className={loading ? s.spinning : ''}><IconRefresh /></span>
@@ -269,7 +283,6 @@ export default function AllocRules() {
                 <th style={{ minWidth: 160 }}>MÃ QUY TẮC</th>
                 <th style={{ minWidth: 140 }}>GIÁ TRỊ MẶC ĐỊNH</th>
                 <th style={{ minWidth: 220 }}>GHI CHÚ</th>
-                <th className={s.thStatus}>TRẠNG THÁI</th>
                 <th className={s.thAction}>THAO TÁC</th>
               </tr>
               <tr className={s.filterRow}>
@@ -280,17 +293,17 @@ export default function AllocRules() {
                 <th><ColFilter value={col.paramKey} placeholder="Mã…" onChange={setF('paramKey')} /></th>
                 <th><ColFilter value={col.defaultParam} placeholder="Giá trị…" onChange={setF('defaultParam')} /></th>
                 <th><ColFilter value={col.specificValue} placeholder="Ghi chú…" onChange={setF('specificValue')} /></th>
-                <th /><th />
+                <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className={s.noResult}>
+                <tr><td colSpan={7} className={s.noResult}>
                   Không có kết quả.
                   {hasFilter && <button className={s.linkBtn} onClick={() => setCol(BLANK_FILTER)}> Xóa bộ lọc</button>}
                 </td></tr>
               ) : filtered.map((r, i) => (
-                <tr key={r.id} style={{ opacity: r.active ? 1 : 0.5 }}>
+                <tr key={r.id}>
                   <td className={s.tdStt}>{i + 1}</td>
                   <td><GroupBadge code={r.groupCode} /></td>
                   <td style={{ fontWeight: 500, color: 'var(--gray-700)', fontSize: 13 }}>{r.groupName}</td>
@@ -323,17 +336,10 @@ export default function AllocRules() {
                       {r.specificValue || <span className={s.noNote}>—</span>}
                     </span>
                   </td>
-                  <td className={s.tdCenter}>
-                    <span className={r.active ? s.badgeActive : s.badgeInactive}>
-                      {r.active ? '● Áp dụng' : '● Tắt'}
-                    </span>
-                  </td>
                   <td>
                     <div className={s.actions}>
                       <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa"><IconEdit /></button>
-                      <button className={s.btnIconToggle} onClick={() => toggleActive(r.id)}
-                        title={r.active ? 'Tắt' : 'Bật'}><IconToggle /></button>
-                      <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
+                      <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa" disabled><IconDelete /></button>
                     </div>
                   </td>
                 </tr>

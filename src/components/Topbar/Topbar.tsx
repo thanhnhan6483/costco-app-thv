@@ -101,7 +101,7 @@ export default function Topbar() {
 
       <div className={styles.right}>
         <div className={styles.monthPicker}>
-          <span className={styles.monthLabel}>📅 Tháng:</span>
+          <span className={styles.monthLabel}>📅 THÁNG ĐANG CHỌN:</span>
           {!mounted || loadingMonths ? (
             <span className={styles.monthLoading}>…</span>
           ) : months.length === 0 ? (

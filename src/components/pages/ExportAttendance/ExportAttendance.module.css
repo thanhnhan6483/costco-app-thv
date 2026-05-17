@@ -1,0 +1,94 @@
+.page {
+  padding: 32px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.monthLabel {
+  font-size: 14px;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: inline-block;
+}
+
+.monthLabel strong {
+  color: var(--gray-800);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1.5px solid color-mix(in srgb, var(--card-color) 20%, transparent);
+  border-radius: 16px;
+  padding: 32px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.card:hover {
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--card-color) 15%, transparent);
+  transform: translateY(-2px);
+}
+
+.cardIcon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--card-color);
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: var(--gray-500);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.btnDownload {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: none;
+  background: var(--card-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btnDownload:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btnDownload:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

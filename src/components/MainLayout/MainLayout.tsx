@@ -16,6 +16,7 @@ import PlaceholderPage from '@/components/pages/PlaceholderPage/PlaceholderPage'
 import ConfigMonth from '@/components/pages/ConfigMonth/ConfigMonth';
 import ImportEmployees from '@/components/pages/ImportEmployees/ImportEmployees';
 import AutoAlloc from '@/components/pages/AutoAlloc/AutoAlloc';
+import ExportAttendance from '@/components/pages/ExportAttendance/ExportAttendance';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -46,7 +47,7 @@ function renderPage(page: string) {
       return <PlaceholderPage title="Xuất Cấu Hình" icon="📤" description="Xuất toàn bộ cấu hình tháng ra file để lưu trữ hoặc chia sẻ." />;
     case 'auto-alloc':      return <ErrorBoundary><AutoAlloc /></ErrorBoundary>;
     case 'export-attendance':
-      return <PlaceholderPage title="Xuất Báo Cáo" icon="📑" description="Xuất bảng chấm công dạng Excel theo phòng ban hoặc toàn công ty." />;
+      return <ExportAttendance />;
     default:
       return <Dashboard />;
   }

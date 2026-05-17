@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import s from '@/styles/table.module.css';
-import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh, IconToggle } from '@/lib/icons';
+import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
 import { useApp } from '@/context/AppContext';
 
 
@@ -163,9 +163,6 @@ export default function Departments() {
     finally { setSaving(false); }
   };
 
-  const toggleActive = async (id: string) => {
-    await fetch(`/api/departments/${id}`, { method: 'PATCH' }); load();
-  };
 
   const doDelete = async () => {
     if (!deleteId) return; setSaving(true);
@@ -220,6 +217,15 @@ export default function Departments() {
           <button className={s.btnAction} onClick={downloadTemplate} title="Tải file Excel mẫu để nhập liệu">
             <IconDownload /><span>Tải Mẫu</span>
           </button>
+          <a
+            className={s.btnAction}
+            href={`/api/departments/export?month=${activeMonthId}`}
+            download
+            title="Xuất dữ liệu phòng ban ra Excel"
+            style={{ color: '#0f766e' }}
+          >
+            <IconDownload /><span>Xuất Excel</span>
+          </a>
           <button className={`${s.btnAction} ${s.btnActionGreen}`}
             onClick={() => fileRef.current?.click()}
             disabled={importing}
@@ -355,7 +361,6 @@ export default function Departments() {
                   <td>
                     <div className={s.actions}>
                       <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa"><IconEdit /></button>
-                      <button className={s.btnIconToggle} onClick={() => toggleActive(r.id)} title={r.active ? 'Vô hiệu hóa' : 'Kích hoạt'}><IconToggle /></button>
                       <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
                     </div>
                   </td>

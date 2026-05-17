@@ -1,8 +1,23 @@
 'use client';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import s from '@/styles/table.module.css';
 import ss from './Shifts.module.css';
 import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
+
+const IconDownload = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const IconUpload = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="17 8 12 3 7 8"/>
+    <line x1="12" y1="3" x2="12" y2="15"/>
+  </svg>
+);
 import { useApp } from '@/context/AppContext';
 
 
@@ -84,6 +99,9 @@ export default function Shifts() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedCodes: string[]; errors: string[] } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [col, setCol] = useState<Filters>({
     name: '', departmentId: '', isDefault: '', shiftType: '', otCalc: '',
   });
@@ -196,6 +214,33 @@ export default function Shifts() {
     await load(); setSaving(false); setDeleteId(null);
   };
 
+  /* ── Export template ────────────────────────── */
+  const downloadTemplate = () => {
+    window.open('/api/shifts/import', '_blank');
+  };
+
+  /* ── Import Excel ───────────────────────────── */
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('monthId', activeMonthId);
+      const res = await fetch('/api/shifts/import', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setImportResult(data);
+      await load();
+    } catch (err) {
+      alert('Lỗi import: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
   /* phòng ban có trong dữ liệu shifts */
   const availableDepts = useMemo(() => {
     const seen = new Set<string>();
@@ -228,6 +273,27 @@ export default function Shifts() {
         </div>
         <div className={s.actionBarRight}>
           <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={openCreate} disabled={loading}><IconPlus /><span>Thêm Mới</span></button>
+          <div className={s.dividerV} />
+          <button className={s.btnAction} onClick={downloadTemplate} title="Tải file Excel mẫu để nhập liệu">
+            <IconDownload /><span>Tải Mẫu</span>
+          </button>
+          <a
+            className={s.btnAction}
+            href={`/api/shifts/export?month=${activeMonthId}`}
+            download
+            title="Xuất dữ liệu ca làm việc ra Excel"
+            style={{ color: '#0f766e' }}
+          >
+            <IconDownload /><span>Xuất Excel</span>
+          </a>
+          <button className={`${s.btnAction} ${s.btnActionGreen}`}
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            title="Import dữ liệu từ file Excel">
+            {importing ? <span className={s.spinning}><IconUpload /></span> : <IconUpload />}
+            <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
+          </button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={() => { load(); loadDepts(); }} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
         </div>
@@ -319,6 +385,37 @@ export default function Shifts() {
             <div className={s.confirmActions}>
               <button className={s.btnDanger} onClick={doDelete} disabled={saving}>{saving ? '…' : '🗑️ Xóa'}</button>
               <button className={s.btnSecondary} onClick={() => setDeleteId(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import result modal */}
+      {importResult && (
+        <div className={s.formOverlay} onClick={() => setImportResult(null)}>
+          <div className={s.confirmModal} style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className={s.confirmIcon}>{importResult.errors.length === 0 ? '✅' : '⚠️'}</div>
+            <h3 className={s.confirmTitle}>Kết quả Import</h3>
+            <div style={{ textAlign: 'left', fontSize: 13.5, lineHeight: 1.8, marginBottom: 20 }}>
+              <p>✅ Đã thêm: <strong>{importResult.inserted}</strong> ca làm việc</p>
+              <p>⏭ Bỏ qua: <strong>{importResult.skipped}</strong>
+                {importResult.skippedCodes?.length > 0 &&
+                  <span style={{ fontSize: 12, color: 'var(--gray-500)', marginLeft: 6 }}>
+                    ({importResult.skippedCodes.join(', ')})
+                  </span>
+                }
+              </p>
+              {importResult.errors.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ color: 'var(--danger)', fontWeight: 600 }}>❌ Lỗi ({importResult.errors.length}):</p>
+                  <ul style={{ paddingLeft: 16, color: 'var(--danger)', fontSize: 12 }}>
+                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className={s.confirmActions} style={{ justifyContent: 'center' }}>
+              <button className={s.btnPrimary} onClick={() => setImportResult(null)}>Đóng</button>
             </div>
           </div>
         </div>
