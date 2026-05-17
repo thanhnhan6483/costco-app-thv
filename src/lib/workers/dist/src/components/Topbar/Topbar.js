@@ -11,7 +11,7 @@ const Topbar_module_css_1 = __importDefault(require("./Topbar.module.css"));
 const AppContext_1 = require("@/context/AppContext");
 const PAGE_LABELS = {
     dashboard: 'Trang Chủ',
-    'config-month': 'Tháng Phân Bổ',
+    'config-month': 'Tháng chấm công',
     departments: 'Phòng Ban',
     shifts: 'Ca Làm Việc',
     'leave-types': 'Loại Nghỉ Phép',
@@ -36,28 +36,28 @@ function Topbar() {
         fetch('/api/months')
             .then(r => r.json())
             .then((data) => {
-            const list = data
-                .map(d => ({ id: d.id, month: d.month, label: d.label ?? '' }))
-                .sort((a, b) => {
-                const [ma, ya] = a.month.split('/').map(Number);
-                const [mb, yb] = b.month.split('/').map(Number);
-                return (yb * 12 + mb) - (ya * 12 + ma);
-            });
-            setMonths(list);
-            // Nếu tháng hiện tại không có trong list → chọn tháng đầu tiên
-            const monthCodes = list.map(m => m.month);
-            if (list.length > 0 && !monthCodes.includes(currentMonth)) {
-                const first = list[0];
-                setCurrentMonth(first.month);
-                setActiveMonth(first.id, first.month);
-            }
-            else if (list.length > 0) {
-                // Sync activeMonthId với tháng hiện tại khi load lần đầu
-                const current = list.find(m => m.month === currentMonth);
-                if (current)
-                    setActiveMonth(current.id, current.month);
-            }
-        })
+                const list = data
+                    .map(d => ({ id: d.id, month: d.month, label: d.label ?? '' }))
+                    .sort((a, b) => {
+                        const [ma, ya] = a.month.split('/').map(Number);
+                        const [mb, yb] = b.month.split('/').map(Number);
+                        return (yb * 12 + mb) - (ya * 12 + ma);
+                    });
+                setMonths(list);
+                // Nếu tháng hiện tại không có trong list → chọn tháng đầu tiên
+                const monthCodes = list.map(m => m.month);
+                if (list.length > 0 && !monthCodes.includes(currentMonth)) {
+                    const first = list[0];
+                    setCurrentMonth(first.month);
+                    setActiveMonth(first.id, first.month);
+                }
+                else if (list.length > 0) {
+                    // Sync activeMonthId với tháng hiện tại khi load lần đầu
+                    const current = list.find(m => m.month === currentMonth);
+                    if (current)
+                        setActiveMonth(current.id, current.month);
+                }
+            })
             .catch(() => setMonths([]))
             .finally(() => setLoadingMonths(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps

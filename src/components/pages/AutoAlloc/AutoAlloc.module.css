@@ -62,7 +62,7 @@
 }
 .panelTitle { font-size: 0.88rem; font-weight: 600; color: var(--gray-800); }
 .panelActions { display: flex; gap: 8px; }
-.panelBody { overflow: auto; flex: 1; min-height: 0; }
+.panelBody { flex: 1; min-height: 0; overflow: hidden; }
 
 /* ── Buttons ── */
 .btnRunAll {
@@ -177,8 +177,8 @@
 .deptFilterSelect:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
 
 /* ── Tables ── */
-.tableWrap { overflow: auto; width: 100%; }
-.tableOuter { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.tableWrap { overflow: auto; width: 100%; height: 100%; }
+.tableOuter { display: flex; flex-direction: column; height: 100%; }
 .note {
   margin: 10px 16px; color: #92400e; background: #fff7ed;
   border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 12px;
@@ -188,7 +188,7 @@
 .dataTable th, .gridTable th {
   background: var(--gray-50); color: var(--gray-600); font-weight: 600;
   padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--gray-200);
-  white-space: nowrap; position: sticky; top: 0; z-index: 1;
+  white-space: nowrap; position: sticky; top: 0; z-index: 2;
   border-right: 1px solid var(--gray-200);
 }
 .dataTable td, .gridTable td {

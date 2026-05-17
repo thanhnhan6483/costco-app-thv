@@ -5,7 +5,7 @@ import { useApp } from '@/context/AppContext';
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: 'Trang Chủ',
-  'config-month': 'Tháng Phân Bổ',
+  'config-month': 'Tháng Chấm công',
   departments: 'Phòng Ban',
   shifts: 'Ca Làm Việc',
   'leave-types': 'Loại Nghỉ Phép',

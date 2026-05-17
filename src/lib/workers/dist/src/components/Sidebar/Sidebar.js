@@ -10,7 +10,7 @@ const Sidebar_module_css_1 = __importDefault(require("./Sidebar.module.css"));
 const AppContext_1 = require("@/context/AppContext");
 /* ── Quản lý chung ─────────────────────────────── */
 const MODULE0 = [
-    { key: 'config-month', icon: '📅', label: 'Tháng Phân Bổ' },
+    { key: 'config-month', icon: '📅', label: 'Tháng Chấm công' },
 ];
 /* ── Cấu hình Phân bổ ───────────────────────── */
 const MODULE1 = [
@@ -18,8 +18,8 @@ const MODULE1 = [
     { key: 'shifts', icon: '🕐', label: 'Ca Làm Việc' },
     { key: 'leave-types', icon: '📋', label: 'Loại Nghỉ Phép' },
     { key: 'special-groups', icon: '👥', label: 'Nhóm Đặc Thù' },
-    { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
     { key: 'alloc-rules', icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
+    { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
     { key: 'export-config', icon: '📤', label: 'Xuất Cấu Hình' },
 ];
 /* ── PHÂN BỔ CHẤM CÔNG ────────────── */

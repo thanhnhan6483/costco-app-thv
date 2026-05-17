@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       const lpCounts = members.map(id => (empDays.get(id) ?? []).filter(v => v === 1).length);
       const minLP = Math.min(...lpCounts);
       const maxLP = Math.max(...lpCounts);
-      if (maxLP - minLP <= 1) continue;
+      if (maxLP - minLP <= params.maxDayOffDifference) continue;
 
       const sorted = [...lpCounts].sort((a, b) => a - b);
       const mid = Math.floor(sorted.length / 2);

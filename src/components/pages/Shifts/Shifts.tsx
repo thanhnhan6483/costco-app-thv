@@ -15,42 +15,28 @@ interface Shift {
   departmentId: string | null;
   departmentName: string | null;
   departmentCode: string | null;
-  isDefault: boolean;
   shiftType: string;
   windowStart: string;
   clockIn: string;
   clockOut: string;
   windowEnd: string;
-  lateMinutes: number;
-  otThreshold: number;
-  otCalc: string;
-  note: string;
   createdAt: string;
 }
 
 type Filters = {
   name: string;
   departmentId: string;
-  isDefault: '' | 'true' | 'false';
   shiftType: string;
-  otCalc: string;
 };
-type SortKey = 'name' | 'departmentName' | 'isDefault' | 'shiftType' | 'windowStart' | 'clockIn' | 'clockOut' | 'windowEnd' | 'lateMinutes' | 'otThreshold' | 'otCalc';
+type SortKey = 'name' | 'departmentName' | 'shiftType' | 'windowStart' | 'clockIn' | 'clockOut' | 'windowEnd';
 type SortDir = 'asc' | 'desc';
 
 const BLANK = {
-  name: '', departmentId: '', isDefault: false, shiftType: 'Ca 1',
+  name: '', departmentId: '', shiftType: 'Ca 1',
   windowStart: '', clockIn: '', clockOut: '', windowEnd: '',
-  lateMinutes: 0, otThreshold: 0, otCalc: 'Tính từ giờ ra (công)', note: '',
 };
 
-const SHIFT_TYPES = ['Ca 1', 'Ca 2', 'Ca 3'];
-const OT_CALC_OPTIONS = [
-  'Tính từ giờ ra (công)',
-  'Tính từ giờ vào (trưa)',
-  'Tính từ giờ vào (tối)',
-  'Không tính tăng ca',
-];
+const SHIFT_TYPES = ['Ca 1', 'Ca 2', 'Chung'];
 
 /* ── Sub-components ───────────────────────────── */
 function ColFilter({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
@@ -148,7 +134,7 @@ export default function Shifts() {
       (!col.otCalc  || r.otCalc === col.otCalc)
     );
     if (!sortKey) return base;
-    const numCols: SortKey[] = ['lateMinutes', 'otThreshold'];
+    const numCols: SortKey[] = [];
     return [...base].sort((a, b) => {
       let va: string | number, vb: string | number;
       if (numCols.includes(sortKey)) {
@@ -163,9 +149,7 @@ export default function Shifts() {
     });
   }, [rows, col, sortKey, sortDir]);
 
-  const clearFilters = () => setCol({
-    name: '', departmentId: '', isDefault: '', shiftType: '', otCalc: '',
-  });
+  const clearFilters = () => setCol({ name: '', departmentId: '', shiftType: '' });
 
   /* form helpers */
   const setField = <K extends keyof typeof BLANK>(k: K, v: (typeof BLANK)[K]) =>
@@ -176,16 +160,11 @@ export default function Shifts() {
     setForm({
       name: r.name,
       departmentId: r.departmentId ?? '',
-      isDefault: r.isDefault,
       shiftType: r.shiftType,
       windowStart: r.windowStart,
       clockIn: r.clockIn,
       clockOut: r.clockOut,
       windowEnd: r.windowEnd,
-      lateMinutes: r.lateMinutes,
-      otThreshold: r.otThreshold,
-      otCalc: r.otCalc,
-      note: r.note,
     });
     setEditId(r.id); setShowForm(true);
   };
@@ -238,13 +217,6 @@ export default function Shifts() {
     return [...seen].sort((a, b) => a.localeCompare(b, 'vi'));
   }, [rows]);
 
-  /* cách tính OT có trong dữ liệu */
-  const availableOtCalcs = useMemo(() => {
-    const seen = new Set<string>();
-    rows.forEach(r => { if (r.otCalc) seen.add(r.otCalc); });
-    return [...seen].sort((a, b) => a.localeCompare(b, 'vi'));
-  }, [rows]);
-
   /* ── Render ─────────────────────────────────── */
   return (
     <div className={s.page}>
@@ -292,20 +264,13 @@ export default function Shifts() {
                 </div>
               </div>
 
-              {/* Row 2: Loại ca + Mặc định */}
+              {/* Row 2: Loại ca */}
               <div className={ss.row4col}>
                 <div className={s.field}>
                   <label className={s.label}>Loại ca</label>
                   <select className={s.select} value={form.shiftType} onChange={e => setField('shiftType', e.target.value)}>
                     {SHIFT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                </div>
-                <div className={`${s.field} ${ss.centerField}`}>
-                  <label className={s.label}>Mặc định</label>
-                  <label className={ss.checkboxLabel}>
-                    <input type="checkbox" className={ss.checkbox} checked={form.isDefault} onChange={e => setField('isDefault', e.target.checked)} />
-                    <span>Đặt làm ca mặc định</span>
-                  </label>
                 </div>
               </div>
 
@@ -333,40 +298,6 @@ export default function Shifts() {
                   <input type="time" className={s.input} value={form.windowEnd} onChange={e => setField('windowEnd', e.target.value)} />
                   <span className={s.fieldHint}>Muộn nhất tính công</span>
                 </div>
-              </div>
-
-              <div className={ss.sectionDivider}>📊 Quy tắc tính tăng ca & trễ</div>
-
-              {/* Row 4: Trễ + Tăng ca */}
-              <div className={ss.row3col}>
-                <div className={s.field}>
-                  <label className={s.label}>Phút bắt đầu tính trễ</label>
-                  <div className={ss.inputWithUnit}>
-                    <input type="number" min={0} max={120} className={s.input} value={form.lateMinutes} onChange={e => setField('lateMinutes', Number(e.target.value))} />
-                    <span className={ss.unit}>phút</span>
-                  </div>
-                  <span className={s.fieldHint}>0 = tính trễ ngay khi vào muộn</span>
-                </div>
-                <div className={s.field}>
-                  <label className={s.label}>Phút bắt đầu tính tăng ca</label>
-                  <div className={ss.inputWithUnit}>
-                    <input type="number" min={0} max={240} className={s.input} value={form.otThreshold} onChange={e => setField('otThreshold', Number(e.target.value))} />
-                    <span className={ss.unit}>phút</span>
-                  </div>
-                  <span className={s.fieldHint}>Làm thêm bao nhiêu phút mới tính OT</span>
-                </div>
-                <div className={s.field}>
-                  <label className={s.label}>Cách tính tăng ca</label>
-                  <select className={s.select} value={form.otCalc} onChange={e => setField('otCalc', e.target.value)}>
-                    {OT_CALC_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Ghi chú */}
-              <div className={s.field}>
-                <label className={s.label}>Ghi chú</label>
-                <textarea className={s.textarea} rows={2} value={form.note} onChange={e => setField('note', e.target.value)} placeholder="Ghi chú thêm…" />
               </div>
 
               <div className={s.formActions}>
@@ -404,15 +335,11 @@ export default function Shifts() {
                 <th className={ss.thStt}>#</th>
                 <SortTh label="Tên Ca"        sortKey="name"         current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thName} />
                 <SortTh label="Phòng Ban"     sortKey="departmentName" current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thDept} />
-                <SortTh label="Mặc Định"     sortKey="isDefault"     current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thDefault} />
                 <SortTh label="Loại Ca"       sortKey="shiftType"     current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thType} />
                 <SortTh label="Giờ Vào (BD)" sortKey="windowStart"   current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
                 <SortTh label="Giờ Vào"      sortKey="clockIn"       current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
                 <SortTh label="Giờ Tan"       sortKey="clockOut"      current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
                 <SortTh label="Giờ Tan (KT)" sortKey="windowEnd"     current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
-                <SortTh label="Phút Trễ"      sortKey="lateMinutes"   current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thNum} />
-                <SortTh label="Phút OT"        sortKey="otThreshold"  current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thNum} />
-                <SortTh label="Cách Tính OT"  sortKey="otCalc"        current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thOtCalc} />
                 <th className={ss.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
@@ -428,15 +355,6 @@ export default function Shifts() {
                     ))}
                   </select>
                 </th>
-                {/* Mặc Định */}
-                <th>
-                  <select className={ss.filterSelect} value={col.isDefault}
-                    onChange={e => setCol(p => ({ ...p, isDefault: e.target.value as Filters['isDefault'] }))}>
-                    <option value="">Tất cả</option>
-                    <option value="true">✓ Có</option>
-                    <option value="false">— Không</option>
-                  </select>
-                </th>
                 {/* Loại Ca */}
                 <th>
                   <select className={ss.filterSelect} value={col.shiftType}
@@ -446,23 +364,12 @@ export default function Shifts() {
                   </select>
                 </th>
                 <th /><th /><th /><th />
-                {/* Ph\u00fat Tr\u1ec5 – kh\u00f4ng l\u1ecdc */}
-                <th />
-                <th />
-                {/* Cách Tính OT */}
-                <th>
-                  <select className={ss.filterSelect} value={col.otCalc}
-                    onChange={e => setCol(p => ({ ...p, otCalc: e.target.value }))}>
-                    <option value="">Tất cả</option>
-                    {availableOtCalcs.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={13} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr><td colSpan={8} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => {
                 const dept = r.departmentId ? deptById[r.departmentId] : null;
                 return (
@@ -470,22 +377,13 @@ export default function Shifts() {
                     <td className={`${s.tdStt} ${ss.tdStt}`}>{i + 1}</td>
                     <td className={ss.tdName}>{r.name}</td>
                     <td className={ss.tdDept}>
-                      {dept
-                        ? dept.name
-                        : <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Ca chung</span>
-                      }
-                    </td>
-                    <td className={ss.tdCenter}>
-                      {r.isDefault ? <span className={ss.checkMark}>✓</span> : <span className={ss.dash}>—</span>}
+                      {dept ? dept.name : <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Ca chung (mặc định)</span>}
                     </td>
                     <td><span className={ss.typeBadge} data-type={r.shiftType}>{r.shiftType}</span></td>
                     <td className={s.timeCell}>{r.windowStart || <span className={s.noNote}>—</span>}</td>
                     <td className={`${s.timeCell} ${ss.timeMain}`}>{r.clockIn}</td>
                     <td className={`${s.timeCell} ${ss.timeMain}`}>{r.clockOut}</td>
                     <td className={s.timeCell}>{r.windowEnd || <span className={s.noNote}>—</span>}</td>
-                    <td className={ss.tdNum}>{r.lateMinutes}</td>
-                    <td className={ss.tdNum}>{r.otThreshold}</td>
-                    <td className={ss.tdOtCalc}>{r.otCalc}</td>
                     <td>
                       <div className={s.actions}>
                         <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa"><IconEdit /></button>

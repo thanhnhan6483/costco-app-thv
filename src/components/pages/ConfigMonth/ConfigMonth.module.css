@@ -260,7 +260,6 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
-  table-layout: fixed;
 }
 
 /* ── Head row: column labels ─────────────────────── */
@@ -283,14 +282,14 @@
   border-bottom: 2px solid var(--gray-200);
 }
 
-/* Column widths — table-layout:fixed, tổng các cột cố định + 2 cột liêm = 100% */
-.thStt    { width: 48px;  text-align: center; }  /* # */
-.thLabel  { width: 22%; }                          /* Tên Tháng — rộng nhất */
-.thMonth  { width: 108px; }                        /* Tháng MM/YYYY */
-.thDate   { width: 114px; }                        /* Từ ngày / Đến ngày */
-.thDays   { width: 104px; text-align: center; }   /* Số Ngày */
+/* Column widths */
+.thStt    { width: 52px;  text-align: center; }  /* # */
+.thLabel  { min-width: 160px; }                   /* Tên Tháng */
+.thMonth  { width: 100px; text-align: center; }   /* Tháng MM/YYYY */
+.thDate   { width: 110px; text-align: center; }   /* Từ ngày / Đến ngày */
+.thDays   { width: 80px;  text-align: center; }   /* Số Ngày */
 /* Ghi Chú: chiếm phần còn lại tự động */
-.thAction { width: 80px;  text-align: center; }   /* Thao Tác */
+.thAction { width: 72px;  text-align: center; }   /* Thao Tác */
 
 /* Sort header */
 .thSortInner {

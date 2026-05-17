@@ -12,8 +12,8 @@ export default function Dashboard() {
   const stats = [
     { icon: '👥', label: 'Nhân Viên', value: activeEmps, sub: 'đang hoạt động', color: 'blue' },
     { icon: '🏢', label: 'Phòng Ban', value: activeDepts, sub: 'đã cấu hình', color: 'purple' },
-    { icon: '⏰', label: 'Tổng Tăng Ca', value: `${totalOT.toFixed(2)}h`, sub: 'trong tháng', color: 'green' },
-    { icon: '⚠️', label: 'Tổng Trễ', value: `${totalLate.toFixed(2)} phút`, sub: 'trong tháng', color: 'orange' },
+    { icon: '⏰', label: 'Tổng Tăng Ca', value: `${Math.round(totalOT)}h`, sub: 'trong tháng', color: 'green' },
+    { icon: '⚠️', label: 'Tổng Trễ', value: `${Math.round(totalLate)} phút`, sub: 'trong tháng', color: 'orange' },
   ];
 
   return (

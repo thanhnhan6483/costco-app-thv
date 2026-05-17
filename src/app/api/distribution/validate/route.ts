@@ -378,7 +378,7 @@ export async function GET(req: NextRequest) {
       const lpCounts = members.map(m => m.lpCount);
       const minLP = Math.min(...lpCounts);
       const maxLP = Math.max(...lpCounts);
-      if (maxLP - minLP > 1) {
+      if (maxLP - minLP > params.maxDayOffDifference) {
         // Dòng summary cho phòng
         check8.violations.push({
           code: '—', name: `📊 ${deptName}`, deptName, day: 0,

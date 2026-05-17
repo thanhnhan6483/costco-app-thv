@@ -8,12 +8,12 @@ import { useApp } from '@/context/AppContext';
 
 const IconDownload = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 );
 const IconUpload = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
   </svg>
 );
 
@@ -60,6 +60,18 @@ function getDay(emp: Employee, i: number): string {
 /** Parse giá trị số từ string. Trả về NaN nếu rỗng/không phải số. */
 function numVal(s: string): number { return s?.trim() ? parseFloat(s.replace(',', '.')) : NaN; }
 
+/** Format ngày thành DD/MM/YYYY. Hỗ trợ YYYY-MM-DD, DD/MM/YYYY, timestamp. */
+function formatDate(val: string | null | undefined): string {
+  if (!val) return '';
+  const s = String(val).trim();
+  // Đã là DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  // YYYY-MM-DD
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+
 function ColFilter({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
   return (
     <div className={s.colFilter}>
@@ -104,17 +116,17 @@ function LimitSelector({ total, shown, limit, onLimit }: {
   onLimit: (v: number) => void;
 }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-      <span style={{ fontSize:'0.76rem', color:'var(--gray-500)', whiteSpace:'nowrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: '0.76rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>
         Hiển <strong>{shown}</strong> / <strong>{total}</strong> NV
       </span>
       <select
         value={limit}
         onChange={e => onLimit(Number(e.target.value))}
         style={{
-          height:26, padding:'0 6px', border:'1px solid var(--gray-200)',
-          borderRadius:5, fontSize:'0.76rem', color:'var(--gray-600)',
-          background:'#fff', cursor:'pointer', outline:'none',
+          height: 26, padding: '0 6px', border: '1px solid var(--gray-200)',
+          borderRadius: 5, fontSize: '0.76rem', color: 'var(--gray-600)',
+          background: '#fff', cursor: 'pointer', outline: 'none',
         }}
       >
         {LIMIT_OPTIONS.map(o => (
@@ -133,16 +145,16 @@ export default function ImportEmployees() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [limit, setLimit]     = useState(100);
-  const [total, setTotal]     = useState(0);
+  const [limit, setLimit] = useState(100);
+  const [total, setTotal] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
-  const [deleteId, setDeleteId]     = useState<string | null>(null);
-  const [clearAll, setClearAll]     = useState(false);
-  const [relinking, setRelinking]   = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [clearAll, setClearAll] = useState(false);
+  const [relinking, setRelinking] = useState(false);
   const [relinkResult, setRelinkResult] = useState<{ linked: number; notFound: string[]; totalChecked: number } | null>(null);
-  const [importing, setImporting]   = useState(false);
+  const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     inserted: number; skipped: number; skippedCodes: string[]; errors: string[];
     unmappedDept: { code: string; name: string; deptCode: string }[];
@@ -207,15 +219,15 @@ export default function ImportEmployees() {
     else if (col.departmentName) {
       const q = col.departmentName.toLowerCase();
       const match = (r.departmentName ?? '').toLowerCase().includes(q) ||
-                    (r.departmentCode ?? '').toLowerCase().includes(q) ||
-                    (r.maPb ?? '').toLowerCase().includes(q);
+        (r.departmentCode ?? '').toLowerCase().includes(q) ||
+        (r.maPb ?? '').toLowerCase().includes(q);
       if (!match) return false;
     }
     if (col.specialGroup === '__EMPTY__') { if (r.specialGroupName || r.specialGroup) return false; }
     else if (col.specialGroup) {
       const q = col.specialGroup.toLowerCase();
       const match = (r.specialGroupName ?? '').toLowerCase().includes(q) ||
-                    (r.specialGroup ?? '').toLowerCase().includes(q);
+        (r.specialGroup ?? '').toLowerCase().includes(q);
       if (!match) return false;
     }
     return true;
@@ -252,25 +264,25 @@ export default function ImportEmployees() {
   const exportSelected = async () => {
     const sel = sorted.filter(r => selectedIds.has(r.id));
     const XLSX = await import('xlsx');
-    const header = ['employee_code','employee_name','department_code','department_name',
-                    'group_code','group_name','group_code_end_date','workdays',
-                    ...Array.from({length:31},(_,i)=>`Day ${i+1}`),
-                    'overtime_hours','late_minutes','phep_nam','ngay_nghi_thang_truoc'];
+    const header = ['employee_code', 'employee_name', 'department_code', 'department_name',
+      'group_code', 'group_name', 'group_code_end_date', 'workdays',
+      ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
+      'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_thang_truoc'];
     const data = sel.map(r => [
       r.code, r.name, r.departmentCode ?? '', r.departmentName ?? '',
       r.specialGroup, r.specialGroupName ?? '', r.groupCodeEndDate, r.workdays,
-      ...Array.from({length:31},(_,i)=>getDay(r,i)),
-      r.overtimeHours, r.lateMinutes, r.phepNam, r.ngayNghiCuoiThangTruoc ?? '',
+      ...Array.from({ length: 31 }, (_, i) => getDay(r, i)),
+      r.overtimeHours, r.lateMinutes, r.phepNam, formatDate(r.ngayNghiCuoiThangTruoc),
     ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    ws['!cols'] = [{wch:14},{wch:22},{wch:12},{wch:22},{wch:16},{wch:24},{wch:16},{wch:8},...Array(31).fill({wch:5}),{wch:12},{wch:10},{wch:10},{wch:18}];
+    ws['!cols'] = [{ wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 8 }, ...Array(31).fill({ wch: 5 }), { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DS_chon_loc');
     const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
-    a.download = `ds_nhan_vien_chon_loc_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.download = `ds_nhan_vien_chon_loc_${new Date().toISOString().slice(0, 10)}.xlsx`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -360,6 +372,38 @@ export default function ImportEmployees() {
     finally { setRelinking(false); }
   };
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ synced: number; prevMonth?: string; message?: string } | null>(null);
+  const [syncConfirm, setSyncConfirm] = useState<{ prevMonthLabel: string; currentLabel: string } | null>(null);
+
+  const doSyncPreview = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/employees/sync-nghi-thang-truoc?month=${activeMonthId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (!data.found) { alert(`Không có dữ liệu tháng ${data.prevMonthLabel}`); return; }
+      setSyncConfirm({ prevMonthLabel: data.prevMonthLabel2 || data.prevMonthLabel, currentLabel: data.currentLabel });
+    } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
+    finally { setSyncing(false); }
+  };
+
+  const doSyncConfirmed = async () => {
+    setSyncConfirm(null);
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/employees/sync-nghi-thang-truoc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId: activeMonthId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSyncResult(data);
+      await load();
+    } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
+    finally { setSyncing(false); }
+  };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     setImporting(true);
@@ -411,13 +455,16 @@ export default function ImportEmployees() {
           {selectedIds.size > 0 && (
             <>
               <button className={`${s.btnAction} ${styles.btnRelinkAction}`}
-                onClick={() => { setBulkForm({ departmentId:'', maPb:'', specialGroup:'', groupCodeEndDate:'' }); setShowBulkEdit(true); }}>
+                onClick={() => { setBulkForm({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' }); setShowBulkEdit(true); }}>
                 ✏️ <span>Cập nhật</span>
               </button>
               <div className={s.dividerV} />
             </>
           )}
-          <button className={s.btnAction} onClick={load} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
+          <button className={`${s.btnAction} ${styles.btnRelinkAction}`} onClick={doSyncPreview} disabled={syncing || loading} title="Đồng bộ ngày nghỉ cuối tháng trước vào cột NGHỈ THÁNG TRƯỚC">
+            {syncing ? <span className={s.spinning}><IconRefresh /></span> : '🔄'}
+            <span>{syncing ? 'Đang đồng bộ…' : 'Đồng bộ'}</span>
+          </button>
           <div className={s.dividerV} />
           <button
             className={`${s.btnAction} ${styles.btnDangerAction}`}
@@ -427,6 +474,8 @@ export default function ImportEmployees() {
           >
             🗑 <span>Xóa Tất Cả</span>
           </button>
+           <div className={s.dividerV} />
+           <button className={s.btnAction} onClick={load} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
         </div>
       </div>
 
@@ -482,12 +531,12 @@ export default function ImportEmployees() {
             <div className={s.confirmIcon}>⚠️</div>
             <h3 className={s.confirmTitle}>Xóa toàn bộ nhân viên?</h3>
             <p className={s.confirmDesc}>
-              Hành động này sẽ xóa <strong>tất cả {rows.length} nhân viên</strong> khỏi hệ thống.<br />
+              Hành động này sẽ xóa <strong>tất cả nhân viên</strong> khỏi hệ thống.<br />
               Dữ liệu <strong>không thể khôi phục</strong>. Bạn có chắc chắn?
             </p>
             <div className={s.confirmActions}>
               <button className={s.btnDanger} onClick={doClearAll} disabled={saving}>
-                {saving ? 'Đang xóa…' : `🗑️ Xóa ${rows.length} nhân viên`}
+                {saving ? 'Đang xóa…' : `🗑️ Xóa tất cả`}
               </button>
               <button className={s.btnSecondary} onClick={() => setClearAll(false)} disabled={saving}>Hủy</button>
             </div>
@@ -628,6 +677,49 @@ export default function ImportEmployees() {
         </div>
       )}
 
+      {/* Sync confirm */}
+      {syncConfirm && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal} style={{ maxWidth: 400 }}>
+            <div className={s.confirmIcon}>🔄</div>
+            <h3 className={s.confirmTitle}>Xác nhận đồng bộ</h3>
+            <p className={s.confirmDesc}>
+              Đồng bộ dữ liệu <strong>ngày nghỉ cuối tháng</strong> từ<br />
+              <strong>{syncConfirm.prevMonthLabel}</strong> → <strong>{syncConfirm.currentLabel}</strong>
+            </p>
+            <p className={s.confirmDesc} style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 4 }}>
+              Cột "NGHỈ THÁNG TRƯỚC" của các nhân viên có mã khớp sẽ bị ghi đè.
+            </p>
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={doSyncConfirmed}>✅ Đồng bộ</button>
+              <button className={s.btnSecondary} onClick={() => setSyncConfirm(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync result */}
+      {syncResult && (
+        <div className={s.formOverlay} onClick={() => setSyncResult(null)}>
+          <div className={s.confirmModal} style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className={s.confirmIcon}>{syncResult.synced > 0 ? '🔄' : 'ℹ️'}</div>
+            <h3 className={s.confirmTitle}>Kết quả Đồng bộ</h3>
+            <div style={{ textAlign: 'left', fontSize: 13.5, lineHeight: 1.9, marginBottom: 20 }}>
+              {syncResult.message
+                ? <p style={{ color: 'var(--gray-500)' }}>⚠ {syncResult.message}</p>
+                : <>
+                  <p>📅 Tháng nguồn: <strong>{syncResult.prevMonth}</strong></p>
+                  <p>✅ Đã cập nhật: <strong>{syncResult.synced}</strong> nhân viên</p>
+                </>
+              }
+            </div>
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={() => setSyncResult(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Import result */}
       {importResult && (
         <div className={s.formOverlay} onClick={() => setImportResult(null)}>
@@ -734,8 +826,8 @@ export default function ImportEmployees() {
                 <tr className={styles.filterRow}>
                   <th className={styles.thCheck} />
                   <th className={styles.s0} />
-                  <th className={styles.s1}><ColFilter value={col.code}           placeholder="Mã…"  onChange={setF('code')} /></th>
-                  <th className={styles.s2}><ColFilter value={col.name}           placeholder="Tên…" onChange={setF('name')} /></th>
+                  <th className={styles.s1}><ColFilter value={col.code} placeholder="Mã…" onChange={setF('code')} /></th>
+                  <th className={styles.s2}><ColFilter value={col.name} placeholder="Tên…" onChange={setF('name')} /></th>
                   <th>
                     <select
                       className={styles.deptFilterSelect}
@@ -790,10 +882,12 @@ export default function ImportEmployees() {
                     <td className={`${styles.td} ${styles.tdMono}`}>
                       {r.groupCodeEndDate || <span className={s.noNote}>—</span>}
                     </td>
-                    {(() => { const n = numVal(r.workdays); const warn = !isNaN(n) && n <= 0; return (
-                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                      {r.workdays || <span className={s.noNote}>—</span>}
-                    </td>); })()}
+                    {(() => {
+                      const n = numVal(r.workdays); const warn = !isNaN(n) && n <= 0; return (
+                        <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                          {r.workdays || <span className={s.noNote}>—</span>}
+                        </td>);
+                    })()}
                     {Array.from({ length: DAY_COUNT }, (_, j) => {
                       const val = getDay(r, j);
                       return (
@@ -802,21 +896,25 @@ export default function ImportEmployees() {
                         </td>
                       );
                     })}
-                    {(() => { const n = numVal(r.overtimeHours); const warn = !isNaN(n) && n < 0; return (
-                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                      {isNaN(n) ? (r.overtimeHours || '—') : n.toFixed(2)}
-                    </td>); })()}
-                    {(() => { const n = numVal(r.lateMinutes); const warn = !isNaN(n) && n < 0; return (
-                    <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                      {isNaN(n) ? (r.lateMinutes || '—') : n.toFixed(2)}
-                    </td>); })()}
+                    {(() => {
+                      const n = numVal(r.overtimeHours); const warn = !isNaN(n) && n < 0; return (
+                        <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                          {isNaN(n) ? (r.overtimeHours || '—') : Math.round(n)}
+                        </td>);
+                    })()}
+                    {(() => {
+                      const n = numVal(r.lateMinutes); const warn = !isNaN(n) && n < 0; return (
+                        <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
+                          {isNaN(n) ? (r.lateMinutes || '—') : Math.round(n)}
+                        </td>);
+                    })()}
                     <td className={`${styles.td} ${styles.tdNum}`}>{r.phepNam || '—'}</td>
                     <td className={`${styles.td} ${styles.tdNum} ${r.ngayNghiCuoiThangTruoc ? styles.tdNghiCTT : ''}`}>
-                      {r.ngayNghiCuoiThangTruoc || <span className={s.noNote}>—</span>}
+                      {formatDate(r.ngayNghiCuoiThangTruoc) || <span className={s.noNote}>—</span>}
                     </td>
                     <td className={`${styles.td} ${styles.tdAction}`}>
                       <div className={styles.actions}>
-                        <button className={s.btnIconEdit}   onClick={() => openEdit(r)}       title="Sửa"><IconEdit /></button>
+                        <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa"><IconEdit /></button>
                         <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
                       </div>
                     </td>

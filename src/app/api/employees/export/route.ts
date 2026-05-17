@@ -6,6 +6,15 @@ export const runtime = 'nodejs';
 const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
 const SELECT_DAYS = DAY_COLS.map(c => `e.${c}`).join(', ');
 
+function formatDate(val: unknown): string {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
@@ -33,7 +42,7 @@ export async function GET(req: NextRequest) {
     `, monthId);
     await conn.close();
 
-    const XLSX = await import('xlsx');
+    const XLSX = await import('xlsx-js-style');
     const wb   = XLSX.utils.book_new();
 
     const header = [
@@ -58,7 +67,7 @@ export async function GET(req: NextRequest) {
       r['overtime_hours'] ?? '',
       r['late_minutes'] ?? '',
       r['phep_nam'] ?? '',
-      r['ngay_nghi_cuoi_thang_truoc'] ?? '',
+      formatDate(r['ngay_nghi_cuoi_thang_truoc']),
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...data]);

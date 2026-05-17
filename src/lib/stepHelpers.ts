@@ -39,6 +39,7 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
     lateStartFromDay:          m['late_distribution_start_day']   ?? 15,
     specialGroupHourReduction: m['special_group_work_hour_reduction'] ?? 1,
     skipEqualRestDeptCodes:    skipCodes,
+    maxDayOffDifference:       m['max_day_off_difference']        ?? 1,
   };
 }
 
@@ -60,7 +61,7 @@ export async function loadShiftMap(monthId: string) {
     const entry = map.get(key)!;
     const info: ShiftInfo = {
       departmentId: s.departmentId,
-      shiftType: s.shiftType,
+      shiftType: s.shiftType?.includes('2') ? 'C2' : s.shiftType?.includes('1') ? 'C1' : 'C',
       windowStart: s.windowStart || s.clockIn,
       clockIn: s.clockIn,
       clockOut: s.clockOut,

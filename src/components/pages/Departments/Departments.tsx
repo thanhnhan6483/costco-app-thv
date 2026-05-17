@@ -330,49 +330,27 @@ export default function Departments() {
             <thead>
               <tr className={s.headRow}>
                 <th className={s.thStt}>#</th>
-                <SortTh label="Mã PB"             sortKey="code"       current={sortKey} dir={sortDir} onSort={handleSort} className={s.thCode} />
-                <SortTh label="Tên Phòng Ban"     sortKey="name"       current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Phòng Ban Cấp Trên" sortKey="parentName" current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Trạng Thái"        sortKey="active"     current={sortKey} dir={sortDir} onSort={handleSort} className={s.thStatus} />
-                <SortTh label="Ghi Chú"           sortKey="note"       current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Mã PB"         sortKey="code" current={sortKey} dir={sortDir} onSort={handleSort} className={s.thCode} />
+                <SortTh label="Tên Phòng Ban" sortKey="name" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Ghi Chú"       sortKey="note" current={sortKey} dir={sortDir} onSort={handleSort} />
                 <th className={s.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
                 <th />
                 <th><ColFilter value={col.code} placeholder="Tìm mã…" onChange={setF('code')} /></th>
                 <th><ColFilter value={col.name} placeholder="Tìm tên…" onChange={setF('name')} /></th>
-                <th><ColFilter value={col.parentName} placeholder="Tìm cấp trên…" onChange={setF('parentName')} /></th>
-                <th>
-                  <select
-                    className={s.statusFilterSelect}
-                    value={col.active}
-                    onChange={e => setCol(p => ({ ...p, active: e.target.value as Filters['active'] }))}
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="true">● Hoạt động</option>
-                    <option value="false">● Vô hiệu</option>
-                  </select>
-                </th>
                 <th><ColFilter value={col.note} placeholder="Ghi chú…" onChange={setF('note')} /></th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr><td colSpan={5} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => (
                 <tr key={r.id} style={{ opacity: r.active ? 1 : 0.55 }}>
                   <td className={s.tdStt}>{i + 1}</td>
                   <td><span className={s.codeBadge}>{r.code}</span></td>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
-                  <td>
-                    {r.parentName
-                      ? <span className={s.codeBadge} style={{ background: 'var(--accent-muted, #e8f0fe)', color: 'var(--accent, #2563eb)' }}>{r.parentName}</span>
-                      : <span className={s.noNote}>—</span>}
-                  </td>
-                  <td className={s.tdCenter}>
-                    <span className={r.active ? s.badgeActive : s.badgeInactive}>{r.active ? '● Hoạt động' : '● Vô hiệu'}</span>
-                  </td>
                   <td className={s.noteCell}>{r.note || <span className={s.noNote}>—</span>}</td>
                   <td>
                     <div className={s.actions}>

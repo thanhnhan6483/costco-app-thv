@@ -90,6 +90,13 @@ const IconPlay = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" h
 const IconCheck = () => <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>;
 const IconDl = () => <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" /></svg>;
 
+function fmtDate(v: string): string {
+  if (!v) return '';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return v;
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) { const [y, m, d] = v.slice(0, 10).split('-'); return `${d}/${m}/${y}`; }
+  return v;
+}
+
 const STEPS = [
   { num: 1, apiNum: 1, key: 'step1Done', label: 'Xem dữ liệu', icon: '📋', editable: false, viewOnly: false },
   { num: 2, apiNum: 2, key: 'step2Done', label: 'Phân bổ ngày công', icon: '📊', editable: false, viewOnly: false },
@@ -554,15 +561,15 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
   const [fLate, setFLate] = useState('');
   const [fPN, setFPN] = useState('');
   const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
-  const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = parseFloat(String(r.overtimeHours || '0').replace(',', '.')); return v > 0 ? v.toFixed(2) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
-  const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = parseFloat(String(r.lateMinutes || '0').replace(',', '.')); return v > 0 ? v.toFixed(2) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
     let result = baseFiltered as any[];
     if (fWorkdays) result = result.filter(r => String(r.workdays ?? '') === fWorkdays);
-    if (fOT) result = result.filter(r => parseFloat(String(r.overtimeHours || '0').replace(',', '.')).toFixed(2) === fOT);
-    if (fLate) result = result.filter(r => parseFloat(String(r.lateMinutes || '0').replace(',', '.')).toFixed(2) === fLate);
+    if (fOT) result = result.filter(r => String(Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')))) === fOT);
+    if (fLate) result = result.filter(r => String(Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')))) === fLate);
     if (fPN) result = result.filter(r => String(r.phepNam ?? '') === fPN);
     if (!step1Filter) return result;
     return result.filter(r => {
@@ -636,8 +643,8 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
                     );
                   })}
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{parseFloat(String(r.overtimeHours).replace(',', '.')).toFixed(2)}</span> : '—'}</td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{parseFloat(String(r.lateMinutes).replace(',', '.')).toFixed(2)}</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Math.round(parseFloat(String(r.overtimeHours).replace(',', '.')))}</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Math.round(parseFloat(String(r.lateMinutes).replace(',', '.')))}</span> : '—'}</td>
                   <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r.phepNam || '—'}</td>
                 </tr>
               );
@@ -830,14 +837,15 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 90, maxWidth: 90, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <th style={{ minWidth: 80, color: '#0369a1' }}>NGHỈ THÁNG TRƯỚC</th>
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-              <th style={{ minWidth: 80, color: '#0369a1' }}>NGHỈ THÁNG TRƯỚC</th>
+              <th style={{ minWidth: 90, color: '#0369a1', whiteSpace: 'nowrap' }}>NGHỈ CUỐI THÁNG NÀY</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} extraMiddle={1} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
               <th /><th /><th />
@@ -851,6 +859,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
                 <td className={styles.mono} style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
+                <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
@@ -889,7 +898,12 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>
                   {Array.from({ length: 31 }, (_, i) => getEffectiveDT(r.code, i + 1, days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length}
                 </td>
-                <td className={styles.statCell} style={{ color: '#0369a1' }}>{r.ngayNghiCuoiThangTruoc || <span style={{ color: '#d1d5db' }}>—</span>}</td>
+                {(() => {
+                  const lastRestDay = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+                  const [mm, yyyy] = monthLabel.split('/');
+                  const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
+                  return <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400, whiteSpace: 'nowrap' }}>{val || <span style={{ color: '#d1d5db' }}>—</span>}</td>;
+                })()}
               </tr>
             );
           })}</tbody>
@@ -1027,13 +1041,13 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
   const [sort, onSort] = useSort();
   const [fOT, setFOT] = useState('');
   const [fLate, setFLate] = useState('');
-  const otList = useStatList(rows, 'totalOT', 2);
-  const lateList = useStatList(rows, 'totalLate', 2);
+  const otList = useStatList(rows, 'totalOT', 0);
+  const lateList = useStatList(rows, 'totalLate', 0);
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = baseFiltered as any[];
-    if (fOT) r = r.filter((x: any) => Number(x.totalOT) > 0 && Number(x.totalOT).toFixed(2) === fOT);
-    if (fLate) r = r.filter((x: any) => Number(x.totalLate) > 0 && Number(x.totalLate).toFixed(2) === fLate);
+    if (fOT) r = r.filter((x: any) => Number(x.totalOT) > 0 && String(Math.round(Number(x.totalOT))) === fOT);
+    if (fLate) r = r.filter((x: any) => Number(x.totalLate) > 0 && String(Math.round(Number(x.totalLate))) === fLate);
     return r;
   }, [baseFiltered, fOT, fLate]);
   return (
@@ -1071,17 +1085,17 @@ function OtLateGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mon
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
-                    label = <><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late.toFixed(2)}</span></>;
-                  } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot.toFixed(2)}h</>; }
-                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(2)}</>; }
+                    label = <><span style={{ color: OT_CLR }}>{Math.round(ot)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{Math.round(late)}</span></>;
+                  } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{Math.round(ot)}h</>; }
+                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{Math.round(late)}</>; }
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: OT_CLR }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(2)}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: LATE_CLR }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Number(r.totalLate).toFixed(2)}</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: OT_CLR }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Math.round(Number(r.totalOT))}h</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: LATE_CLR }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Math.round(Number(r.totalLate))}</span> : '—'}</td>
               </tr>
             );
           })}</tbody>
@@ -1168,8 +1182,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const workdaysList2 = useStatList(rows, 'workdays');
   const lpList2 = useStatList(rows, 'lpCount');
   const pnList2 = useStatList(rows, 'pnCount');
-  const otList2 = useStatList(rows, 'totalOT', 2);
-  const lateList2 = useStatList(rows, 'totalLate', 2);
+  const otList2 = useStatList(rows, 'totalOT', 0);
+  const lateList2 = useStatList(rows, 'totalLate', 0);
   const baseFiltered2 = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
   const filtered = useMemo(() => {
@@ -1177,8 +1191,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
     if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
     if (fPN2) r = r.filter((x: any) => String(x.pnCount ?? '') === fPN2);
-    if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && Number(x.totalOT).toFixed(2) === fOT2);
-    if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && Number(x.totalLate).toFixed(2) === fLate2);
+    if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && String(Math.round(Number(x.totalOT))) === fOT2);
+    if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && String(Math.round(Number(x.totalLate))) === fLate2);
     return r;
   }, [baseFiltered2, fWorkdays, fLP, fPN2, fOT2, fLate2]);
   return (
@@ -1199,6 +1213,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#1d4ed8' }} />
               <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#c2410c' }} />
+              <th style={{ minWidth: 100, color: '#0369a1', whiteSpace: 'nowrap' }}>NGHỈ CUỐI THÁNG NÀY</th>
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} extraMiddle={1} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 90, width: 90 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
               <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
@@ -1206,6 +1221,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
               <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
               <StatFilterTh list={lateList2} value={fLate2} onChange={setFLate2} />
+              <th />
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => (
@@ -1215,7 +1231,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap' }}>{r.ngayNghiCuoiThangTruoc || '—'}</td>
+              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
               {Array.from({ length: 31 }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
@@ -1228,8 +1244,15 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
               <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Number(r.totalOT).toFixed(2)}</span> : 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Number(r.totalLate).toFixed(2)}</span> : 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Math.round(Number(r.totalOT))}</span> : 0}</td>
+              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Math.round(Number(r.totalLate))}</span> : 0}</td>
+              {(() => {
+                const days: { day: number; dayType: number }[] = r.days ?? [];
+                const lastRestDay = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+                const [mm, yyyy] = monthLabel.split('/');
+                const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
+                return <td style={{ textAlign: 'center', color: '#0369a1', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>{val || '—'}</td>;
+              })()}
             </tr>
           ))}</tbody>
         </table>

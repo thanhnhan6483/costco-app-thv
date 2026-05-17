@@ -4,7 +4,7 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const XLSX = await import('xlsx');
+  const XLSX = await import('xlsx-js-style');
   const wb = XLSX.utils.book_new();
   const header = [
     'employee_code', 'employee_name', 'department_code', 'group_code', 'group_code_end_date', 'workdays',
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const monthId = (form.get('monthId') as string | null) ?? DEFAULT_MONTH_ID;
     if (!file) return NextResponse.json({ error: 'Không có file' }, { status: 400 });
 
-    const XLSX = await import('xlsx');
+    const XLSX = await import('xlsx-js-style');
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];

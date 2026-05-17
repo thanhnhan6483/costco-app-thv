@@ -331,11 +331,6 @@ export default function ConfigMonth() {
 
           <div className={styles.dividerV} />
 
-          <button className={styles.btnAction}
-            onClick={() => setShowCopy(true)} disabled={loading} title="Sao chép cấu hình từ tháng khác">
-            <IconCopy /><span>Sao Chép Tháng</span>
-          </button>
-
           <button className={`${styles.btnAction} ${styles.btnActionGreen}`}
             title="Xuất Excel" disabled>
             <IconExport /><span>Xuất Excel</span>

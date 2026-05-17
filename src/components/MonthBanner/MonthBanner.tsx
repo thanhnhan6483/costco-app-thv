@@ -1,6 +1,6 @@
 /**
  * MonthBanner – hiển thị tháng đang cấu hình ở đầu mỗi module I.
- * Khi user click "Đổi tháng", điều hướng sang trang Tháng Phân Bổ.
+ * Khi user click "Đổi tháng", điều hướng sang trang Tháng chấm công.
  */
 'use client';
 import { useApp } from '@/context/AppContext';
@@ -26,7 +26,7 @@ export default function MonthBanner({ moduleName }: Props) {
       <button
         className={styles.changeBtn}
         onClick={() => setCurrentPage('config-month')}
-        title="Chuyển sang trang Tháng Phân Bổ để đổi tháng"
+        title="Chuyển sang trang Tháng chấm công để đổi tháng"
       >
         Đổi tháng
       </button>

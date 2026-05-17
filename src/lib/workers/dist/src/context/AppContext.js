@@ -19,7 +19,7 @@ function AppProvider({ children }) {
     const [allocRules, setAllocRules] = (0, react_1.useState)(defaults_1.DEFAULT_ALLOC_RULES);
     const [sidebarCollapsed, setSidebarCollapsed] = (0, react_1.useState)(false);
     const [monthListVersion, setMonthListVersion] = (0, react_1.useState)(0);
-    // activeMonth: tháng được chọn trong màn hình "Tháng Phân Bổ" để Module I lọc dữ liệu
+    // activeMonth: tháng được chọn trong màn hình "Tháng chấm công" để Module I lọc dữ liệu
     const [activeMonthId, setActiveMonthId] = (0, react_1.useState)(constants_1.DEFAULT_MONTH_ID);
     const [activeMonthLabel, setActiveMonthLabel] = (0, react_1.useState)('01/2026');
     const toggleSidebar = () => setSidebarCollapsed(p => !p);
@@ -28,13 +28,15 @@ function AppProvider({ children }) {
         setActiveMonthId(id);
         setActiveMonthLabel(label);
     };
-    return ((0, jsx_runtime_1.jsx)(AppContext.Provider, { value: {
+    return ((0, jsx_runtime_1.jsx)(AppContext.Provider, {
+        value: {
             currentMonth, currentPage, departments, shifts, leaveTypes,
             specialGroups, employees, allocRules, sidebarCollapsed, monthListVersion,
             activeMonthId, activeMonthLabel,
             setCurrentMonth, setCurrentPage, setDepartments, setShifts,
             setEmployees, setAllocRules, toggleSidebar, refreshMonthList, setActiveMonth,
-        }, children: children }));
+        }, children: children
+    }));
 }
 function useApp() {
     const ctx = (0, react_1.useContext)(AppContext);

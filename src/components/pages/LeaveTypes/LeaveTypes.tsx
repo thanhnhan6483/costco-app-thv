@@ -230,34 +230,26 @@ export default function LeaveTypes() {
                 <th className={s.thStt}>#</th>
                 <SortTh label="Mã Loại"    sortKey="code"        current={sortKey} dir={sortDir} onSort={handleSort} className={s.thCode} />
                 <SortTh label="Tên Loại Nghỉ" sortKey="name"    current={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortTh label="Mô Tả"       sortKey="description" current={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortTh label="Ghi Chú"     sortKey="note"        current={sortKey} dir={sortDir} onSort={handleSort} />
-                <th style={{ minWidth: 80, textAlign: 'center' }}>Day Type</th>
                 <th className={s.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
                 <th />
                 <th><ColFilter value={col.code} placeholder="Mã…" onChange={setF('code')} /></th>
                 <th><ColFilter value={col.name} placeholder="Tên…" onChange={setF('name')} /></th>
-                <th><ColFilter value={col.description} placeholder="Mô tả…" onChange={setF('description')} /></th>
                 <th><ColFilter value={col.note} placeholder="Ghi chú…" onChange={setF('note')} /></th>
-                <th />
                 <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr><td colSpan={5} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => (
                 <tr key={r.id}>
                   <td className={s.tdStt}>{i + 1}</td>
                   <td><span className={s.codeBadge}>{r.code}</span></td>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
-                  <td className={s.noteCell}>{r.description || <span className={s.noNote}>—</span>}</td>
-                  <td className={s.noteCell}>{r.note || <span className={s.noNote}>—</span>}</td>
-                  <td style={{ textAlign: 'center', fontFamily: 'monospace', color: r.dayType >= 0 ? '#1d4ed8' : '#9ca3af' }}>
-                    {r.dayType >= 0 ? r.dayType : '—'}
-                  </td>
+                  <td className={s.noteCell}>{r.description || r.note || <span className={s.noNote}>—</span>}</td>
                   <td>
                     <div className={s.actions}>
                       <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa"><IconEdit /></button>

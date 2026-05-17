@@ -78,14 +78,7 @@ const SEED: {
     sv: 'Giờ tăng ca chỉ được phân bổ vào các ngày từ ngày thứ 15 của tháng trở đi (index >= 14).',
   },
   {
-    id: 'ot3', gc: 'OT_RULE', gn: 'Quy tắc tăng ca',
-    name: 'Sai lệch giờ ra cho phép',
-    paramKey: 'max_clockout_deviation_minutes', paramValue: 30,
-    dp: 'Chênh lệch ≤ 30 phút',
-    sv: 'Giờ ra thực tế có thể lệch tối đa 30 phút so với giờ ra chuẩn của ca (window_end).',
-  },
-
-  /* ── ATTENDANCE_RULE ────────────────────────────────────────────── */
+    /* ── ATTENDANCE_RULE ────────────────────────────────────────────── */
   {
     id: 'at1', gc: 'ATTENDANCE_RULE', gn: 'Quy tắc chấm công',
     name: 'Đi trễ tối đa mỗi ngày',

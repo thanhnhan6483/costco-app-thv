@@ -1,7 +1,7 @@
 "use strict";
 /**
  * MonthBanner – hiển thị tháng đang cấu hình ở đầu mỗi module I.
- * Khi user click "Đổi tháng", điều hướng sang trang Tháng Phân Bổ.
+ * Khi user click "Đổi tháng", điều hướng sang trang Tháng chấm công.
  */
 'use client';
 var __importDefault = (this && this.__importDefault) || function (mod) {

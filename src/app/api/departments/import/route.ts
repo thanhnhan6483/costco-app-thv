@@ -3,7 +3,7 @@
  * POST /api/departments/import    – Import từ file Excel
  */
 import { NextRequest, NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 
 export const runtime = 'nodejs';

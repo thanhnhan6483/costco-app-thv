@@ -12,7 +12,7 @@ interface NavItem {
 
 /* ── Quản lý chung ─────────────────────────────── */
 const MODULE0: NavItem[] = [
-  { key: 'config-month', icon: '📅', label: 'Tháng Phân Bổ' },
+  { key: 'config-month', icon: '📅', label: 'Tháng Chấm công' },
 ];
 
 /* ── Cấu hình Phân bổ ───────────────────────── */
@@ -21,15 +21,13 @@ const MODULE1: NavItem[] = [
   { key: 'shifts', icon: '🕐', label: 'Ca Làm Việc' },
   { key: 'leave-types', icon: '📋', label: 'Loại Nghỉ Phép' },
   { key: 'special-groups', icon: '👥', label: 'Nhóm Đặc Thù' },
-  { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
   { key: 'alloc-rules', icon: '⚙️', label: 'Quy Tắc Phân Bổ' },
-  { key: 'export-config', icon: '📤', label: 'Xuất Cấu Hình' },
+  { key: 'import-employees', icon: '👥', label: 'Danh sách Nhân viên' },
 ];
 
 /* ── PHÂN BỔ CHẤM CÔNG ────────────── */
 const MODULE2: NavItem[] = [
   { key: 'auto-alloc', icon: '🤖', label: 'Phân Bổ Tự Động' },
-  { key: 'attendance-grid', icon: '📊', label: 'Bảng Chấm Công', badge: 'Mới' },
   { key: 'export-attendance', icon: '📑', label: 'Xuất Báo Cáo' },
 ];
 
@@ -104,7 +102,7 @@ export default function Sidebar() {
 
         <div className={styles.divider} />
 
-        {/* ── Module II – Phân bổ ── */}
+        {/* ── Phân bổ ── */}
         <div className={styles.section}>
           {!sidebarCollapsed && (
             <div className={styles.sectionTitle}>PHÂN BỔ CHẤM CÔNG</div>

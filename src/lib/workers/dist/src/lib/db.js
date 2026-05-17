@@ -10,7 +10,7 @@ exports.getConn = getConn;
  * Singleton DuckDB connection cho toàn bộ ứng dụng COSTCO.
  * Dữ liệu được lưu cục bộ tại: <project-root>/data/costco.duckdb
  *
- * v2: Mỗi bảng cấu hình có cột month_id → cấu hình độc lập theo từng Tháng Phân Bổ.
+ * v2: Mỗi bảng cấu hình có cột month_id → cấu hình độc lập theo từng Tháng chấm công.
  *     Dữ liệu cũ (không có month_id) sẽ được gắn vào tháng 'month_jan2026' (01/2026).
  */
 const path_1 = __importDefault(require("path"));
@@ -34,7 +34,7 @@ async function getConn() {
 /* ─── Schema & seed ──────────────────────────────────────── */
 async function initSchema(db) {
     const conn = await db.connect();
-    /* months – Tháng phân bổ (bảng gốc, không có month_id) */
+    /* months – Tháng chấm công (bảng gốc, không có month_id) */
     await conn.run(`
     CREATE TABLE IF NOT EXISTS months (
       id          VARCHAR PRIMARY KEY,

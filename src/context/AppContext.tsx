@@ -53,7 +53,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [allocRules, setAllocRules] = useState<AllocRule[]>(DEFAULT_ALLOC_RULES);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [monthListVersion, setMonthListVersion] = useState(0);
-  // activeMonth: tháng được chọn trong màn hình "Tháng Phân Bổ" để Module I lọc dữ liệu
+  // activeMonth: tháng được chọn trong màn hình "Tháng chấm công" để Module I lọc dữ liệu
   const [activeMonthId, setActiveMonthId] = useState(DEFAULT_MONTH_ID);
   const [activeMonthLabel, setActiveMonthLabel] = useState('01/2026');
 

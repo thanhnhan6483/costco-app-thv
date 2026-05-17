@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadParams, loadShiftMap, markStepDone, getShiftEntry } from '@/lib/stepHelpers';
+import { loadParams, loadShiftMap, markStepDone, getShiftEntry, loadMonthInfo } from '@/lib/stepHelpers';
 import { step6_generateTime } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
@@ -17,8 +17,9 @@ export async function POST(req: NextRequest) {
     );
     const specialGroupHours = new Map(rawGroups.map(g => [g.code.toUpperCase(), g.workHours]));
 
-    const emps = await conn.all<{ id: string; departmentId: string; specialGroup: string }>(
-      `SELECT id, department_id AS departmentId, special_group AS specialGroup
+    const emps = await conn.all<{ id: string; departmentId: string; specialGroup: string; groupCodeEndDate: string }>(
+      `SELECT id, department_id AS departmentId, special_group AS specialGroup,
+              COALESCE(group_code_end_date, '') AS groupCodeEndDate
        FROM employees WHERE month_id=? AND active=TRUE`, monthId
     );
     const allDays = await conn.all<{ empId: string; day: number; dayType: number; shiftCode: string; otHours: number; lateMins: number }>(
@@ -33,13 +34,32 @@ export async function POST(req: NextRequest) {
       daysByEmp.get(d.empId)!.push(d);
     }
 
+    const { month, year } = await loadMonthInfo(monthId);
+
     const rows: string[] = [];
     for (const emp of emps) {
       const groupCode = (emp.specialGroup ?? '').toUpperCase();
-      const groupWorkHours = groupCode ? (specialGroupHours.get(groupCode) ?? null) : null;
+      const baseGroupWorkHours = groupCode ? (specialGroupHours.get(groupCode) ?? null) : null;
       const entry = getShiftEntry(shiftMap, emp.departmentId ?? null);
       const days = daysByEmp.get(emp.id) ?? [];
+
+      // Parse groupCodeEndDate → ngày kết thúc (day trong tháng), null = không giới hạn
+      let endDay: number | null = null;
+      if (emp.groupCodeEndDate) {
+        const parts = emp.groupCodeEndDate.split(/[\/\-]/);
+        if (parts.length >= 3) {
+          // dd/mm/yyyy hoặc yyyy-mm-dd
+          const d = parseInt(parts[0]), m = parseInt(parts[1]), y = parseInt(parts[2]);
+          const [dy, dm, dd] = parts[0].length === 4 ? [d, m, parseInt(parts[2])] : [y, m, d];
+          if (dm === month && dy === year) endDay = dd;
+          else if (dy < year || (dy === year && dm < month)) endDay = 0; // đã hết hạn toàn tháng
+          // dy > year hoặc dm > month → còn hiệu lực toàn tháng → endDay = null
+        }
+      }
+
       for (const d of days) {
+        // Kiểm tra nhóm đặc thù còn hiệu lực tại ngày d.day không
+        const groupWorkHours = (endDay === null || d.day <= endDay) ? baseGroupWorkHours : null;
         const { checkIn, checkOut } = step6_generateTime(
           d.dayType, d.otHours, d.lateMins, d.shiftCode,
           entry.ca1, entry.ca2, groupWorkHours, params
@@ -96,6 +116,8 @@ export async function GET(req: NextRequest) {
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName,
+              e.special_group AS specialGroup,
+              e.group_code_end_date AS groupCodeEndDate,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               dr.day, dr.day_type AS dayType, dr.shift_code AS shiftCode,
               dr.check_in AS checkIn, dr.check_out AS checkOut,
@@ -111,6 +133,8 @@ export async function GET(req: NextRequest) {
     for (const r of rows as any[]) {
       if (!map.has(r.code)) map.set(r.code, {
         code: r.code, name: r.empName, deptName: r.deptName ?? '',
+        specialGroup: r.specialGroup ?? '',
+        groupCodeEndDate: r.groupCodeEndDate ?? '',
         ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '',
         days: [],
       });
