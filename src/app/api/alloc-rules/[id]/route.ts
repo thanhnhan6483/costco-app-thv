@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { toDb } from '../route';
 export const runtime = 'nodejs';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,8 +9,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const conn = await getConn();
     await conn.run(
       `UPDATE alloc_rules SET name=?,param_key=?,default_param=?,specific_value=?,description=?,group_code=?,group_name=? WHERE id=?`,
-      toDb(name), toDb(paramKey ?? ''), toDb(defaultParam ?? ''), toDb(specificValue ?? ''), toDb(description ?? ''),
-      toDb(groupCode ?? 'WORK_RULE'), toDb(groupName ?? 'Quy tắc làm việc'), id
+      name, paramKey ?? '', defaultParam ?? '', specificValue ?? '', description ?? '',
+      groupCode ?? 'WORK_RULE', groupName ?? 'Quy tắc làm việc', id
     );
     await conn.close();
     return NextResponse.json({ ok: true });

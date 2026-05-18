@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx-js-style';
 import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
-import { fromDb } from '@/app/api/alloc-rules/route';
 
 export const runtime = 'nodejs';
 
@@ -18,8 +17,8 @@ export async function GET(req: NextRequest) {
 
   const HEADERS = ['Nhóm', 'Tên Nhóm', 'Quy Tắc', 'Mã Quy Tắc', 'Giá Trị Mặc Định', 'Ghi Chú'];
   const data = rows.map(r => [
-    fromDb(r.groupCode), fromDb(r.groupName), fromDb(r.name),
-    String(r.paramKey ?? ''), fromDb(r.defaultParam), fromDb(r.specificValue),
+    String(r.groupCode ?? ''), String(r.groupName ?? ''), String(r.name ?? ''),
+    String(r.paramKey ?? ''), String(r.defaultParam ?? ''), String(r.specificValue ?? ''),
   ]);
 
   const wb = XLSX.utils.book_new();

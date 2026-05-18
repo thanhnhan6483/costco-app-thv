@@ -38,15 +38,24 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // Không cho xóa tháng đã khóa (master)
+    const [month] = await conn.all<{ locked: boolean }>(`SELECT locked FROM months WHERE id = ?`, id);
+    if (month?.locked) {
+      await conn.close();
+      return NextResponse.json({ error: 'Không thể xóa tháng master (đã khóa)' }, { status: 403 });
+    }
+
     await conn.run('BEGIN TRANSACTION');
 
     // Xóa tất cả dữ liệu cấu hình thuộc tháng này
-    await conn.run(`DELETE FROM departments   WHERE month_id = ?`, id);
-    await conn.run(`DELETE FROM shifts        WHERE month_id = ?`, id);
-    await conn.run(`DELETE FROM leave_types   WHERE month_id = ?`, id);
-    await conn.run(`DELETE FROM special_groups WHERE month_id = ?`, id);
-    await conn.run(`DELETE FROM alloc_rules   WHERE month_id = ?`, id);
-    await conn.run(`DELETE FROM employees     WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM departments          WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM shifts               WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM leave_types          WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM special_groups       WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM alloc_rules          WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM employees            WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM distribution_results WHERE month_id = ?`, id);
+    await conn.run(`DELETE FROM distribution_status  WHERE month_id = ?`, id);
 
     // Xóa bản ghi tháng
     await conn.run(`DELETE FROM months WHERE id = ?`, id);

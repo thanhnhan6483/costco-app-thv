@@ -853,9 +853,7 @@ export default function ImportEmployees() {
                       ))}
                     </select>
                   </th>
-                  <th /><th />  {/* CONG filter */}
-                  {Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}
-                  <th /><th /><th /><th /><th />
+                  <th /><th />{Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}<th /><th /><th /><th /><th />
                 </tr>
               </thead>
               <tbody>

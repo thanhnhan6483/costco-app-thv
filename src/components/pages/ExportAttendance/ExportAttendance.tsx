@@ -6,7 +6,7 @@ const cards = [
   {
     icon: '📦',
     title: 'Tổng hợp cấu hình',
-    desc: 'Phòng ban, ca làm việc, loại nghỉ phép, nhóm đặc thù, quy tắc phân bổ và danh sách nhân viên',
+    desc: 'Phòng ban, ca làm việc, loại nghỉ phép, nhóm đặc thù, quy tắc phân bổ, nhân viên',
     color: '#3b82f6',
     bg: '#eff6ff',
     href: (id: string) => `/api/config/export?month=${id}`,
@@ -14,18 +14,18 @@ const cards = [
   {
     icon: '📊',
     title: 'Báo cáo chi tiết phân bổ',
-    desc: 'Kết quả phân bổ ngày công hoàn chỉnh (Bước 6)',
+    desc: 'Chi tiết các bước phân bổ, chia ca, tăng ca/trễ, tạo giờ làm, kết quả sau mỗi bước',
     color: '#8b5cf6',
     bg: '#f5f3ff',
-    href: (id: string) => `/api/distribution/export?month=${id}&step=6`,
+    href: (id: string) => `/api/distribution/export/all-steps?month=${id}`,
   },
   {
     icon: '📋',
     title: 'Bảng chấm công tổng hợp',
-    desc: 'Bảng chấm công kèm cột ca làm việc (Bước 5)',
+    desc: 'Bảng chấm công kết quả hoàn chỉnh sau bước 6, có thể dùng để báo cáo thực tế cho nhân sự',
     color: '#10b981',
     bg: '#ecfdf5',
-    href: (id: string) => `/api/distribution/export?month=${id}&step=5&withShift=1`,
+    href: (id: string) => `/api/distribution/export?month=${id}&step=6`,
   },
 ];
 
@@ -34,11 +34,6 @@ export default function ExportAttendance() {
 
   return (
     <div className={s.page}>
-      <div className={s.header}>
-        <span className={s.monthLabel}>
-          📅 Tháng đang chọn: <strong>{activeMonthLabel || '—'}</strong>
-        </span>
-      </div>
 
       <div className={s.grid}>
         {cards.map(card => (

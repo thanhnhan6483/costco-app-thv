@@ -9,11 +9,11 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
 /* ── Cấu trúc cột Excel ─────────────────────── */
-const HEADERS = ['Mã PB', 'Tên Phòng Ban', 'Phòng Ban Cấp Trên', 'Ghi Chú'];
+const HEADERS = ['Mã PB', 'Tên Phòng Ban', 'Ghi Chú'];
 const SAMPLE_ROWS = [
-  ['KD',  'Kinh Doanh',   '',   ''],
-  ['SX',  'Sản Xuất',     '',   'Khối sản xuất chính'],
-  ['KHO', 'Kho Hàng',     'SX', 'Thuộc Sản Xuất'],
+  ['KD',  'Kinh Doanh',   ''],
+  ['SX',  'Sản Xuất',     'Khối sản xuất chính'],
+  ['KHO', 'Kho Hàng',     'Thuộc Sản Xuất'],
 ];
 
 /* ── GET: Tải file mẫu ──────────────────────── */
@@ -27,7 +27,6 @@ export async function GET() {
   ws['!cols'] = [
     { wch: 12 },  // Mã PB
     { wch: 30 },  // Tên Phòng Ban
-    { wch: 20 },  // Phòng Ban Cấp Trên
     { wch: 40 },  // Ghi Chú
   ];
 
@@ -38,10 +37,9 @@ export async function GET() {
     ['HƯỚNG DẪN NHẬP LIỆU'],
     [''],
     ['Cột', 'Mô tả', 'Bắt buộc', 'Ví dụ'],
-    ['Mã PB',               'Mã viết tắt phòng ban (không dấu, in hoa)',   'Có',    'KD'],
-    ['Tên Phòng Ban',        'Tên đầy đủ của phòng ban',                    'Có',    'Kinh Doanh'],
-    ['Phòng Ban Cấp Trên',   'Mã PB của phòng ban cha (tuỳ chọn)',          'Không', 'SX'],
-    ['Ghi Chú',              'Ghi chú thêm (tuỳ chọn)',                     'Không', ''],
+    ['Mã PB',          'Mã viết tắt phòng ban (không dấu, in hoa)',   'Có',    'KD'],
+    ['Tên Phòng Ban',  'Tên đầy đủ của phòng ban',                    'Có',    'Kinh Doanh'],
+    ['Ghi Chú',        'Ghi chú thêm (tuỳ chọn)',                     'Không', ''],
     [''],
     ['Lưu ý:'],
     ['- Không thay đổi tên các cột trong dòng tiêu đề'],
@@ -89,33 +87,23 @@ export async function POST(req: NextRequest) {
     const monthId = (formData.get('monthId') as string | null) ?? DEFAULT_MONTH_ID;
     const conn = await getConn();
 
-    // Build map mã -> id từ DB hiện có (trong tháng này) để resolve parent
-    const existing = await conn.all<{ id: string; code: string }>(
-      `SELECT id, code FROM departments WHERE month_id = ?`, monthId
-    );
-    const codeToId = new Map(existing.map(r => [r.code.toUpperCase(), r.id]));
-
     const results = { inserted: 0, skipped: 0, skippedCodes: [] as string[], errors: [] as string[] };
     const now = new Date().toISOString().slice(0, 10);
 
     for (const row of data) {
-      const code   = String(row['Mã PB']              ?? '').trim().toUpperCase();
-      const name   = String(row['Tên Phòng Ban']        ?? '').trim();
-      const parent = String(row['Phòng Ban Cấp Trên']   ?? '').trim().toUpperCase();
-      const note   = String(row['Ghi Chú']              ?? '').trim();
+      const code   = String(row['Mã PB']          ?? '').trim().toUpperCase();
+      const name   = String(row['Tên Phòng Ban']  ?? '').trim();
+      const note   = String(row['Ghi Chú']        ?? '').trim();
 
       if (!code || !name) { results.skipped++; results.skippedCodes.push(code || '(trống)'); continue; }
 
       try {
-        const parentId = parent ? (codeToId.get(parent) ?? null) : null;
         const newId = Date.now().toString() + Math.random().toString(36).slice(2, 6);
         await conn.run(
           `INSERT INTO departments (id, month_id, code, name, parent_id, active, note, created_at)
-           VALUES (?, ?, ?, ?, ?, TRUE, ?, ?)`,
-          newId, monthId, code, name, parentId, note, now
+           VALUES (?, ?, ?, ?, NULL, TRUE, ?, ?)`,
+          newId, monthId, code, name, note, now
         );
-        // Cập nhật map để các dòng sau có thể tham chiếu
-        codeToId.set(code, newId);
         results.inserted++;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);

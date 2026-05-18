@@ -2,28 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
-/** Encode JS string → latin1 codepoints trước khi lưu vào DuckDB qua parameterized query */
-export function toDb(s: string): string {
-  return Buffer.from(s ?? '', 'utf8').toString('latin1');
-}
-/** Decode latin1 codepoints → JS string khi đọc từ DuckDB */
-export function fromDb(v: unknown): string {
-  if (v == null) return '';
-  try { return Buffer.from(String(v), 'latin1').toString('utf8'); } catch { return String(v); }
-}
-
 function fixRow(r: Record<string, unknown>) {
   return {
     id:            String(r.id ?? ''),
     monthId:       String(r.monthId ?? ''),
-    groupCode:     fromDb(r.groupCode),
-    groupName:     fromDb(r.groupName),
-    name:          fromDb(r.name),
+    groupCode:     String(r.groupCode ?? ''),
+    groupName:     String(r.groupName ?? ''),
+    name:          String(r.name ?? ''),
     paramKey:      String(r.paramKey ?? ''),
     paramValue:    r.paramValue != null ? Number(r.paramValue) : null,
-    defaultParam:  fromDb(r.defaultParam),
-    specificValue: fromDb(r.specificValue),
-    description:   fromDb(r.description),
+    defaultParam:  String(r.defaultParam ?? ''),
+    specificValue: String(r.specificValue ?? ''),
+    description:   String(r.description ?? ''),
     active:        Boolean(r.active),
     createdAt:     String(r.createdAt ?? ''),
   };
@@ -71,9 +61,9 @@ export async function POST(req: NextRequest) {
       `INSERT INTO alloc_rules (id,month_id,group_code,group_name,name,param_key,param_value,default_param,specific_value,description,active,created_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,TRUE,?)`,
       id, mid,
-      toDb(groupCode ?? 'WORK_RULE'), toDb(groupName ?? 'Quy tắc làm việc'),
-      toDb(name), paramKey ?? '', paramValue ?? null,
-      toDb(defaultParam ?? ''), toDb(specificValue ?? ''), toDb(description ?? ''),
+      groupCode ?? 'WORK_RULE', groupName ?? 'Quy tắc làm việc',
+      name, paramKey ?? '', paramValue ?? null,
+      defaultParam ?? '', specificValue ?? '', description ?? '',
       createdAt,
     );
     await conn.close();

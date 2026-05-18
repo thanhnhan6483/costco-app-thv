@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { toDb } from '../route';
 export const runtime = 'nodejs';
 
 /**
@@ -130,9 +129,9 @@ export async function POST(req: NextRequest) {
             default_param, specific_value, description, active, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', TRUE, ?)`,
         r.id, mid,
-        toDb(r.gc), toDb(r.gn), toDb(r.name),
+        r.gc, r.gn, r.name,
         r.paramKey, r.paramValue,
-        toDb(r.dp), toDb(r.sv),
+        r.dp, r.sv,
         now,
       );
     }

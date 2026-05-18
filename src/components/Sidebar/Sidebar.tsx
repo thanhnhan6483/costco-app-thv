@@ -31,6 +31,11 @@ const MODULE2: NavItem[] = [
   { key: 'export-attendance', icon: '📑', label: 'Xuất Báo Cáo' },
 ];
 
+/* ── Hệ thống ───────────────────────────────── */
+const MODULE3: NavItem[] = [
+  { key: 'user-management', icon: '🔐', label: 'Quản lý tài khoản' },
+]; 
+
 function NavList({ items, currentPage, navigate, collapsed }: {
   items: NavItem[];
   currentPage: string;
@@ -110,18 +115,19 @@ export default function Sidebar() {
           <NavList items={MODULE2} currentPage={currentPage} navigate={navigate} collapsed={sidebarCollapsed} />
         </div>
 
+        <div className={styles.divider} />
+
+        {/* ── Hệ thống ── */}
+        <div className={styles.section}>
+          {!sidebarCollapsed && (
+            <div className={styles.sectionTitle}>HỆ THỐNG</div>
+          )}
+          <NavList items={MODULE3} currentPage={currentPage} navigate={navigate} collapsed={sidebarCollapsed} />
+        </div>
+
       </nav>
 
       {/* Footer */}
-      <div className={styles.footer}>
-        <div className={styles.userAvatar}>HR</div>
-        {!sidebarCollapsed && (
-          <div className={styles.userInfo}>
-            <span className={styles.userName}>Admin HR</span>
-            <span className={styles.userRole}>Quản trị viên</span>
-          </div>
-        )}
-      </div>
     </aside>
   );
 }

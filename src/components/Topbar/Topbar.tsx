@@ -16,24 +16,24 @@ const PAGE_LABELS: Record<string, string> = {
   'auto-alloc': 'Phân Bổ Tự Động',
   'attendance-grid': 'Bảng Chấm Công',
   'export-attendance': 'Xuất Báo Cáo',
+  'user-management': 'Quản Lý Tài Khoản',
 };
 
-interface MonthOption {
-  id: string;
-  month: string;
-  label: string;
-}
+interface MonthOption { id: string; month: string; label: string; }
 
 export default function Topbar() {
   const { currentPage, currentMonth, setCurrentMonth, monthListVersion, setActiveMonth } = useApp();
-
-  /* Chỉ render dynamic content sau khi mount (tránh hydration mismatch) */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  /* ── Fetch danh sách tháng từ DB ── */
   const [months, setMonths] = useState<MonthOption[]>([]);
   const [loadingMonths, setLoadingMonths] = useState(true);
+  const [user, setUser] = useState<{ username: string; full_name?: string } | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(d => { if (d?.user) setUser(d.user); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoadingMonths(true);
@@ -48,15 +48,12 @@ export default function Topbar() {
             return (yb * 12 + mb) - (ya * 12 + ma);
           });
         setMonths(list);
-
-        // Nếu tháng hiện tại không có trong list → chọn tháng đầu tiên
         const monthCodes = list.map(m => m.month);
         if (list.length > 0 && !monthCodes.includes(currentMonth)) {
           const first = list[0];
           setCurrentMonth(first.month);
           setActiveMonth(first.id, first.month);
         } else if (list.length > 0) {
-          // Sync activeMonthId với tháng hiện tại khi load lần đầu
           const current = list.find(m => m.month === currentMonth);
           if (current) setActiveMonth(current.id, current.month);
         }
@@ -68,19 +65,20 @@ export default function Topbar() {
 
   const isDashboard = currentPage === 'dashboard';
   const currentLabel = PAGE_LABELS[currentPage] ?? currentPage;
-
-  /* Tên hiển thị trong select: "Label – MM/YYYY" hoặc chỉ "MM/YYYY" */
-  const optionText = (m: MonthOption) =>
-    m.label ? `${m.label} (${m.month})` : m.month;
-
+  const optionText = (m: MonthOption) => m.label ? `${m.label} (${m.month})` : m.month;
   const monthCodes = months.map(m => m.month);
   const selectedValue = monthCodes.includes(currentMonth) ? currentMonth : (months[0]?.month ?? '');
 
-  /* ── Khi user chọn tháng khác trong dropdown ── */
   const handleMonthChange = (monthCode: string) => {
     setCurrentMonth(monthCode);
     const found = months.find(m => m.month === monthCode);
     if (found) setActiveMonth(found.id, found.month);
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
   };
 
   return (
@@ -101,7 +99,7 @@ export default function Topbar() {
 
       <div className={styles.right}>
         <div className={styles.monthPicker}>
-          <span className={styles.monthLabel}>📅 THÁNG ĐANG CHỌN:</span>
+          <span className={styles.monthLabel}>📅 Tháng đang chọn:</span>
           {!mounted || loadingMonths ? (
             <span className={styles.monthLoading}>…</span>
           ) : months.length === 0 ? (
@@ -114,18 +112,19 @@ export default function Topbar() {
               suppressHydrationWarning
             >
               {months.map(m => (
-                <option key={m.month} value={m.month} suppressHydrationWarning>
-                  {optionText(m)}
-                </option>
+                <option key={m.month} value={m.month} suppressHydrationWarning>{optionText(m)}</option>
               ))}
             </select>
           )}
         </div>
-        <button className={styles.iconBtn} title="Thông báo">
-          🔔
-          <span className={styles.notifDot} />
-        </button>
-        <button className={styles.iconBtn} title="Tài khoản">👤</button>
+        {user && (
+          <div className={styles.userArea}>
+            <span className={styles.userName}>👤 {user.full_name || user.username}</span>
+            <button className={styles.logoutBtn} onClick={handleLogout} disabled={loggingOut} title="Đăng xuất">
+              {loggingOut ? '…' : '⏻ Đăng xuất'}
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

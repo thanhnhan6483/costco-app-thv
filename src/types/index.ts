@@ -80,4 +80,5 @@ export type PageKey =
   | 'export-config'
   | 'auto-alloc'
   | 'attendance-grid'
-  | 'export-attendance';
+  | 'export-attendance'
+  | 'user-management';

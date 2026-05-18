@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx-js-style';
 import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
-import { fromDb } from '@/app/api/alloc-rules/route';
 
 export const runtime = 'nodejs';
 
@@ -17,11 +16,19 @@ export async function GET(req: NextRequest) {
   const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
   const conn = await getConn();
 
+  const now = new Date();
+  const exportDate = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getFullYear()).slice(-2)}`;
+  const [monthRow] = await conn.all<{ month: string }>(
+    `SELECT month FROM months WHERE id = ?`, monthId
+  );
+  // "06/2025" → "Thang_06_2025"
+  const monthLabel = monthRow?.month
+    ? 'Thang_' + monthRow.month.replace('/', '_')
+    : monthId;
+
   /* 1. Phòng ban */
   const depts = await conn.all<Record<string, unknown>>(
-    `SELECT d.code, d.name, p.code AS parentCode, d.note
-     FROM departments d LEFT JOIN departments p ON p.id = d.parent_id AND p.month_id = d.month_id
-     WHERE d.month_id = ? ORDER BY d.code`, monthId
+    `SELECT code, name, note FROM departments WHERE month_id = ? ORDER BY code`, monthId
   );
 
   /* 2. Ca làm việc */
@@ -67,10 +74,10 @@ export async function GET(req: NextRequest) {
 
   /* Sheet 1: Phòng ban */
   const ws1 = XLSX.utils.aoa_to_sheet([
-    ['Mã PB', 'Tên Phòng Ban', 'Phòng Ban Cấp Trên', 'Ghi Chú'],
-    ...depts.map(r => [r.code, r.name, r.parentCode ?? '', r.note ?? '']),
+    ['Mã PB', 'Tên Phòng Ban', 'Ghi Chú'],
+    ...depts.map(r => [r.code, r.name, r.note ?? '']),
   ]);
-  ws1['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 20 }, { wch: 40 }];
+  ws1['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, ws1, 'PhongBan');
 
   /* Sheet 2: Ca làm việc */
@@ -101,8 +108,8 @@ export async function GET(req: NextRequest) {
   const ws5 = XLSX.utils.aoa_to_sheet([
     ['Nhóm', 'Tên Nhóm', 'Quy Tắc', 'Mã Quy Tắc', 'Giá Trị Mặc Định', 'Ghi Chú'],
     ...rules.map(r => [
-      fromDb(r.group_code), fromDb(r.group_name), fromDb(r.name),
-      String(r.param_key ?? ''), fromDb(r.default_param), fromDb(r.specific_value),
+      String(r.group_code ?? ''), String(r.group_name ?? ''), String(r.name ?? ''),
+      String(r.param_key ?? ''), String(r.default_param ?? ''), String(r.specific_value ?? ''),
     ]),
   ]);
   ws5['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 35 }, { wch: 30 }, { wch: 20 }, { wch: 30 }];
@@ -130,7 +137,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(buf, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="tong_hop_cau_hinh_${monthId}.xlsx"`,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(`${monthLabel}_Tong_hop_cau_hinh_${exportDate}.xlsx`)}"`,
     },
   });
 }

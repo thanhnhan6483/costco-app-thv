@@ -17,6 +17,7 @@ import ConfigMonth from '@/components/pages/ConfigMonth/ConfigMonth';
 import ImportEmployees from '@/components/pages/ImportEmployees/ImportEmployees';
 import AutoAlloc from '@/components/pages/AutoAlloc/AutoAlloc';
 import ExportAttendance from '@/components/pages/ExportAttendance/ExportAttendance';
+import UserManagement from '@/components/pages/UserManagement/UserManagement';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -48,6 +49,8 @@ function renderPage(page: string) {
     case 'auto-alloc':      return <ErrorBoundary><AutoAlloc /></ErrorBoundary>;
     case 'export-attendance':
       return <ExportAttendance />;
+    case 'user-management':
+      return <UserManagement />;
     default:
       return <Dashboard />;
   }

@@ -9,6 +9,7 @@
 import path from 'path';
 import { Database, Connection } from 'duckdb-async';
 import { DEFAULT_MONTH_ID } from './constants';
+import bcrypt from 'bcryptjs';
 
 // Re-export for API routes that import from db.ts
 export { DEFAULT_MONTH_ID } from './constants';
@@ -449,9 +450,39 @@ async function initSchema(db: Database): Promise<void> {
     )
   `);
 
+  /* users – Tài khoản đăng nhập */
+  await conn.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            VARCHAR PRIMARY KEY,
+      username      VARCHAR NOT NULL UNIQUE,
+      password_hash VARCHAR NOT NULL,
+      role          VARCHAR DEFAULT 'admin',
+      full_name     VARCHAR DEFAULT '',
+      note          VARCHAR DEFAULT '',
+      created_at    VARCHAR NOT NULL
+    )
+  `);
+  // Migrate: thêm cột nếu DB cũ chưa có
+  const uCols = await conn.all<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name='users'`);
+  const uNames = uCols.map(c => c.column_name);
+  if (!uNames.includes('full_name')) await conn.run(`ALTER TABLE users ADD COLUMN full_name VARCHAR DEFAULT ''`);
+  if (!uNames.includes('note'))      await conn.run(`ALTER TABLE users ADD COLUMN note VARCHAR DEFAULT ''`);
+  await seedAdminUser(conn);
+
   await seedIfEmpty(conn);
   await migrateAllocRules(conn); // thêm quy tắc mới vào các tháng hiện có
   await conn.close();
+}
+
+/* ─── Seed tài khoản admin mặc định ────────────────────── */
+async function seedAdminUser(conn: Connection): Promise<void> {
+  const rows = await conn.all<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM users`);
+  if (rows[0].cnt > 0) return;
+  const hash = await bcrypt.hash('admin123', 10);
+  await conn.run(
+    `INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, 'admin', ?)`,
+    'user_admin', 'admin', hash, new Date().toISOString().slice(0, 10)
+  );
 }
 
 /* ─── Seed dữ liệu mẫu nếu DB trống ────────────────────── */
