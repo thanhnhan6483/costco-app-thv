@@ -419,7 +419,7 @@ async function initSchema(db: Database): Promise<void> {
     }
   } catch { /* ignore */ }
 
-  /* distribution_results — Kết quả phân bổ tự động (per-NV per-day) */
+  /* distribution_results — Kết quả Bảng Chấm Công (per-NV per-day) */
   await conn.run(`
     CREATE TABLE IF NOT EXISTS distribution_results (
       id           VARCHAR PRIMARY KEY,

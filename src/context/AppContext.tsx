@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   Department, Shift, LeaveType, SpecialGroup,
   Employee, AllocRule, PageKey
@@ -44,7 +44,22 @@ const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [currentMonth, setCurrentMonth] = useState('05/2026');
-  const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
+  const getPageFromHash = (): PageKey => {
+    const raw = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+    const hash = raw.split('/')[0] as PageKey;
+    const valid: PageKey[] = ['dashboard','config-month','departments','shifts','leave-types','special-groups','import-employees','alloc-rules','export-config','auto-alloc','attendance-grid','export-attendance','user-management'];
+    return valid.includes(hash) ? hash : 'dashboard';
+  };
+  const [currentPage, setCurrentPageState] = useState<PageKey>(getPageFromHash);
+  const setCurrentPage = (p: PageKey) => {
+    window.location.hash = p;
+    setCurrentPageState(p);
+  };
+  useEffect(() => {
+    const onPop = () => setCurrentPageState(getPageFromHash());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [departments, setDepartments] = useState<Department[]>(DEFAULT_DEPARTMENTS);
   const [shifts, setShifts] = useState<Shift[]>(DEFAULT_SHIFTS);
   const [leaveTypes] = useState<LeaveType[]>(DEFAULT_LEAVE_TYPES);
@@ -54,14 +69,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [monthListVersion, setMonthListVersion] = useState(0);
   // activeMonth: tháng được chọn trong màn hình "Tháng chấm công" để Module I lọc dữ liệu
-  const [activeMonthId, setActiveMonthId] = useState(DEFAULT_MONTH_ID);
-  const [activeMonthLabel, setActiveMonthLabel] = useState('01/2026');
+  const [activeMonthId, setActiveMonthId] = useState(() =>
+    (typeof window !== 'undefined' && localStorage.getItem('activeMonthId')) || DEFAULT_MONTH_ID
+  );
+  const [activeMonthLabel, setActiveMonthLabel] = useState(() =>
+    (typeof window !== 'undefined' && localStorage.getItem('activeMonthLabel')) || '01/2026'
+  );
 
   const toggleSidebar = () => setSidebarCollapsed(p => !p);
   const refreshMonthList = () => setMonthListVersion(v => v + 1);
   const setActiveMonth = (id: string, label: string) => {
     setActiveMonthId(id);
     setActiveMonthLabel(label);
+    localStorage.setItem('activeMonthId', id);
+    localStorage.setItem('activeMonthLabel', label);
   };
 
   return (

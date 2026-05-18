@@ -21,6 +21,6 @@
 
 .main {
   flex: 1;
-  min-height: 0;        /* bắt buộc để flex child scroll được */
-  overflow: hidden;     /* page component tự quản lý scroll */
+  min-height: 0;
+  overflow-y: auto;
 }

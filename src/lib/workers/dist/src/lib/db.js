@@ -341,7 +341,7 @@ async function initSchema(db) {
         await conn.run(`UPDATE employees SET month_id = '${constants_1.DEFAULT_MONTH_ID}' WHERE month_id IS NULL OR month_id = ''`);
     }
     catch { /* bảng chưa tồn tại */ }
-    /* distribution_results — Kết quả phân bổ tự động (per-NV per-day) */
+    /* distribution_results — Kết quả Bảng Chấm Công (per-NV per-day) */
     await conn.run(`
     CREATE TABLE IF NOT EXISTS distribution_results (
       id           VARCHAR PRIMARY KEY,

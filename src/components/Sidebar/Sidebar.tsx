@@ -27,7 +27,7 @@ const MODULE1: NavItem[] = [
 
 /* ── PHÂN BỔ CHẤM CÔNG ────────────── */
 const MODULE2: NavItem[] = [
-  { key: 'auto-alloc', icon: '🤖', label: 'Phân Bổ Tự Động' },
+  { key: 'auto-alloc', icon: '🤖', label: 'Bảng Chấm Công' },
   { key: 'export-attendance', icon: '📑', label: 'Xuất Báo Cáo' },
 ];
 
@@ -70,11 +70,15 @@ export default function Sidebar() {
     <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.collapsed : ''}`}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.logo}>
-          <div className={styles.logoIcon}>C</div>
+        <div
+          className={`${styles.logo} ${currentPage !== 'dashboard' ? styles.logoClickable : ''}`}
+          onClick={() => currentPage !== 'dashboard' && navigate('dashboard')}
+          title={currentPage !== 'dashboard' ? 'Về trang chủ' : undefined}
+        >
+          <div className={styles.logoIcon}>O</div>
           {!sidebarCollapsed && (
             <div className={styles.logoText}>
-              <span className={styles.logoTitle}>COSTCO</span>
+              <span className={styles.logoTitle}>TÂN HUÊ VIÊN</span>
               <span className={styles.logoSub}>Quản Lý Chấm Công</span>
             </div>
           )}

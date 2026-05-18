@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "COSTCO – Phần Mềm Quản Lý Chấm Công",
-  description: "Hệ thống quản lý chấm công COSTCO – cấu hình tháng, phân bổ ca làm việc, xuất báo cáo Excel",
+  title: "THV – Quản Lý Chấm Công",
+  description: "Hệ thống quản lý chấm công THV – cấu hình tháng, phân bổ ca làm việc, xuất báo cáo Excel",
 };
 
 export default function RootLayout({

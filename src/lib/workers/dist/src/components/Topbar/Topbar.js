@@ -19,7 +19,7 @@ const PAGE_LABELS = {
     'import-employees': 'Nhân Viên',
     'alloc-rules': 'Quy Tắc Phân Bổ',
     'export-config': 'Xuất Cấu Hình',
-    'auto-alloc': 'Phân Bổ Tự Động',
+    'auto-alloc': 'Bảng Chấm Công',
     'attendance-grid': 'Bảng Chấm Công',
     'export-attendance': 'Xuất Báo Cáo',
 };

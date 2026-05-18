@@ -24,7 +24,7 @@ const MODULE1 = [
 ];
 /* ── PHÂN BỔ CHẤM CÔNG ────────────── */
 const MODULE2 = [
-    { key: 'auto-alloc', icon: '🤖', label: 'Phân Bổ Tự Động' },
+    { key: 'auto-alloc', icon: '🤖', label: 'Bảng Chấm Công' },
     { key: 'attendance-grid', icon: '📊', label: 'Bảng Chấm Công', badge: 'Mới' },
     { key: 'export-attendance', icon: '📑', label: 'Xuất Báo Cáo' },
 ];

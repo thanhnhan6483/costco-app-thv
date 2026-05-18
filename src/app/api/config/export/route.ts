@@ -17,13 +17,13 @@ export async function GET(req: NextRequest) {
   const conn = await getConn();
 
   const now = new Date();
-  const exportDate = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getFullYear()).slice(-2)}`;
+  const exportDate = `${String(now.getFullYear())}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
   const [monthRow] = await conn.all<{ month: string }>(
     `SELECT month FROM months WHERE id = ?`, monthId
   );
-  // "06/2025" → "Thang_06_2025"
+  // "06/2025" → "Thang_062025"
   const monthLabel = monthRow?.month
-    ? 'Thang_' + monthRow.month.replace('/', '_')
+    ? 'Thang_' + monthRow.month.replace('/', '')
     : monthId;
 
   /* 1. Phòng ban */
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(buf, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(`${monthLabel}_Tong_hop_cau_hinh_${exportDate}.xlsx`)}"`,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(`${monthLabel}_tong_hop_cau_hinh_bo_${exportDate}.xlsx`)}"`,
     },
   });
 }

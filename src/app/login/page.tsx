@@ -35,8 +35,8 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
       <form onSubmit={handleSubmit} style={{ background: '#fff', borderRadius: 12, padding: '40px 36px', width: 360, boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 32, marginBottom: 6 }}>🏢</div>
-          <div style={{ fontWeight: 700, fontSize: 20, color: '#1e293b' }}>COSTCO</div>
+          <img src="/logo_thv.png" alt="Tân Huê Viên" style={{ width: 80, height: 80, objectFit: 'contain', marginBottom: 8 }} />
+          <div style={{ fontWeight: 700, fontSize: 20, color: '#1e293b' }}>TÂN HUÊ VIÊN</div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>Quản lý chấm công</div>
         </div>
         <div style={{ marginBottom: 16 }}>

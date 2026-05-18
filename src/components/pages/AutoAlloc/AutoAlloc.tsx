@@ -129,7 +129,21 @@ type StepCache = Record<number, Record<string, StepPage>>;
 
 export default function AutoAlloc() {
   const { activeMonthId, activeMonthLabel } = useApp();
-  const [activeStep, setActiveStep] = useState(1);
+  const getStepFromHash = () => {
+    const parts = window.location.hash.slice(1).split('/');
+    const n = parseInt(parts[1] ?? '', 10);
+    return n >= 1 && n <= 6 ? n : 1;
+  };
+  const [activeStep, setActiveStepState] = useState(getStepFromHash);
+  const setActiveStep = (n: number) => {
+    window.location.hash = `auto-alloc/${n}`;
+    setActiveStepState(n);
+  };
+  useEffect(() => {
+    const onPop = () => setActiveStepState(getStepFromHash());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [status, setStatus] = useState<StepStatus>({});
   const [locked, setLocked] = useState(false);
   const [locking, setLocking] = useState(false);

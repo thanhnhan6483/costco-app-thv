@@ -128,9 +128,10 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    const [monthRow] = await conn.all<{ fromDate: string }>(
-      `SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId
+    const [monthRow] = await conn.all<{ fromDate: string; month: string }>(
+      `SELECT from_date AS fromDate, month FROM months WHERE id = ?`, monthId
     );
+    const monthLabel = monthRow?.month ? 'Thang_' + monthRow.month.replace('/', '') : monthId;
     const dowIdx = buildDowIdx(monthRow?.fromDate, days);
 
     // ── STEP 1 ──────────────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ export async function GET(req: NextRequest) {
       XLSX.utils.book_append_sheet(wb, ws1, 'Buoc1_DuLieu');
       const buf1 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       await conn.close();
-      return makeResponse(buf1, `buoc1_du_lieu_${today}.xlsx`);
+      return makeResponse(buf1, `${monthLabel}_bcc_buoc1_du_lieu_${today}.xlsx`);
     }
 
     // ── STEP 2 ──────────────────────────────────────────────────────────────
@@ -257,7 +258,7 @@ export async function GET(req: NextRequest) {
       XLSX.utils.book_append_sheet(wb, ws3, 'ChiaCa');
       const buf3 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       await conn.close();
-      return makeResponse(buf3, `buoc3_chia_ca_${today}.xlsx`);
+      return makeResponse(buf3, `${monthLabel}_bcc_buoc3_chia_ca_${today}.xlsx`);
     }
 
     // ── STEP 4 ──────────────────────────────────────────────────────────────
@@ -331,7 +332,7 @@ export async function GET(req: NextRequest) {
       XLSX.utils.book_append_sheet(wb, ws4, 'OT_DiTre');
       const buf4 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       await conn.close();
-      return makeResponse(buf4, `buoc4_ot_tre_${today}.xlsx`);
+      return makeResponse(buf4, `${monthLabel}_bcc_buoc4_ot_tre_${today}.xlsx`);
     }
 
 
@@ -386,13 +387,12 @@ export async function GET(req: NextRequest) {
       ws5['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth * cols).fill({ wch: 7 })];
       ws5['!rows'] = [{ hpt: 28 }, { hpt: 14 }, { hpt: 14 }];
       ws5['!freeze'] = { xSplit: FIXED, ySplit: 1 };
-      const fileName5 = withShift ? `buoc5_gio_vao_ra_ca_${today}.xlsx` : `buoc5_gio_vao_ra_${today}.xlsx`;
+      const fileName5 = withShift ? `${monthLabel}_bcc_buoc5_gio_vao_ra_ca_${today}.xlsx` : `${monthLabel}_bcc_buoc5_gio_vao_ra_${today}.xlsx`;
       XLSX.utils.book_append_sheet(wb, ws5, 'Attendance');
       const buf5 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       await conn.close();
       return makeResponse(buf5, fileName5);
     }
-
     // ── STEP 6 ──────────────────────────────────────────────────────────────
     {
       const rows6 = await conn.all(
@@ -465,7 +465,7 @@ export async function GET(req: NextRequest) {
       XLSX.utils.book_append_sheet(wb, ws6, 'Attendance');
       const buf6 = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
       await conn.close();
-      return makeResponse(buf6, `buoc6_ket_qua_${today}.xlsx`);
+      return makeResponse(buf6, `${monthLabel}_bang_cham_cong_tong_hop_${today}.xlsx`);
     }
   } catch (e) {
     await conn.close();

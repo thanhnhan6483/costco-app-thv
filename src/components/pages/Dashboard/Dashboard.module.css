@@ -1,219 +1,196 @@
 .page {
-  padding: 28px;
+  padding: 24px 28px;
   max-width: 1400px;
 }
 
-.welcomeBanner {
-  background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #0891b2 100%);
-  border-radius: var(--radius-lg);
-  padding: 28px 32px;
-  margin-bottom: 24px;
-  color: white;
-  position: relative;
-  overflow: hidden;
+.loading {
+  padding: 60px;
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 15px;
 }
 
-.title {
-  font-size: 24px;
-  font-weight: 800;
-  margin-bottom: 6px;
-}
-
-.subtitle {
-  font-size: 14px;
-  opacity: 0.85;
-}
-
-.bannerDecor {
-  position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.07);
-}
-
-/* Stats */
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 28px;
-}
-
-.statCard {
-  background: white;
+.error {
+  padding: 24px;
+  color: var(--danger);
+  background: #fef2f2;
   border-radius: var(--radius-md);
-  padding: 20px;
+  font-size: 14px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+  margin-top: 4px;
+}
+
+.detailHeader {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  margin-top: 8px;
+}
+
+.detailHeader .sectionTitle { margin: 0; }
+
+.monthSelect {
+  padding: 7px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--gray-700);
+  background: white;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.monthSelect:focus { outline: none; border-color: var(--primary); }
+
+/* KPI */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpiCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 16px 12px;
+  text-align: center;
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
 }
 
-.statCard:hover {
+.kpiCard:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
-.statIcon {
-  font-size: 32px;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+.kpiIcon { font-size: 22px; margin-bottom: 6px; }
 
-.statCard.blue .statIcon { background: #dbeafe; }
-.statCard.purple .statIcon { background: #ede9fe; }
-.statCard.green .statIcon { background: #d1fae5; }
-.statCard.orange .statIcon { background: #fef3c7; }
-
-.statValue {
-  font-size: 26px;
+.kpiValue {
+  font-size: 24px;
   font-weight: 800;
   font-family: 'Manrope', sans-serif;
   color: var(--gray-900);
   line-height: 1;
 }
 
-.statLabel {
-  font-size: 13px;
+.kpiLabel {
+  font-size: 12px;
   font-weight: 600;
   color: var(--gray-700);
-  margin-top: 2px;
-}
-
-.statSub {
-  font-size: 11px;
-  color: var(--gray-400);
-}
-
-/* Section */
-.section {
-  background: white;
-  border-radius: var(--radius-md);
-  padding: 20px 24px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
-}
-
-.sectionTitle {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--gray-800);
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--gray-100);
-}
-
-/* Shifts */
-.shiftGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.shiftCard {
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  transition: var(--transition);
-}
-
-.shiftCard:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-.shiftCode {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--primary);
-  background: var(--primary-light);
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 99px;
-  margin-bottom: 6px;
-}
-
-.shiftName {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--gray-800);
-}
-
-.shiftTime {
-  font-size: 12px;
-  color: var(--gray-500);
-  margin-top: 2px;
-}
-
-.shiftDepts {
-  font-size: 11px;
-  color: var(--gray-400);
   margin-top: 4px;
 }
 
-/* Table */
-.tableWrap {
-  overflow-x: auto;
+.kpiSub {
+  font-size: 10px;
+  color: var(--gray-400);
+  margin-top: 2px;
 }
+
+/* Charts */
+.chartRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chartCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.chartCardFull {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
+.chartTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.chartLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+/* Table */
+.tableCard {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.tableWrap { overflow-x: auto; }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 .table th {
   text-align: left;
-  padding: 10px 12px;
+  padding: 9px 12px;
   background: var(--gray-50);
   color: var(--gray-500);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   border-bottom: 1px solid var(--gray-200);
 }
 
 .table td {
-  padding: 12px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--gray-100);
   color: var(--gray-700);
 }
 
-.table tr:last-child td {
-  border-bottom: none;
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--gray-50); }
+
+.locked {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-500);
 }
 
-.table tr:hover td {
-  background: var(--gray-50);
+.open {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
 }
 
-.empCode {
+
+.code {
   font-family: monospace;
   background: var(--gray-100);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 4px;
   font-size: 12px;
-  color: var(--gray-700);
-}
-
-.groupBadge {
-  margin-left: 6px;
-  font-size: 10px;
-  background: #fef3c7;
-  color: #92400e;
-  padding: 1px 6px;
-  border-radius: 99px;
-  font-weight: 600;
 }
 
 .danger {

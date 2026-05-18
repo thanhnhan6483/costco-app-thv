@@ -13,7 +13,7 @@ const PAGE_LABELS: Record<string, string> = {
   'import-employees': 'Nhân Viên',
   'alloc-rules': 'Quy Tắc Phân Bổ',
   'export-config': 'Xuất Cấu Hình',
-  'auto-alloc': 'Phân Bổ Tự Động',
+  'auto-alloc': 'Bảng Chấm Công',
   'attendance-grid': 'Bảng Chấm Công',
   'export-attendance': 'Xuất Báo Cáo',
   'user-management': 'Quản Lý Tài Khoản',
@@ -48,8 +48,12 @@ export default function Topbar() {
             return (yb * 12 + mb) - (ya * 12 + ma);
           });
         setMonths(list);
-        const monthCodes = list.map(m => m.month);
-        if (list.length > 0 && !monthCodes.includes(currentMonth)) {
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('activeMonthId') : null;
+        const savedMonth = list.find(m => m.id === savedId);
+        if (savedMonth) {
+          setCurrentMonth(savedMonth.month);
+          setActiveMonth(savedMonth.id, savedMonth.month);
+        } else if (list.length > 0 && !list.map(m => m.month).includes(currentMonth)) {
           const first = list[0];
           setCurrentMonth(first.month);
           setActiveMonth(first.id, first.month);

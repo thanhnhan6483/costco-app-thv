@@ -21,8 +21,8 @@ const cards = [
   },
   {
     icon: '📋',
-    title: 'Bảng chấm công tổng hợp',
-    desc: 'Bảng chấm công kết quả hoàn chỉnh sau bước 6, có thể dùng để báo cáo thực tế cho nhân sự',
+    title: 'Bảng Chấm Công tổng hợp',
+    desc: 'Bảng Chấm Công kết quả hoàn chỉnh sau bước 6, có thể dùng để báo cáo thực tế cho nhân sự',
     color: '#10b981',
     bg: '#ecfdf5',
     href: (id: string) => `/api/distribution/export?month=${id}&step=6`,

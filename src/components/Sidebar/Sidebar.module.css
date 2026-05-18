@@ -32,6 +32,16 @@
   gap: 12px;
 }
 
+.logoClickable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.logoClickable:hover {
+  opacity: 0.8;
+}
+
 .logoIcon {
   width: 36px;
   height: 36px;

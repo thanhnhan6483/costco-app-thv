@@ -7,7 +7,7 @@ const db_1 = require("@/lib/db");
 const route_1 = require("../route");
 exports.runtime = 'nodejs';
 /**
- * SEED DATA — 4 nhóm quy tắc, đủ để chạy giải thuật Phân Bổ Tự Động.
+ * SEED DATA — 4 nhóm quy tắc, đủ để chạy giải thuật Bảng Chấm Công.
  *
  * param_key  : khóa machine-readable để giải thuật lookup qua API
  * param_value: giá trị số (DOUBLE) — giải thuật đọc trực tiếp

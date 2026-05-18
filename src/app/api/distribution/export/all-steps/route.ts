@@ -85,7 +85,8 @@ export async function GET(req: NextRequest) {
     const wb = XLSX.utils.book_new();
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    const [monthRow] = await conn.all<{ fromDate: string }>(`SELECT from_date AS fromDate FROM months WHERE id = ?`, monthId);
+    const [monthRow] = await conn.all<{ fromDate: string; month: string }>(`SELECT from_date AS fromDate, month FROM months WHERE id = ?`, monthId);
+    const monthLabel = monthRow?.month ? 'Thang_' + monthRow.month.replace('/', '') : monthId;
     const dowIdx = buildDowIdx(monthRow?.fromDate, days);
 
     // ── SHEET 1: Dữ liệu gốc ────────────────────────────────────────────────
@@ -372,7 +373,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(buf, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(`bao_cao_chi_tiet_phan_bo_${today}.xlsx`)}"`,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(`${monthLabel}_bao_cao_chi_tiet_phan_bo_${today}.xlsx`)}"`,
       },
     });
   } catch (e) {
