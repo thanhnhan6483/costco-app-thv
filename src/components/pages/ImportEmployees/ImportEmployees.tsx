@@ -118,7 +118,7 @@ function LimitSelector({ total, shown, limit, onLimit }: {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: '0.76rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>
-        Hiển <strong>{shown}</strong> / <strong>{total}</strong> NV
+        Tổng: <strong>{total}</strong> NV
       </span>
       <select
         value={limit}
@@ -138,7 +138,7 @@ function LimitSelector({ total, shown, limit, onLimit }: {
 }
 
 export default function ImportEmployees() {
-  const { activeMonthId } = useApp();
+  const { activeMonthId, activeMonthLocked } = useApp();
   const [rows, setRows] = useState<Employee[]>([]);
   const [depts, setDepts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [groups, setGroups] = useState<{ code: string; name: string }[]>([]);
@@ -169,7 +169,7 @@ export default function ImportEmployees() {
   }>({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' });
   const [showBulkEdit, setShowBulkEdit] = useState(false);
 
-  const [col, setCol] = useState({ code: '', name: '', departmentName: '', specialGroup: '' });
+  const [col, setCol] = useState({ code: '', name: '', departmentName: '', specialGroup: '', groupCodeEndDate: '', ngayNghi: '', workdays: '', overtimeHours: '', lateMinutes: '', phepNam: '' });
   const setF = (k: keyof typeof col) => (v: string) => setCol(p => ({ ...p, [k]: v }));
   const hasFilter = Object.values(col).some(v => v !== '');
 
@@ -230,10 +230,48 @@ export default function ImportEmployees() {
         (r.specialGroup ?? '').toLowerCase().includes(q);
       if (!match) return false;
     }
+    if (col.workdays && r.workdays !== col.workdays) return false;
+    if (col.overtimeHours && r.overtimeHours !== col.overtimeHours) return false;
+    if (col.lateMinutes && r.lateMinutes !== col.lateMinutes) return false;
+    if (col.phepNam && r.phepNam !== col.phepNam) return false;
+    if (col.groupCodeEndDate === '__EMPTY__') { if (formatDate(r.groupCodeEndDate)) return false; }
+    else if (col.groupCodeEndDate && formatDate(r.groupCodeEndDate) !== col.groupCodeEndDate) return false;
+    if (col.ngayNghi === '__EMPTY__') { if (formatDate(r.ngayNghiCuoiThangTruoc)) return false; }
+    else if (col.ngayNghi && formatDate(r.ngayNghiCuoiThangTruoc) !== col.ngayNghi) return false;
     return true;
   }), [rows, col]);
 
-  const clearFilters = () => setCol({ code: '', name: '', departmentName: '', specialGroup: '' });
+  const clearFilters = () => setCol({ code: '', name: '', departmentName: '', specialGroup: '', groupCodeEndDate: '', ngayNghi: '', workdays: '', overtimeHours: '', lateMinutes: '', phepNam: '' });
+
+  const uniqueWorkdays = useMemo(() => {
+    const s = new Set(rows.map(r => r.workdays).filter(Boolean));
+    return Array.from(s).sort((a, b) => Number(a) - Number(b));
+  }, [rows]);
+
+  const uniqueOvertimeHours = useMemo(() => {
+    const s = new Set(rows.map(r => r.overtimeHours).filter(Boolean));
+    return Array.from(s).sort((a, b) => Number(a) - Number(b));
+  }, [rows]);
+
+  const uniqueLateMinutes = useMemo(() => {
+    const s = new Set(rows.map(r => r.lateMinutes).filter(Boolean));
+    return Array.from(s).sort((a, b) => Number(a) - Number(b));
+  }, [rows]);
+
+  const uniquePhepNam = useMemo(() => {
+    const s = new Set(rows.map(r => r.phepNam).filter(Boolean));
+    return Array.from(s).sort((a, b) => Number(a) - Number(b));
+  }, [rows]);
+
+  const uniqueEndDates = useMemo(() => {
+    const s = new Set(rows.map(r => formatDate(r.groupCodeEndDate)).filter(Boolean));
+    return Array.from(s).sort();
+  }, [rows]);
+
+  const uniqueNgayNghi = useMemo(() => {
+    const s = new Set(rows.map(r => formatDate(r.ngayNghiCuoiThangTruoc)).filter(Boolean));
+    return Array.from(s).sort();
+  }, [rows]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -423,10 +461,6 @@ export default function ImportEmployees() {
       <div className={s.actionBar}>
         <div className={s.actionBarLeft}>
           {error && <span className={s.errorChip}>⚠ {error}</span>}
-          {!error && (
-            <LimitSelector total={total} shown={rows.length} limit={limit}
-              onLimit={loadWithLimit} />
-          )}
           {hasFilter && !error && <button className={s.btnClearAll} onClick={clearFilters}>✕ Xóa lọc ({filtered.length}/{rows.length})</button>}
           {selectedIds.size > 0 && (
             <span className={styles.bulkCount}>✔ {selectedIds.size} đã chọn</span>
@@ -434,7 +468,7 @@ export default function ImportEmployees() {
         </div>
         <div className={s.actionBarRight}>
           <button className={s.btnAction} onClick={() => window.open('/api/employees/import', '_blank')} title="Tải mẫu Excel"><IconDownload /><span>Tải Mẫu</span></button>
-          <button className={`${s.btnAction} ${s.btnActionGreen}`} onClick={() => fileRef.current?.click()} disabled={importing}>
+          <button className={`${s.btnAction} ${s.btnActionGreen}`} onClick={() => fileRef.current?.click()} disabled={importing || activeMonthLocked}>
             {importing ? <span className={s.spinning}><IconUpload /></span> : <IconUpload />}
             <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
           </button>
@@ -455,13 +489,14 @@ export default function ImportEmployees() {
           {selectedIds.size > 0 && (
             <>
               <button className={`${s.btnAction} ${styles.btnRelinkAction}`}
-                onClick={() => { setBulkForm({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' }); setShowBulkEdit(true); }}>
+                onClick={() => { setBulkForm({ departmentId: '', maPb: '', specialGroup: '', groupCodeEndDate: '' }); setShowBulkEdit(true); }}
+                disabled={activeMonthLocked}>
                 ✏️ <span>Cập nhật</span>
               </button>
               <div className={s.dividerV} />
             </>
           )}
-          <button className={`${s.btnAction} ${styles.btnRelinkAction}`} onClick={doSyncPreview} disabled={syncing || loading} title="Đồng bộ ngày nghỉ cuối tháng trước vào cột NGHỈ THÁNG TRƯỚC">
+          <button className={`${s.btnAction} ${styles.btnRelinkAction}`} onClick={doSyncPreview} disabled={syncing || loading || activeMonthLocked} title="Đồng bộ ngày nghỉ cuối tháng trước vào cột NGHỈ THÁNG TRƯỚC">
             {syncing ? <span className={s.spinning}><IconRefresh /></span> : '🔄'}
             <span>{syncing ? 'Đang đồng bộ…' : 'Đồng bộ'}</span>
           </button>
@@ -469,7 +504,7 @@ export default function ImportEmployees() {
           <button
             className={`${s.btnAction} ${styles.btnDangerAction}`}
             onClick={() => setClearAll(true)}
-            disabled={loading || rows.length === 0}
+            disabled={loading || rows.length === 0 || activeMonthLocked}
             title="Xóa toàn bộ dữ liệu nhân viên"
           >
             🗑 <span>Xóa Tất Cả</span>
@@ -789,6 +824,11 @@ export default function ImportEmployees() {
       )}
 
       {/* ── Bảng cuộn ngang ── */}
+      {!error && (
+        <div className={styles.limitRow}>
+          <LimitSelector total={total} shown={rows.length} limit={limit} onLimit={loadWithLimit} />
+        </div>
+      )}
       <div className={styles.tableCard}>
         {loading ? (
           <div className={s.loadingState}><span className={s.spinner} /><span>Đang tải…</span></div>
@@ -853,7 +893,7 @@ export default function ImportEmployees() {
                       ))}
                     </select>
                   </th>
-                  <th /><th />{Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}<th /><th /><th /><th /><th />
+                  <th><select className={styles.deptFilterSelect} value={col.groupCodeEndDate} onChange={e => setCol(p => ({ ...p, groupCodeEndDate: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueEndDates.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.workdays} onChange={e => setCol(p => ({ ...p, workdays: e.target.value }))}><option value="">Tất cả</option>{uniqueWorkdays.map(d => <option key={d} value={d}>{d}</option>)}</select></th>{Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}<th><select className={styles.deptFilterSelect} value={col.overtimeHours} onChange={e => setCol(p => ({ ...p, overtimeHours: e.target.value }))}><option value="">Tất cả</option>{uniqueOvertimeHours.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.lateMinutes} onChange={e => setCol(p => ({ ...p, lateMinutes: e.target.value }))}><option value="">Tất cả</option>{uniqueLateMinutes.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.phepNam} onChange={e => setCol(p => ({ ...p, phepNam: e.target.value }))}><option value="">Tất cả</option>{uniquePhepNam.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.ngayNghi} onChange={e => setCol(p => ({ ...p, ngayNghi: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueNgayNghi.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th />
                 </tr>
               </thead>
               <tbody>
@@ -912,8 +952,8 @@ export default function ImportEmployees() {
                     </td>
                     <td className={`${styles.td} ${styles.tdAction}`}>
                       <div className={styles.actions}>
-                        <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa"><IconEdit /></button>
-                        <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
+                        <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa" disabled={activeMonthLocked}><IconEdit /></button>
+                        <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa" disabled={activeMonthLocked}><IconDelete /></button>
                       </div>
                     </td>
                   </tr>

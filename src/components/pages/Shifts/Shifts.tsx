@@ -90,7 +90,7 @@ function SortTh({
 
 /* ── Main ─────────────────────────────────────── */
 export default function Shifts() {
-  const { activeMonthId } = useApp();
+  const { activeMonthId, activeMonthLocked } = useApp();
   const [rows, setRows] = useState<Shift[]>([]);
   const [depts, setDepts] = useState<Dept[]>([]);
   const [loading, setLoading] = useState(true);
@@ -272,7 +272,7 @@ export default function Shifts() {
           {hasFilter && <button className={s.btnClearAll} onClick={clearFilters}>✕ Xóa bộ lọc ({filtered.length}/{rows.length})</button>}
         </div>
         <div className={s.actionBarRight}>
-          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={openCreate} disabled={loading}><IconPlus /><span>Thêm Mới</span></button>
+          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={openCreate} disabled={loading || activeMonthLocked}><IconPlus /><span>Thêm Mới</span></button>
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={downloadTemplate} title="Tải file Excel mẫu để nhập liệu">
             <IconDownload /><span>Tải Mẫu</span>
@@ -483,8 +483,8 @@ export default function Shifts() {
                     <td className={s.timeCell}>{r.windowEnd || <span className={s.noNote}>—</span>}</td>
                     <td>
                       <div className={s.actions}>
-                        <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa"><IconEdit /></button>
-                        <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa"><IconDelete /></button>
+                        <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa" disabled={activeMonthLocked}><IconEdit /></button>
+                        <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa" disabled={activeMonthLocked}><IconDelete /></button>
                       </div>
                     </td>
                   </tr>

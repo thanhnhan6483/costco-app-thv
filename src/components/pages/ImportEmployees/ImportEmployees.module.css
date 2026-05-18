@@ -33,6 +33,12 @@
 }
 
 /* ── Table card ─────────────────────────────────── */
+.limitRow {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 4px 6px;
+}
+
 .tableCard {
   background: white;
   border-radius: var(--radius-md);

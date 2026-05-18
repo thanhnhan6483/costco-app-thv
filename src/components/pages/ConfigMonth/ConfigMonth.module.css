@@ -480,7 +480,9 @@
 .actions { display: flex; gap: 4px; justify-content: center; }
 
 .btnIconEdit,
-.btnIconDelete {
+.btnIconDelete,
+.btnIconLock,
+.btnIconUnlock {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-sm);
@@ -494,8 +496,13 @@
   transition: var(--transition);
   flex-shrink: 0;
 }
-.btnIconEdit:hover  { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
-.btnIconDelete:hover { background: #fee2e2; color: var(--danger); border-color: #fca5a5; }
+.btnIconEdit:hover    { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+.btnIconDelete:hover  { background: #fee2e2; color: var(--danger); border-color: #fca5a5; }
+.btnIconLock          { color: #d97706; border-color: #fde68a; background: #fffbeb; }
+.btnIconLock:hover    { background: #fef3c7; color: #92400e; border-color: #f59e0b; }
+.btnIconUnlock        { color: var(--gray-400); }
+.btnIconUnlock:hover  { background: #f0fdf4; color: #16a34a; border-color: #86efac; }
+.btnIconLock:disabled, .btnIconUnlock:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Empty state ─────────────────────────────────── */
 .empty {

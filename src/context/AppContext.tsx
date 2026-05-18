@@ -26,6 +26,8 @@ interface AppState {
   activeMonthId: string;
   /** Nhãn hiển thị của tháng đang chọn (vd: "01/2026") */
   activeMonthLabel: string;
+  /** Tháng đang active có bị khóa không */
+  activeMonthLocked: boolean;
 
   setCurrentMonth: (m: string) => void;
   setCurrentPage: (p: PageKey) => void;
@@ -37,7 +39,7 @@ interface AppState {
   /** Gọi sau khi thêm/xóa tháng trong ConfigMonth */
   refreshMonthList: () => void;
   /** Đặt tháng đang active để Module I lọc dữ liệu */
-  setActiveMonth: (id: string, label: string) => void;
+  setActiveMonth: (id: string, label: string, locked?: boolean) => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -75,21 +77,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeMonthLabel, setActiveMonthLabel] = useState(() =>
     (typeof window !== 'undefined' && localStorage.getItem('activeMonthLabel')) || '01/2026'
   );
+  const [activeMonthLocked, setActiveMonthLocked] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('activeMonthLocked') === 'true'
+  );
 
   const toggleSidebar = () => setSidebarCollapsed(p => !p);
   const refreshMonthList = () => setMonthListVersion(v => v + 1);
-  const setActiveMonth = (id: string, label: string) => {
+  const setActiveMonth = (id: string, label: string, locked = false) => {
     setActiveMonthId(id);
     setActiveMonthLabel(label);
+    setActiveMonthLocked(locked);
     localStorage.setItem('activeMonthId', id);
     localStorage.setItem('activeMonthLabel', label);
+    localStorage.setItem('activeMonthLocked', String(locked));
   };
 
   return (
     <AppContext.Provider value={{
       currentMonth, currentPage, departments, shifts, leaveTypes,
       specialGroups, employees, allocRules, sidebarCollapsed, monthListVersion,
-      activeMonthId, activeMonthLabel,
+      activeMonthId, activeMonthLabel, activeMonthLocked,
       setCurrentMonth, setCurrentPage, setDepartments, setShifts,
       setEmployees, setAllocRules, toggleSidebar, refreshMonthList, setActiveMonth,
     }}>

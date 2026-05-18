@@ -29,7 +29,7 @@ export async function PUT(
 }
 
 /* ── DELETE ───────────────────────────────────── */
-/* Cascade xóa toàn bộ cấu hình của tháng đó trong 1 transaction */
+/* Cascade xóa toàn bộ cấu hình của tháng đó */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -38,14 +38,16 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Không cho xóa tháng đã khóa (master)
+    // Không cho xóa tháng Master (01/2026) hoặc tháng đã khóa
+    if (id === 'month_jan2026') {
+      await conn.close();
+      return NextResponse.json({ error: 'Không thể xóa tháng Master (01/2026)' }, { status: 403 });
+    }
     const [month] = await conn.all<{ locked: boolean }>(`SELECT locked FROM months WHERE id = ?`, id);
     if (month?.locked) {
       await conn.close();
-      return NextResponse.json({ error: 'Không thể xóa tháng master (đã khóa)' }, { status: 403 });
+      return NextResponse.json({ error: 'Không thể xóa tháng đang bị khóa. Hãy mở khóa trước.' }, { status: 403 });
     }
-
-    await conn.run('BEGIN TRANSACTION');
 
     // Xóa tất cả dữ liệu cấu hình thuộc tháng này
     await conn.run(`DELETE FROM departments          WHERE month_id = ?`, id);
@@ -60,7 +62,6 @@ export async function DELETE(
     // Xóa bản ghi tháng
     await conn.run(`DELETE FROM months WHERE id = ?`, id);
 
-    await conn.run('COMMIT');
     await conn.close();
 
     return NextResponse.json({
@@ -68,9 +69,9 @@ export async function DELETE(
       message: `Đã xóa tháng và toàn bộ cấu hình liên quan`,
     });
   } catch (e) {
-    try { await conn.run('ROLLBACK'); } catch { /* ignore */ }
     await conn.close();
-    console.error('[DELETE /api/months]', e);
-    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[DELETE /api/months]', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

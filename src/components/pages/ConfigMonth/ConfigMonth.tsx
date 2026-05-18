@@ -53,6 +53,18 @@ const IconClearX = () => (
     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
+const IconLock = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </svg>
+);
+const IconUnlock = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+  </svg>
+);
 const IconCopy = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -98,7 +110,7 @@ function ColFilterInput({ value, placeholder, onChange }: {
 
 /* ── Main component ──────────────────────────────── */
 export default function ConfigMonth() {
-  const { currentMonth, refreshMonthList, activeMonthId } = useApp();
+  const { currentMonth, refreshMonthList, activeMonthId, setActiveMonth } = useApp();
   const highlightRef = useRef<HTMLTableRowElement | null>(null);
 
   const [entries, setEntries] = useState<MonthEntry[]>([]);
@@ -243,12 +255,38 @@ export default function ConfigMonth() {
     if (!deleteId) return;
     setSaving(true);
     try {
-      await fetch(`/api/months/${deleteId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/months/${deleteId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        alert('Không thể xóa: ' + (err.error ?? 'Lỗi không xác định'));
+        return;
+      }
       await fetchMonths();
       refreshMonthList();   // cập nhật Topbar
+    } catch (e) {
+      alert('Lỗi: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
       setDeleteId(null);
+    }
+  };
+
+  /* ── Toggle lock ────────────────────────────── */
+  const handleToggleLock = async (en: MonthEntry) => {
+    const newLocked = !en.locked;
+    try {
+      const res = await fetch(`/api/months/${en.id}/lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked: newLocked }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      await fetchMonths();
+      refreshMonthList();
+      // Cập nhật trạng thái locked trong context nếu đây là tháng đang active
+      if (en.id === activeMonthId) setActiveMonth(en.id, en.month, newLocked);
+    } catch (err) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -591,6 +629,7 @@ export default function ConfigMonth() {
                         <span className={styles.labelText}>{en.label || <span className={styles.noNote}>—</span>}</span>
                         {isActive && <span className={styles.selectedTag}>📌 Đang thao tác</span>}
                         {isCurrentMonth && !isActive && <span className={styles.selectedTag} style={{ background: '#dcfce7', color: '#15803d' }}>📅 Tháng hiện tại</span>}
+                        {en.locked && <span className={styles.selectedTag} style={{ background: '#fef3c7', color: '#92400e' }}>🔒 Đã khóa</span>}
                       </div>
                     </td>
                     <td>
@@ -614,9 +653,19 @@ export default function ConfigMonth() {
                         <button className={styles.btnIconEdit} onClick={() => openEdit(en)} title="Chỉnh sửa">
                           <IconEdit />
                         </button>
-                        <button className={styles.btnIconDelete} onClick={() => confirmDelete(en.id)} title="Xóa">
-                          <IconDelete />
+                        <button
+                          className={en.locked ? styles.btnIconLock : styles.btnIconUnlock}
+                          onClick={() => handleToggleLock(en)}
+                          title={en.locked ? 'Mở khóa cấu hình' : 'Khóa cấu hình'}
+                          disabled={en.id === 'month_jan2026'}
+                        >
+                          {en.locked ? <IconUnlock /> : <IconLock />}
                         </button>
+                        {!en.locked && (
+                          <button className={styles.btnIconDelete} onClick={() => confirmDelete(en.id)} title="Xóa">
+                            <IconDelete />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

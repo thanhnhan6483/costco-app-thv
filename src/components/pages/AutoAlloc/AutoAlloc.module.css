@@ -321,6 +321,7 @@
 .checkCardOk    { border-left: 4px solid #22c55e; }
 .checkCardWarn  { border-left: 4px solid #f59e0b; }
 .checkCardError { border-left: 4px solid #ef4444; }
+.checkCardActive { background: #eff6ff; border-color: #3b82f6; border-left: 4px solid #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
 
 .checkCardHeader {
   display: flex; align-items: center; gap: 10px;

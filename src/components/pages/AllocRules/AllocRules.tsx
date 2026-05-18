@@ -70,7 +70,7 @@ function ColFilter({ value, placeholder, onChange }: { value: string; placeholde
 
 /* ── Main component ─────────────────────────── */
 export default function AllocRules() {
-  const { activeMonthId } = useApp();
+  const { activeMonthId, activeMonthLocked } = useApp();
   const [rows, setRows]     = useState<AllocRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -169,7 +169,7 @@ export default function AllocRules() {
           )}
         </div>
         <div className={s.actionBarRight}>
-          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={() => openCreate()} disabled>
+          <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={() => openCreate()} disabled={activeMonthLocked}>
             <IconPlus /><span>Thêm Mới</span>
           </button>
           <div className={s.dividerV} />
@@ -338,8 +338,8 @@ export default function AllocRules() {
                   </td>
                   <td>
                     <div className={s.actions}>
-                      <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa"><IconEdit /></button>
-                      <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa" disabled><IconDelete /></button>
+                      <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Sửa" disabled={activeMonthLocked}><IconEdit /></button>
+                      <button className={s.btnIconDelete} onClick={() => setDeleteId(r.id)} title="Xóa" disabled={activeMonthLocked || true}><IconDelete /></button>
                     </div>
                   </td>
                 </tr>

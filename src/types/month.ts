@@ -7,4 +7,5 @@ export interface MonthEntry {
   toDate: string;      // DD/MM/YYYY
   note: string;
   createdAt: string;
+  locked: boolean;
 }

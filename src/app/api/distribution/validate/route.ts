@@ -382,14 +382,14 @@ export async function GET(req: NextRequest) {
         // Dòng summary cho phòng
         check8.violations.push({
           code: '—', name: `📊 ${deptName}`, deptName, day: 0,
-          detail: `Min=${minLP} | Max=${maxLP} | Chênh=${maxLP - minLP} | ${members.length} NV`,
+          detail: `${members.length} NV — ngày LP thấp nhất ${minLP}, cao nhất ${maxLP}, chênh ${maxLP - minLP} ngày`,
         });
         // Chi tiết từng NV lệch
         for (const m of members) {
           if (m.lpCount !== minLP && m.lpCount !== maxLP) continue;
           check8.violations.push({
             code: m.code, name: m.name, deptName, day: 0,
-            detail: `LP = ${m.lpCount} ngày ${m.lpCount === maxLP ? '⬆ nhiều nhất' : '⬇ ít nhất'}`,
+            detail: `${m.lpCount} ngày LP — ${m.lpCount === maxLP ? 'nhiều nhất trong phòng' : 'ít nhất trong phòng, cần tăng thêm ' + (maxLP - 1 - m.lpCount) + '–' + (maxLP - m.lpCount) + ' ngày'}`,
           });
         }
       }

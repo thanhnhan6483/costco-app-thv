@@ -10,7 +10,7 @@ const PAGE_LABELS: Record<string, string> = {
   shifts: 'Ca Làm Việc',
   'leave-types': 'Loại Nghỉ Phép',
   'special-groups': 'Nhóm Đặc Thù',
-  'import-employees': 'Nhân Viên',
+  'import-employees': 'Danh sách Nhân Viên',
   'alloc-rules': 'Quy Tắc Phân Bổ',
   'export-config': 'Xuất Cấu Hình',
   'auto-alloc': 'Bảng Chấm Công',
@@ -19,7 +19,7 @@ const PAGE_LABELS: Record<string, string> = {
   'user-management': 'Quản Lý Tài Khoản',
 };
 
-interface MonthOption { id: string; month: string; label: string; }
+interface MonthOption { id: string; month: string; label: string; locked: boolean; }
 
 export default function Topbar() {
   const { currentPage, currentMonth, setCurrentMonth, monthListVersion, setActiveMonth } = useApp();
@@ -39,9 +39,9 @@ export default function Topbar() {
     setLoadingMonths(true);
     fetch('/api/months')
       .then(r => r.json())
-      .then((data: { id: string; month: string; label?: string }[]) => {
+      .then((data: { id: string; month: string; label?: string; locked?: boolean }[]) => {
         const list = data
-          .map(d => ({ id: d.id, month: d.month, label: d.label ?? '' }))
+          .map(d => ({ id: d.id, month: d.month, label: d.label ?? '', locked: d.locked ?? false }))
           .sort((a, b) => {
             const [ma, ya] = a.month.split('/').map(Number);
             const [mb, yb] = b.month.split('/').map(Number);
@@ -52,14 +52,14 @@ export default function Topbar() {
         const savedMonth = list.find(m => m.id === savedId);
         if (savedMonth) {
           setCurrentMonth(savedMonth.month);
-          setActiveMonth(savedMonth.id, savedMonth.month);
+          setActiveMonth(savedMonth.id, savedMonth.month, savedMonth.locked);
         } else if (list.length > 0 && !list.map(m => m.month).includes(currentMonth)) {
           const first = list[0];
           setCurrentMonth(first.month);
-          setActiveMonth(first.id, first.month);
+          setActiveMonth(first.id, first.month, first.locked);
         } else if (list.length > 0) {
           const current = list.find(m => m.month === currentMonth);
-          if (current) setActiveMonth(current.id, current.month);
+          if (current) setActiveMonth(current.id, current.month, current.locked);
         }
       })
       .catch(() => setMonths([]))
@@ -76,7 +76,7 @@ export default function Topbar() {
   const handleMonthChange = (monthCode: string) => {
     setCurrentMonth(monthCode);
     const found = months.find(m => m.month === monthCode);
-    if (found) setActiveMonth(found.id, found.month);
+    if (found) setActiveMonth(found.id, found.month, found.locked);
   };
 
   const handleLogout = async () => {
