@@ -1,15 +1,17 @@
 @echo off
 chcp 65001 >nul
 title Costco App - Khoi dong...
-cd /d "%~dp0"
 
 :: ── Kiem tra quyen Admin ──────────────────────────────────
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo [!] Can quyen Admin. Dang yeu cau...
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && \"%~f0\"' -Verb RunAs"
     exit /b
 )
+
+:: ── Vao dung thu muc chua file bat ────────────────────────
+cd /d "%~dp0"
 
 :: ── Kiem tra Node.js ──────────────────────────────────────
 node --version >nul 2>&1
@@ -18,7 +20,6 @@ if %errorLevel% neq 0 (
     powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi' -OutFile '%TEMP%\node-installer.msi'"
     msiexec /i "%TEMP%\node-installer.msi" /qn /norestart
     del "%TEMP%\node-installer.msi"
-    :: Reload PATH
     for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set "PATH=%%i;%PATH%"
     echo [OK] Node.js da cai xong.
 ) else (
