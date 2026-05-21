@@ -41,6 +41,29 @@ export async function POST(req: NextRequest) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' });
 
+    // ── Validate file ──────────────────────────────────────────────
+    if (rows.length === 0) {
+      return NextResponse.json({ error: 'File Excel trống, không có dữ liệu.' }, { status: 400 });
+    }
+
+    const REQUIRED_COLS = ['employee_code', 'employee_name'];
+    const firstRow = rows[0];
+    const missingCols = REQUIRED_COLS.filter(c => !(c in firstRow));
+    if (missingCols.length > 0) {
+      return NextResponse.json({
+        error: `File thiếu cột bắt buộc: ${missingCols.join(', ')}.\n` +
+          `Vui lòng tải lại file mẫu (nút "Tải Mẫu") và điền đúng tên cột.`,
+      }, { status: 400 });
+    }
+
+    // Kiểm tra có ít nhất 1 dòng có mã NV
+    const validRows = rows.filter(r => String(r['employee_code'] ?? '').trim());
+    if (validRows.length === 0) {
+      return NextResponse.json({
+        error: 'Không tìm thấy dòng nào có Mã NV (cột employee_code). Vui lòng kiểm tra lại dữ liệu.',
+      }, { status: 400 });
+    }
+
     const conn = await getConn();
     // Lấy departments của tháng này — build map theo cả code và name
     const depts = await conn.all<{ id: string; code: string; name: string }>(

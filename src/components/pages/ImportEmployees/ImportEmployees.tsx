@@ -449,10 +449,14 @@ export default function ImportEmployees() {
       const fd = new FormData(); fd.append('file', file); fd.append('monthId', activeMonthId);
       const res = await fetch('/api/employees/import', { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: [data.error ?? 'Lỗi không xác định'], unmappedDept: [] });
+        return;
+      }
       setImportResult(data); await load();
-    } catch (err) { alert('Lỗi import: ' + (err instanceof Error ? err.message : String(err))); }
-    finally { setImporting(false); if (fileRef.current) fileRef.current.value = ''; }
+    } catch (err) {
+      setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: [err instanceof Error ? err.message : String(err)], unmappedDept: [] });
+    } finally { setImporting(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   return (
