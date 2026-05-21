@@ -74,9 +74,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeMonthId, setActiveMonthId] = useState(() =>
     (typeof window !== 'undefined' && localStorage.getItem('activeMonthId')) || DEFAULT_MONTH_ID
   );
-  const [activeMonthLabel, setActiveMonthLabel] = useState(() =>
-    (typeof window !== 'undefined' && localStorage.getItem('activeMonthLabel')) || '01/2026'
-  );
+  const [activeMonthLabel, setActiveMonthLabel] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('activeMonthLabel') : null;
+    // Chỉ dùng nếu có dạng MM/YYYY hợp lệ
+    return (saved && /^\d{2}\/\d{4}$/.test(saved)) ? saved : '01/2026';
+  });
   const [activeMonthLocked, setActiveMonthLocked] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('activeMonthLocked') === 'true'
   );

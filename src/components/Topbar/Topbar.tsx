@@ -38,9 +38,12 @@ export default function Topbar() {
   useEffect(() => {
     setLoadingMonths(true);
     fetch('/api/months')
-      .then(r => r.json())
-      .then((data: { id: string; month: string; label?: string; locked?: boolean }[]) => {
-        const list = data
+      .then(r => r.text())
+      .then((text: string) => {
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { setMonths([]); return; }
+        if (!Array.isArray(data)) { setMonths([]); return; }
+        const list = (data as { id: string; month: string; label?: string; locked?: boolean }[])
           .map(d => ({ id: d.id, month: d.month, label: d.label ?? '', locked: d.locked ?? false }))
           .sort((a, b) => {
             const [ma, ya] = a.month.split('/').map(Number);

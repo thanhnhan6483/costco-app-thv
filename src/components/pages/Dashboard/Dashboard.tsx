@@ -35,7 +35,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; })
+      .then(async r => {
+        const text = await r.text();
+        let d: unknown;
+        try { d = JSON.parse(text); } catch { throw new Error('Không thể kết nối database'); }
+        if (!r.ok) throw new Error((d as { error?: string })?.error ?? 'Lỗi server');
+        return d;
+      })
       .then(d => {
         setChartData(d.chartData ?? []);
         setMonths(d.months ?? []);

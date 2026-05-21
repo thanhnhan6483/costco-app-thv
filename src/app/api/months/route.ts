@@ -11,7 +11,6 @@ export const runtime = 'nodejs';
 export async function GET() {
   try {
     const conn = await getConn();
-    // Check if locked column exists
     const cols = await conn.all<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns WHERE table_name='months'`
     );

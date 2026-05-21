@@ -4,7 +4,13 @@ import { getConn } from '@/lib/db';
 const n = (v: unknown) => Number(v ?? 0);
 
 export async function GET(req: NextRequest) {
-  const conn = await getConn();
+  let conn;
+  try {
+    conn = await getConn();
+  } catch (e) {
+    console.error('[GET /api/dashboard] DB connect error:', e);
+    return NextResponse.json({ error: 'DB error', chartData: [], months: [] }, { status: 500 });
+  }
   try {
     const monthId = req.nextUrl.searchParams.get('monthId');
 

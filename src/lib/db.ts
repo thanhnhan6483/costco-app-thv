@@ -26,6 +26,10 @@ async function getDb(): Promise<Database> {
   if (!globalThis.__duckdb) {
     globalThis.__duckdb = await Database.create(DB_PATH);
     await initSchema(globalThis.__duckdb);
+    // Flush WAL vào file chính để tránh lỗi IO khi khởi động lại
+    const conn = await globalThis.__duckdb.connect();
+    await conn.run('CHECKPOINT');
+    await conn.close();
   }
   return globalThis.__duckdb;
 }
