@@ -375,7 +375,7 @@ export default function ImportEmployees() {
       } else {
         const res = await fetch('/api/employees', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: Date.now().toString(), ...form, monthId: activeMonthId, createdAt: new Date().toISOString().slice(0, 10) }),
+          body: JSON.stringify({ id: `${activeMonthId}_${form.code}`, ...form, monthId: activeMonthId, createdAt: new Date().toISOString().slice(0, 10) }),
         });
         if (!res.ok) throw new Error((await res.json()).error);
       }

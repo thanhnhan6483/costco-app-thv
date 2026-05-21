@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
       }
 
       toInsert.push([
-        Date.now().toString() + Math.random().toString(36).slice(2, 5),
+        `${monthId}_${code}`,
         monthId, code, name, departmentId, maPbRaw, specialGroup, groupCodeEndDate,
         workdays, overtimeHours, lateMinutes, phepNam, ngayNghiCuoiThangTruoc,
         now, ...dayVals,
