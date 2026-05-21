@@ -62,7 +62,19 @@ export default function Dashboard() {
   }, [selectedMonth]);
 
   if (loading) return <div className={styles.loading}>Đang tải dữ liệu...</div>;
-  if (error)   return <div className={styles.error}>Lỗi: {error}</div>;
+  if (error) return (
+    <div className={styles.error} style={{ textAlign: 'center', padding: '60px 20px' }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+      <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Không thể kết nối cơ sở dữ liệu</div>
+      <div style={{ color: '#666', marginBottom: 24 }}>Hệ thống đang khởi động, vui lòng thử lại sau vài giây.</div>
+      <button
+        onClick={() => window.location.reload()}
+        style={{ padding: '10px 28px', fontSize: 15, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+      >
+        🔄 Tải lại trang
+      </button>
+    </div>
+  );
 
   const selLabel = months.find(m => m.id === selectedMonth)?.label || '';
 
