@@ -83,10 +83,22 @@ export async function POST(req: NextRequest) {
     const dayColList = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`).join(', ');
     const dayPlaceholders = Array(31).fill('?').join(', ');
 
+    // Lấy danh sách mã đã tồn tại để skip trùng
+    const existingRows = await conn.all<{ code: string }>(
+      `SELECT code FROM employees WHERE month_id = ?`, monthId
+    );
+    const existingCodes = new Set(existingRows.map(r => r.code));
+
+    // Build danh sách rows hợp lệ
+    const toInsert: unknown[][] = [];
+    const now = new Date().toISOString().slice(0, 10);
+
     for (const row of rows) {
       const code = String(row['employee_code'] ?? '').trim();
       const name = String(row['employee_name'] ?? '').trim();
       if (!code || !name) continue;
+
+      if (existingCodes.has(code)) { skipped++; skippedCodes.push(code); continue; }
 
       const maPbRaw      = String(row['department_code'] ?? row['department_name'] ?? row['Mã PB'] ?? '').trim();
       const departmentId = resolveDept(maPbRaw);
@@ -103,22 +115,34 @@ export async function POST(req: NextRequest) {
         unmappedDept.push({ code, name, deptCode: maPbRaw });
       }
 
+      toInsert.push([
+        Date.now().toString() + Math.random().toString(36).slice(2, 5),
+        monthId, code, name, departmentId, maPbRaw, specialGroup, groupCodeEndDate,
+        workdays, overtimeHours, lateMinutes, phepNam, ngayNghiCuoiThangTruoc,
+        now, ...dayVals,
+      ]);
+    }
+
+    // Batch insert trong 1 transaction
+    if (toInsert.length > 0) {
+      const stmt = await conn.prepare(
+        `INSERT INTO employees
+           (id, month_id, code, name, department_id, ma_pb, special_group, group_code_end_date,
+            workdays, overtime_hours, late_minutes, phep_nam, ngay_nghi_cuoi_thang_truoc, active, created_at, ${dayColList})
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ${dayPlaceholders})`
+      );
+      await conn.run('BEGIN');
       try {
-        await conn.run(
-          `INSERT INTO employees
-             (id, month_id, code, name, department_id, ma_pb, special_group, group_code_end_date,
-              workdays, overtime_hours, late_minutes, phep_nam, ngay_nghi_cuoi_thang_truoc, active, created_at, ${dayColList})
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ${dayPlaceholders})`,
-          Date.now().toString() + Math.random().toString(36).slice(2, 5),
-          monthId, code, name, departmentId, maPbRaw, specialGroup, groupCodeEndDate,
-          workdays, overtimeHours, lateMinutes, phepNam, ngayNghiCuoiThangTruoc,
-          new Date().toISOString().slice(0, 10), ...dayVals,
-        );
-        inserted++;
+        for (const params of toInsert) {
+          await stmt.run(...params as Parameters<typeof stmt.run>);
+          inserted++;
+        }
+        await conn.run('COMMIT');
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        errors.push(`${code}: ${msg}`);
+        await conn.run('ROLLBACK');
+        errors.push(e instanceof Error ? e.message : String(e));
       }
+      await stmt.finalize();
     }
 
     await conn.close();
