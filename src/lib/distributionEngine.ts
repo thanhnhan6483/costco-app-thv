@@ -596,3 +596,79 @@ export function step6_generateTime(
 
   return { checkIn, checkOut };
 }
+
+
+/* ── generateDayResults ─────────────────────────── */
+export function generateDayResults(
+  daysInMonth: number,
+  arrangement: number[],
+  otArray: number[],
+  lateArray: number[],
+  shift1: ShiftInfo | null,
+  shift2: ShiftInfo | null,
+  groupWorkHours: number | null,
+  params: AllocParams,
+): DayResult[] {
+  const results: DayResult[] = [];
+  const defaultShift: ShiftInfo = {
+    departmentId: null, shiftType: '',
+    windowStart: '07:05', clockIn: '07:30',
+    clockOut: '16:30', windowEnd: '16:35',
+  };
+  for (let d = 0; d < daysInMonth; d++) {
+    const dayType = arrangement[d];
+    const result: DayResult = { day: d + 1, dayType, checkIn: '', checkOut: '', shiftCode: '', otHours: 0, lateMins: 0 };
+    if (dayType === 0) {
+      let useShift: ShiftInfo;
+      let shiftCode = '';
+      if (shift1 && shift2) { const pick = randInt(1, 2); useShift = pick === 1 ? shift1 : shift2; shiftCode = pick === 1 ? 'Ca 1' : 'Ca 2'; }
+      else if (shift1) { useShift = shift1; shiftCode = shift1.shiftType || ''; }
+      else { useShift = defaultShift; }
+      result.shiftCode = shiftCode;
+      let checkIn  = randomTime(useShift.windowStart, useShift.clockIn);
+      let checkOut = randomTime(useShift.clockOut, useShift.windowEnd);
+      const ot = otArray[d];
+      if (ot > 0 && ot !== -1) { checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10)); result.otHours = ot; }
+      const late = lateArray[d];
+      if (late > 0 && late !== -1) { checkIn = addMins(useShift.clockIn, late + 15); result.lateMins = late; }
+      if (groupWorkHours !== null) { const r = 8 - groupWorkHours; if (r > 0) checkOut = addMins(checkOut, -r * 60); }
+      result.checkIn = checkIn; result.checkOut = checkOut;
+    } else if (dayType === 1) { result.checkIn = '00:00'; result.checkOut = '00:00';
+    } else if (dayType === 2) { result.checkIn = 'PN'; result.checkOut = 'PN'; }
+    results.push(result);
+  }
+  return results;
+}
+
+/* ── processEmployee ────────────────────────────── */
+export function processEmployee(
+  emp: EmployeeInput,
+  daysInMonth: number,
+  month: number,
+  year: number,
+  params: AllocParams,
+  shift1: ShiftInfo | null,
+  shift2: ShiftInfo | null,
+  isAccountingDept: boolean,
+  groupWorkHours: number | null,
+): DayResult[] {
+  const workdays    = parseFloat(emp.workdays)      || 27;
+  const otHours     = parseFloat(emp.overtimeHours) || 0;
+  const lateMinutes = parseFloat(emp.lateMinutes)   || 0;
+  const inputArray       = encodeInputArray(emp.days);
+  const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
+  let arrangement: number[];
+  if (isAccountingDept) {
+    arrangement = generateCalendarArray(month, year, inputArray, params);
+  } else if (workdays < params.workdaysThreshold) {
+    const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays);
+    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, inputArray, [], params) ?? inputArray;
+  } else {
+    const emptyFixed = Array(daysInMonth).fill(0);
+    const { ones, zeros } = calcArrangementParams(emptyFixed, daysInMonth, workdays);
+    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, emptyFixed, [], params) ?? emptyFixed;
+  }
+  const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
+  const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+  return generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1, shift2, groupWorkHours, params);
+}
