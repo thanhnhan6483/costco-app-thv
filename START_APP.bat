@@ -1,63 +1,58 @@
 @echo off
 chcp 65001 >nul
-title Costco App - Khoi dong...
+title THV - Quản Lý Chấm Công
 
-:: ── Kiem tra quyen Admin ──────────────────────────────────
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [!] Can quyen Admin. Dang yeu cau...
-    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && \"%~f0\"' -Verb RunAs"
-    exit /b
+echo ============================================
+echo   TAN HUE VIEN - Quan Ly Cham Cong
+echo ============================================
+echo.
+
+:: Kiểm tra Node.js
+node -v >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [!] Chua co Node.js. Vui long cai dat tai: https://nodejs.org
+    echo     Chon phien ban LTS, cai xong roi chay lai file nay.
+    pause
+    start https://nodejs.org
+    exit /b 1
 )
 
-:: ── Vao dung thu muc chua file bat ────────────────────────
-cd /d "%~dp0"
+echo [OK] Node.js:
+node -v
+echo.
 
-:: ── Kiem tra Node.js ──────────────────────────────────────
-node --version >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [*] Node.js chua co. Dang tai va cai dat...
-    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi' -OutFile '%TEMP%\node-installer.msi'"
-    msiexec /i "%TEMP%\node-installer.msi" /qn /norestart
-    del "%TEMP%\node-installer.msi"
-    for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set "PATH=%%i;%PATH%"
-    echo [OK] Node.js da cai xong.
-) else (
-    echo [OK] Node.js da co san.
-)
-
-:: ── Kiem tra Git ──────────────────────────────────────────
-git --version >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [*] Git chua co. Dang tai va cai dat...
-    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe' -OutFile '%TEMP%\git-installer.exe'"
-    "%TEMP%\git-installer.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
-    del "%TEMP%\git-installer.exe"
-    for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set "PATH=%%i;%PATH%"
-    echo [OK] Git da cai xong.
-) else (
-    echo [OK] Git da co san.
-)
-
-:: ── Kiem tra node_modules ─────────────────────────────────
+:: Cài dependencies nếu chưa có
 if not exist "node_modules" (
-    echo [*] Dang cai dependencies lan dau ^(co the mat 5-10 phut^)...
-    npm install
-    echo [OK] Dependencies da cai xong.
-) else (
-    echo [OK] Dependencies da san sang.
+    echo [*] Dang cai dat thu vien, vui long cho...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo [!] Cai dat that bai. Kiem tra ket noi mang va thu lai.
+        pause
+        exit /b 1
+    )
+    echo [OK] Cai dat thanh cong.
+    echo.
 )
 
-:: ── Tat server cu neu co ──────────────────────────────────
-echo [*] Tat server cu neu dang chay...
-taskkill /f /im node.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
+:: Build nếu chưa có
+if not exist ".next" (
+    echo [*] Dang build ung dung, vui long cho (co the mat 2-5 phut)...
+    call npm run build
+    if %errorlevel% neq 0 (
+        echo [!] Build that bai.
+        pause
+        exit /b 1
+    )
+    echo [OK] Build thanh cong.
+    echo.
+)
 
-:: ── Khoi dong ─────────────────────────────────────────────
+:: Mở trình duyệt sau 3 giây
+powershell -Command "Start-Sleep 3; Start-Process 'http://localhost:3000'" >nul 2>&1 &
+
+echo [OK] Ung dung dang chay tai: http://localhost:3000
+echo      Giu cua so nay mo trong khi su dung.
+echo      Nhan Ctrl+C de dung ung dung.
 echo.
-echo [*] Dang khoi dong web tai http://localhost:3000 ...
-echo [De dung: Nhan Ctrl+C]
-echo.
-start "" cmd /c "timeout /t 6 /nobreak >nul && start http://localhost:3000"
-npm run dev
+call npm start
 pause
