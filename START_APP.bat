@@ -1,63 +1,98 @@
 @echo off
 chcp 65001 >nul
-title Costco App - Khoi dong...
+title THV - Quan Ly Cham Cong
 
-:: ── Kiem tra quyen Admin ──────────────────────────────────
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [!] Can quyen Admin. Dang yeu cau...
-    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && \"%~f0\"' -Verb RunAs"
-    exit /b
+echo.
+echo  ============================================
+echo    TAN HUE VIEN - Quan Ly Cham Cong
+echo  ============================================
+echo.
+echo  Dang kiem tra he thong...
+echo.
+
+:: ── KIEM TRA NODE.JS ──────────────────────────
+node -v >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [THIEU] Node.js chua duoc cai dat.
+    echo.
+    echo  Vui long thuc hien:
+    echo    1. Truy cap https://nodejs.org
+    echo    2. Tai phien ban LTS ^(nut xanh la^)
+    echo    3. Cai dat, khoi dong lai may
+    echo    4. Chay lai file START_APP.bat nay
+    echo.
+    pause
+    start https://nodejs.org
+    exit /b 1
 )
 
-:: ── Vao dung thu muc chua file bat ────────────────────────
-cd /d "%~dp0"
+for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
+echo  [OK] Node.js %NODE_VER%
 
-:: ── Kiem tra Node.js ──────────────────────────────────────
-node --version >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [*] Node.js chua co. Dang tai va cai dat...
-    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi' -OutFile '%TEMP%\node-installer.msi'"
-    msiexec /i "%TEMP%\node-installer.msi" /qn /norestart
-    del "%TEMP%\node-installer.msi"
-    for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set "PATH=%%i;%PATH%"
-    echo [OK] Node.js da cai xong.
-) else (
-    echo [OK] Node.js da co san.
+:: ── KIEM TRA NPM ──────────────────────────────
+npm -v >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [LOI] npm khong tim thay. Cai lai Node.js tai https://nodejs.org
+    pause
+    exit /b 1
 )
+echo  [OK] npm da san sang
+echo.
 
-:: ── Kiem tra Git ──────────────────────────────────────────
-git --version >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [*] Git chua co. Dang tai va cai dat...
-    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe' -OutFile '%TEMP%\git-installer.exe'"
-    "%TEMP%\git-installer.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
-    del "%TEMP%\git-installer.exe"
-    for /f "tokens=*" %%i in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set "PATH=%%i;%PATH%"
-    echo [OK] Git da cai xong.
-) else (
-    echo [OK] Git da co san.
-)
-
-:: ── Kiem tra node_modules ─────────────────────────────────
+:: ── CAI DEPENDENCIES ──────────────────────────
 if not exist "node_modules" (
-    echo [*] Dang cai dependencies lan dau ^(co the mat 5-10 phut^)...
-    npm install
-    echo [OK] Dependencies da cai xong.
+    echo  [*] Buoc 1/2: Dang cai dat thu vien ^(co the mat 2-3 phut^)...
+    echo      Vui long doi, KHONG tat cua so nay.
+    echo.
+    call npm install
+    if %errorlevel% neq 0 (
+        echo.
+        echo  [LOI] Cai dat thu vien that bai.
+        echo  Nguyen nhan co the:
+        echo    - Mat ket noi Internet
+        echo    - Khong du quyen ghi vao thu muc nay
+        echo  Vui long kiem tra va thu lai.
+        pause
+        exit /b 1
+    )
+    echo  [OK] Cai dat thu vien thanh cong.
+    echo.
 ) else (
-    echo [OK] Dependencies da san sang.
+    echo  [OK] Thu vien da co san.
 )
 
-:: ── Tat server cu neu co ──────────────────────────────────
-echo [*] Tat server cu neu dang chay...
-taskkill /f /im node.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
+:: ── BUILD ─────────────────────────────────────
+if not exist ".next" (
+    echo  [*] Buoc 2/2: Dang build ung dung ^(co the mat 3-5 phut^)...
+    echo      Vui long doi, KHONG tat cua so nay.
+    echo.
+    call npm run build
+    if %errorlevel% neq 0 (
+        echo.
+        echo  [LOI] Build ung dung that bai.
+        echo  Vui long lien he ky thuat de duoc ho tro.
+        pause
+        exit /b 1
+    )
+    echo  [OK] Build thanh cong.
+    echo.
+) else (
+    echo  [OK] Ung dung da duoc build san.
+)
 
-:: ── Khoi dong ─────────────────────────────────────────────
+:: ── KHOI DONG ─────────────────────────────────
+echo  ============================================
+echo   Khoi dong thanh cong!
+echo   Truy cap: http://localhost:3000
+echo  ============================================
 echo.
-echo [*] Dang khoi dong web tai http://localhost:3000 ...
-echo [De dung: Nhan Ctrl+C]
+echo  Trinh duyet se tu dong mo sau 3 giay...
+echo  ^(Neu khong tu mo, hay vao http://localhost:3000^)
 echo.
-start "" cmd /c "timeout /t 6 /nobreak >nul && start http://localhost:3000"
-npm run dev
+echo  GIU CUA SO NAY MO trong khi su dung phan mem.
+echo  Nhan Ctrl+C de dung phan mem.
+echo.
+
+powershell -Command "Start-Sleep 3; Start-Process 'http://localhost:3000'" >nul 2>&1 &
+call npm start
 pause
