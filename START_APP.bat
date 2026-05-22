@@ -19,6 +19,23 @@ if %errorlevel% neq 0 goto NO_NODE
 
 for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
 echo  [OK] Node.js %NODE_VER%
+
+:: Kiem tra version Node phai la v20.x
+for /f "tokens=1 delims=." %%m in ("%NODE_VER:v=%") do set NODE_MAJOR=%%m
+if %NODE_MAJOR% neq 20 (
+    echo.
+    echo  [LOI] Node.js %NODE_VER% khong tuong thich!
+    echo  Phan mem yeu cau Node.js phien ban 20 LTS.
+    echo.
+    echo  Vui long:
+    echo    1. Vao https://nodejs.org/en/download
+    echo    2. Chon "Previous Releases" hoac tim "20.x LTS"
+    echo    3. Cai dat, khoi dong lai may, chay lai file nay
+    echo.
+    pause
+    start https://nodejs.org/en/download
+    goto END
+)
 echo.
 
 :: Cai dependencies
