@@ -2,6 +2,7 @@
 import styles from './Sidebar.module.css';
 import { useApp } from '@/context/AppContext';
 import { PageKey } from '@/types';
+import logo from '../../../public/logo_thv.png';
 
 interface NavItem {
   key: PageKey;
@@ -75,7 +76,7 @@ export default function Sidebar() {
           onClick={() => currentPage !== 'dashboard' && navigate('dashboard')}
           title={currentPage !== 'dashboard' ? 'Về trang chủ' : undefined}
         >
-          <div className={styles.logoIcon}>O</div>
+          <div className={styles.logoIcon}><img src={logo.src} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 10 }} /></div>
           {!sidebarCollapsed && (
             <div className={styles.logoText}>
               <span className={styles.logoTitle}>TÂN HUÊ VIÊN</span>

@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     const changes: { empId: string; day: number; dayType: number }[] = [];
+    let totalViolating = 0;
 
     for (const [, members] of deptGroups) {
       if (members.length < 2) continue;
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       const minLP = Math.min(...lpCounts);
       const maxLP = Math.max(...lpCounts);
       if (maxLP - minLP <= params.maxDayOffDifference) continue;
+      totalViolating++;
 
       const sorted = [...lpCounts].sort((a, b) => a - b);
       const mid = Math.floor(sorted.length / 2);

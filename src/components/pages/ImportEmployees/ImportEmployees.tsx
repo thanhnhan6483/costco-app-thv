@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import s from '@/styles/table.module.css';
 import styles from './ImportEmployees.module.css';
 import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
@@ -211,8 +211,11 @@ export default function ImportEmployees() {
   useEffect(() => { load(); }, [load]);
 
 
+  const deferredCol = useDeferredValue(col);
+
   // col.departmentName: '' = tất cả | '__EMPTY__' = chưa có PB | tên/code = tìm kiếm
   const filtered = useMemo(() => rows.filter(r => {
+    const col = deferredCol;
     if (col.code && !r.code.toLowerCase().includes(col.code.toLowerCase())) return false;
     if (col.name && !r.name.toLowerCase().includes(col.name.toLowerCase())) return false;
     if (col.departmentName === '__EMPTY__') { if (r.departmentName) return false; }
@@ -239,7 +242,7 @@ export default function ImportEmployees() {
     if (col.ngayNghi === '__EMPTY__') { if (formatDate(r.ngayNghiCuoiThangTruoc)) return false; }
     else if (col.ngayNghi && formatDate(r.ngayNghiCuoiThangTruoc) !== col.ngayNghi) return false;
     return true;
-  }), [rows, col]);
+  }), [rows, deferredCol]);
 
   const clearFilters = () => setCol({ code: '', name: '', departmentName: '', specialGroup: '', groupCodeEndDate: '', ngayNghi: '', workdays: '', overtimeHours: '', lateMinutes: '', phepNam: '' });
 

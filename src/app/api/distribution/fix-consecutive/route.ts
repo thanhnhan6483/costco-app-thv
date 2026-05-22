@@ -26,6 +26,14 @@ export async function POST(req: NextRequest) {
        ORDER BY dr.employee_id, dr.day`, monthId
     );
 
+    const empInfoRows = await conn.all<{ id: string; code: string; name: string; deptName: string }>(
+      `SELECT e.id, e.code, e.name, COALESCE(d.name, '') AS deptName
+       FROM employees e
+       LEFT JOIN departments d ON d.id = e.department_id
+       WHERE e.month_id = ?`, monthId
+    );
+    const empInfoMap = new Map(empInfoRows.map(e => [e.id, e]));
+
     // Group by empId → mảng dayType[0..daysInMonth-1]
     const empMap = new Map<string, number[]>();
     for (const r of drRows) {
@@ -34,6 +42,16 @@ export async function POST(req: NextRequest) {
     }
 
     const changes: { empId: string; day: number; dayType: number }[] = [];
+
+    // Đếm tổng NV vi phạm trước khi sửa
+    let totalViolating = 0;
+    for (const [, arr] of empMap) {
+      let run = 0;
+      for (let i = 0; i < daysInMonth; i++) {
+        if (arr[i] === 0) { run++; if (run > max) { totalViolating++; break; } }
+        else run = 0;
+      }
+    }
 
     for (const [empId, arr] of empMap) {
       let maxIter = 50; // tránh vòng lặp vô hạn
@@ -76,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     if (changes.length === 0) {
       await conn.close();
-      return NextResponse.json({ ok: true, fixed: 0, message: 'Không có vi phạm nào cần sửa' });
+      return NextResponse.json({ ok: true, fixed: 0, total: totalViolating, message: 'Không có vi phạm nào cần sửa' });
     }
 
     // Gộp changes theo (empId, day) — lấy giá trị cuối nếu trùng
@@ -91,9 +109,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const fixedEmps = new Set(changes.map(c => c.empId)).size;
+    // Kiểm tra lại sau khi sửa — NV nào vẫn còn vi phạm
+    const unresolved: { code: string; name: string; deptName: string }[] = [];
+    for (const [empId, arr] of empMap) {
+      let run = 0, stillViolating = false;
+      for (let i = 0; i < daysInMonth; i++) {
+        if (arr[i] === 0) { run++; if (run > max) { stillViolating = true; break; } }
+        else run = 0;
+      }
+      if (stillViolating) {
+        const info = empInfoMap.get(empId);
+        unresolved.push({ code: info?.code ?? empId, name: info?.name ?? '', deptName: info?.deptName ?? '' });
+      }
+    }
+
+    const trulyFixed = totalViolating - unresolved.length;
     await conn.close();
-    return NextResponse.json({ ok: true, fixed: fixedEmps, changes: changeMap.size });
+    return NextResponse.json({ ok: true, fixed: trulyFixed, total: totalViolating, changes: changeMap.size, unresolved });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });

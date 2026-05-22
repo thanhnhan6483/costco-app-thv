@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, forwardRef, useImperativeHandle, useDeferredValue } from 'react';
 import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
@@ -14,11 +14,23 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
   fGroup?: string; setFGroup?: (v: string) => void; groupList?: string[]; extraMiddle?: number;
   children?: React.ReactNode; middleChildren?: React.ReactNode;
 }) {
+  const trRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    const tr = trRef.current;
+    if (!tr) return;
+    const prev = tr.previousElementSibling as HTMLElement | null;
+    if (prev) {
+      const h = prev.getBoundingClientRect().height;
+      tr.style.setProperty('--filter-top', `${h}px`);
+      // apply to all th inside
+      tr.querySelectorAll('th').forEach(th => (th as HTMLElement).style.top = `${h}px`);
+    }
+  }, []);
   return (
-    <tr className={styles.filterRow}>
-      {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} />)}
-      <th style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
-      <th style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
+    <tr ref={trRef} className={styles.filterRow}>
+      {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} className={i === 0 ? styles.sc0 : undefined} />)}
+      <th className={styles.sc1} style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
+      <th className={styles.sc2} style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
       <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
       {groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
       {Array.from({ length: extraMiddle }, (_, i) => <th key={'m' + i} />)}
@@ -37,13 +49,17 @@ function useDeptList(rows: Record<string, unknown>[]) {
   }, [rows]);
 }
 function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: string, fDept: string, fGroup = '') {
+  const dFCode = useDeferredValue(fCode);
+  const dFName = useDeferredValue(fName);
+  const dFDept = useDeferredValue(fDept);
+  const dFGroup = useDeferredValue(fGroup);
   return useMemo(() => rows.filter((r: any) => {
-    if (fCode && !String(r.code ?? '').toLowerCase().includes(fCode.toLowerCase())) return false;
-    if (fName && !String(r.name ?? '').toLowerCase().includes(fName.toLowerCase())) return false;
-    if (fDept && String(r.deptName ?? '') !== fDept) return false;
-    if (fGroup && String(r.specialGroup ?? '') !== fGroup) return false;
+    if (dFCode && !String(r.code ?? '').toLowerCase().includes(dFCode.toLowerCase())) return false;
+    if (dFName && !String(r.name ?? '').toLowerCase().includes(dFName.toLowerCase())) return false;
+    if (dFDept && String(r.deptName ?? '') !== dFDept) return false;
+    if (dFGroup && String(r.specialGroup ?? '') !== dFGroup) return false;
     return true;
-  }), [rows, fCode, fName, fDept, fGroup]);
+  }), [rows, dFCode, dFName, dFDept, dFGroup]);
 }
 
 function useStatList(rows: Record<string, unknown>[], key: string, decimals?: number) {
@@ -58,10 +74,10 @@ function StatFilterTh({ list, value, onChange }: { list: string[]; value: string
 }
 
 type SortState = { key: string; dir: 'asc' | 'desc' } | null;
-function SortTh({ label, sortKey, sort, onSort, style }: { label: React.ReactNode; sortKey: string; sort: SortState; onSort: (k: string) => void; style?: React.CSSProperties }) {
+function SortTh({ label, sortKey, sort, onSort, style, className }: { label: React.ReactNode; sortKey: string; sort: SortState; onSort: (k: string) => void; style?: React.CSSProperties; className?: string }) {
   const active = sort?.key === sortKey;
   return (
-    <th onClick={() => onSort(sortKey)} style={{ cursor: 'pointer', whiteSpace: 'nowrap', ...style }}>
+    <th onClick={() => onSort(sortKey)} className={className} style={{ cursor: 'pointer', whiteSpace: 'nowrap', ...style }}>
       {label}
       <span style={{ marginLeft: 3, fontSize: 9, opacity: active ? 1 : 0.3, color: active ? '#2563eb' : 'inherit', verticalAlign: 'middle' }}>
         {active ? (sort!.dir === 'asc' ? '▲' : '▼') : '⇅'}
@@ -78,6 +94,51 @@ function useSortRows(rows: any[], sort: SortState) {
       return sort.dir === 'asc' ? cmp : -cmp;
     });
   }, [rows, sort]);
+}
+function ScrollTable({ className, style, children }: { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const wrap = wrapRef.current, top = topRef.current, inner = innerRef.current;
+    if (!wrap || !top || !inner) return;
+    const syncWidth = () => { inner.style.width = wrap.scrollWidth + 'px'; };
+    syncWidth();
+    const ro = new ResizeObserver(syncWidth);
+    ro.observe(wrap);
+    const onTop = () => { wrap.scrollLeft = top.scrollLeft; };
+    const onWrap = () => { top.scrollLeft = wrap.scrollLeft; };
+    top.addEventListener('scroll', onTop);
+    wrap.addEventListener('scroll', onWrap);
+    return () => { ro.disconnect(); top.removeEventListener('scroll', onTop); wrap.removeEventListener('scroll', onWrap); };
+  }, []);
+  return (
+    <>
+      <div ref={topRef} style={{ overflowX: 'auto', overflowY: 'hidden', height: 12 }}>
+        <div ref={innerRef} style={{ height: 1 }} />
+      </div>
+      <div ref={wrapRef} className={className} style={style}>{children}</div>
+    </>
+  );
+}
+function useTopScrollbar() {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const wrap = wrapRef.current, top = topRef.current, inner = innerRef.current;
+    if (!wrap || !top || !inner) return;
+    const syncWidth = () => { inner.style.width = wrap.scrollWidth + 'px'; };
+    syncWidth();
+    const ro = new ResizeObserver(syncWidth);
+    ro.observe(wrap);
+    const onTopScroll = () => { wrap.scrollLeft = top.scrollLeft; };
+    const onWrapScroll = () => { top.scrollLeft = wrap.scrollLeft; };
+    top.addEventListener('scroll', onTopScroll);
+    wrap.addEventListener('scroll', onWrapScroll);
+    return () => { ro.disconnect(); top.removeEventListener('scroll', onTopScroll); wrap.removeEventListener('scroll', onWrapScroll); };
+  }, []);
+  return { wrapRef, topRef, innerRef };
 }
 function useSort(): [SortState, (key: string) => void] {
   const [sort, setSort] = useState<SortState>(null);
@@ -385,15 +446,17 @@ export default function AutoAlloc() {
           {activeStep === 2 && !curStep?.viewOnly && (
             <>
               <div className={styles.dividerV} />
+              {/* .. ntnhan: ẩn tạm, chờ chỉnh thuật toán phân bổ để chạy nhanh hơn, nếu chạy nhanh thì sẽ hiển thị cả backtracking
               <button
                 className={`${styles.btnRunStep} ${algoRunning === 'backtracking' ? styles.btnRunning : ''}`}
                 onClick={() => runStep2WithAlgo('backtracking')}
                 disabled={isRunning || locked || !status['step1Done']}
-                id="btn-run-backtracking"
+                id="btn-run-king"
                 style={{ background: algoRunning === 'backtracking' ? undefined : '#f5f3ff', color: algoRunning === 'backtracking' ? undefined : '#6d28d9', borderColor: '#c4b5fd' }}
               >
                 {algoRunning === 'backtracking' ? <><span className={styles.spinnerSm} /> {elapsed}s</> : <><IconPlay /> Backtracking</>}
               </button>
+.           . */}
             </>
           )}
           <div className={styles.dividerV} />
@@ -438,16 +501,17 @@ export default function AutoAlloc() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button className={styles.btnExport} onClick={() => setValidateOpen(v => !v)}
                     style={{ minWidth: 130, justifyContent: 'center', background: result.overallStatus === 'ok' ? '#f0fdf4' : '#fef2f2', color: result.overallStatus === 'ok' ? '#15803d' : '#b91c1c', borderColor: result.overallStatus === 'ok' ? '#86efac' : '#fca5a5' }}>
-                    {validateOpen ? '▴ ' : '▾ '}{result.overallStatus === 'ok' ? '✅ Đạt' : `❌ vi phạm`}
+                    {validateOpen ? '▴ ' : '▾ '}{result.overallStatus === 'ok' ? '✅ Đạt' : `❌ Xem vi phạm`}
                   </button>
                   <button className={styles.btnExport} title="Kiểm tra lại" onClick={doRun}
-                    style={{ minWidth: 32, padding: '0 8px', justifyContent: 'center', color: '#64748b' }}>🔄</button>
+                    style={{ minWidth: 32, padding: '0 8px', justifyContent: 'center', color: '#64748b' }}>🔄 Kiểm tra lại</button>
                 </div>
               );
               return <button className={styles.btnExport} style={{ minWidth: 130, justifyContent: 'center' }} onClick={doRun}>🔍 Kiểm tra</button>;
             })()}
             {activeStep === 1 && (
               <>
+                {/* . ntnhan 
                 <button className={styles.btnExport} onClick={() => setStep1Filter(v => v === 'pn_before_15' ? null : 'pn_before_15')}
                   style={{ minWidth: 130, justifyContent: 'center', background: step1Filter === 'pn_before_15' ? '#f5f3ff' : undefined, color: step1Filter === 'pn_before_15' ? '#6d28d9' : undefined, borderColor: step1Filter === 'pn_before_15' ? '#a78bfa' : undefined }}>
                   {step1Filter === 'pn_before_15' ? '✕ ' : ''}PN trước ngày 15
@@ -456,6 +520,7 @@ export default function AutoAlloc() {
                   style={{ minWidth: 140, justifyContent: 'center', background: step1Filter === 'pn_mismatch' ? '#f5f3ff' : undefined, color: step1Filter === 'pn_mismatch' ? '#6d28d9' : undefined, borderColor: step1Filter === 'pn_mismatch' ? '#a78bfa' : undefined }}>
                   {step1Filter === 'pn_mismatch' ? '✕ ' : ''}PN khác SL ngày cột
                 </button>
+.              */}
               </>
             )}
             {(activeStep === 1 || (curStep && status[curStep.key])) && (
@@ -578,9 +643,10 @@ const SYM_BG: Record<string, string> = { '': '#fff', 'X': '#f0fdf4', 'L': '#f1f5
 const SYM_CLR: Record<string, string> = { '': '#d1d5db', 'X': '#15803d', 'L': '#475569', 'LP': '#475569', 'PN': '#6d28d9', 'Ô': '#b91c1c', 'TS': '#be185d', 'DS': '#0f766e', 'O': '#c2410c', 'NL': '#1d4ed8', 'OF': '#4b5563', 'P': '#0e7490' };
 const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d9', 3: '#b91c1c', 4: '#be185d', 5: '#0f766e', 6: '#c2410c', 7: '#1d4ed8', 8: '#4b5563', 9: '#0e7490', 10: '#065f46', 11: '#92400e', 12: '#78350f', 13: '#1e40af', 14: '#374151' };
 const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff', 10: '#d1fae5', 11: '#fef3c7', 12: '#fef9c3', 13: '#dbeafe', 14: '#f3f4f6' };
+const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 
 /* === ImportGrid (Step 1) === */
-function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null }) {
+function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -595,6 +661,69 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
   const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+
+  // Edit state
+  const [edits, setEdits] = useState<Map<string, string>>(new Map()); // key: "code_day", value: symbol
+  const [saving, setSaving] = useState(false);
+  const [dragSrc, setDragSrc] = useState<{ code: string; day: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ code: string; day: number } | null>(null);
+  const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number; x: number; y: number } | null>(null);
+
+  const getEffectiveSym = (code: string, day: number, origSym: string) => {
+    const k = `${code}_${day}`;
+    return edits.has(k) ? edits.get(k)! : origSym;
+  };
+
+  const handleCellRightClick = (code: string, day: number, sym: string, e: React.MouseEvent) => {
+    if (locked) return;
+    e.preventDefault();
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPicker({ code, day, currentDT: SYM_TO_DT[sym] ?? -1, x: rect.left, y: rect.bottom + 4 });
+  };
+
+  const handlePick = (dt: number) => {
+    if (!picker) return;
+    const newSym = DT_SYMBOL[dt] ?? '';
+    const origRow = rows.find((r: any) => r.code === picker.code) as any;
+    const origSym = origRow?.days?.find((d: any) => d.day === picker.day)?.symbol ?? '';
+    const k = `${picker.code}_${picker.day}`;
+    setEdits(prev => { const n = new Map(prev); newSym === origSym ? n.delete(k) : n.set(k, newSym); return n; });
+    setPicker(null);
+  };
+
+  const handleDrop = (toCode: string, toDay: number) => {
+    if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) { setDragSrc(null); setDragOver(null); return; }
+    const origFrom = (rows.find((r: any) => r.code === dragSrc.code) as any)?.days?.find((d: any) => d.day === dragSrc.day)?.symbol ?? '';
+    const origTo = (rows.find((r: any) => r.code === toCode) as any)?.days?.find((d: any) => d.day === toDay)?.symbol ?? '';
+    const fromSym = getEffectiveSym(dragSrc.code, dragSrc.day, origFrom);
+    const toSym = getEffectiveSym(toCode, toDay, origTo);
+    setEdits(prev => {
+      const n = new Map(prev);
+      const kFrom = `${dragSrc.code}_${dragSrc.day}`;
+      const kTo = `${toCode}_${toDay}`;
+      toSym === origFrom ? n.delete(kFrom) : n.set(kFrom, toSym);
+      fromSym === origTo ? n.delete(kTo) : n.set(kTo, fromSym);
+      return n;
+    });
+    setDragSrc(null); setDragOver(null);
+  };
+
+  const handleSave = async () => {
+    if (edits.size === 0) return;
+    setSaving(true);
+    try {
+      const changes = Array.from(edits.entries()).map(([k, symbol]) => {
+        const idx = k.lastIndexOf('_');
+        return { empCode: k.slice(0, idx), day: Number(k.slice(idx + 1)), symbol };
+      });
+      const r = await fetch('/api/distribution/edit-day-import', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId, changes }),
+      });
+      if (r.ok) { setEdits(new Map()); onSaved?.(); }
+    } finally { setSaving(false); }
+  };
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
     let result = baseFiltered as any[];
@@ -626,13 +755,13 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
           🔍 Đang lọc: <strong>{step1Filter === 'pn_before_15' ? 'PN trước ngày 15' : 'PN khác SL ngày cột'}</strong> — {filtered.length} dòng
         </div>
       )}
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
@@ -653,22 +782,39 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
               const days: { day: number; symbol: string }[] = r.days ?? [];
               return (
                 <tr key={r.code}>
-                  <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                  <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-                  <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                  <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+                  <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                  <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
                   {Array.from({ length: 31 }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
-                    const sym = d?.symbol ?? '';
+                    const origSym = d?.symbol ?? '';
+                    const sym = getEffectiveSym(r.code, i + 1, origSym);
+                    const isChanged = edits.has(`${r.code}_${i + 1}`);
+                    const isOver = dragOver?.code === r.code && dragOver?.day === i + 1;
+                    const dt = SYM_TO_DT[sym] ?? -1;
+                    const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? SYM_BG[sym] ?? '#fff') : (SYM_BG[sym] ?? '#fff');
+                    const clr = dt >= 0 ? (DT_TEXT[dt] ?? SYM_CLR[sym] ?? '#9ca3af') : (SYM_CLR[sym] ?? '#9ca3af');
                     return (
-                      <td key={i} style={{
-                        background: SYM_BG[sym] ?? '#fff',
-                        color: SYM_CLR[sym] ?? '#9ca3af',
-                        fontWeight: (!sym || sym === 'X') ? 700 : 600,
-                        textAlign: 'center', padding: '4px 2px', minWidth: 26,
-                        borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
-                      }}>
+                      <td key={i}
+                        className={`${styles.editableCell} ${isChanged ? styles.editableCellChanged : ''} ${isOver ? styles.editableCellDragOver : ''}`}
+                        style={{
+                          background: bg, color: clr,
+                          fontWeight: (!sym || sym === 'X') ? 700 : 600,
+                          textAlign: 'center', padding: '4px 2px', minWidth: 26,
+                          borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
+                          opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.4 : 1,
+                          cursor: locked ? 'default' : 'grab',
+                        }}
+                        onContextMenu={e => handleCellRightClick(r.code, i + 1, sym, e)}
+                        draggable={!locked}
+                        onDragStart={() => { if (!locked) setDragSrc({ code: r.code, day: i + 1 }); }}
+                        onDragOver={e => { e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={() => handleDrop(r.code, i + 1)}
+                        onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                      >
                         {sym || <span style={{ color: '#d1d5db', fontWeight: 300 }}>·</span>}
                       </td>
                     );
@@ -682,7 +828,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
       <div className={styles.legend}>
         {(() => {
           const usedDTs = new Set<number>();
@@ -705,12 +851,21 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter }: { r
           });
         })()}
       </div>
+      {picker && (
+        <DayTypePicker currentDT={picker.currentDT} x={picker.x} y={picker.y} onPick={handlePick} onClose={() => setPicker(null)} leaveTypes={leaveTypes} />
+      )}
+      {edits.size > 0 && (
+        <div className={styles.editBar}>
+          <span className={styles.editBarInfo}>✏️ <span className={styles.editBarCount}>{edits.size}</span> thay đổi</span>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={() => setEdits(new Map())} disabled={locked} type="button">↩ Hoàn tác</button>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleSave} disabled={saving || locked} type="button">{saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}</button>
+        </div>
+      )}
     </div>
   );
 }
 
 /* === DayTypePicker (dropdown chọn loại ngày) === */
-const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 
 function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
   currentDT: number; x: number; y: number;
@@ -873,13 +1028,13 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
           🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào điều kiện bên dưới để bỏ lọc
         </div>
       )}
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
@@ -902,9 +1057,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
             const days: { day: number; dayType: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
-                <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+                <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                 {Array.from({ length: 31 }, (_, i) => {
@@ -955,7 +1110,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
             );
           })}</tbody>
         </table>
-      </div>
+      </ScrollTable>
       <div className={styles.legend}>
         {(() => {
           const usedDTs = new Set<number>();
@@ -1020,13 +1175,13 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
   const filtered = useMemo(() => filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered, [baseFiltered, filterCodes]);
   return (
     <div className={styles.tableOuter}>
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>
@@ -1042,9 +1197,9 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
             const caCCount = days.filter(d => d.shiftCode === 'C').length;
             return (
               <tr key={r.code}>
-                <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+                <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -1068,7 +1223,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
             );
           })}</tbody>
         </table>
-      </div>
+      </ScrollTable>
       <div className={styles.legend}>
         <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA1_BG, color: CA1_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C1</span> C1</span>
         <span className={styles.legendItem}><span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: CA2_BG, color: CA2_CLR, fontWeight: 700, fontSize: '0.72rem', marginRight: 3 }}>C2</span> C2</span>
@@ -1101,13 +1256,13 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
   }, [baseFiltered, fOT, fLate, filterCodes]);
   return (
     <div className={styles.tableOuter}>
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
@@ -1122,9 +1277,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
             const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
-                <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+                <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -1149,7 +1304,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
             );
           })}</tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
@@ -1175,13 +1330,13 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   }, [baseFiltered, filterCodes, fEndDate]);
   return (
     <div className={styles.tableOuter}>
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#0369a1' }} />
               <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />
@@ -1195,9 +1350,9 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
             const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
             return (
               <tr key={r.code}>
-                <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-                <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-                <td className={styles.empName} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+                <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+                <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>
@@ -1219,7 +1374,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
             );
           })}</tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
@@ -1273,16 +1428,16 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && String(Math.round(Number(x.totalOT))) === fOT2);
     if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && String(Math.round(Number(x.totalLate))) === fLate2);
     return r;
-  }, [baseFiltered2, fNghiTruoc, fWorkdays, fLP, fPN2, fOT2, fLate2]);
+  }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
             <tr>
-              <th style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
-              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
-              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
+              <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
+              <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
+              <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#92400e' }} />
@@ -1307,9 +1462,9 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => (
             <tr key={r.code} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--gray-50)' }}>
-              <td style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
-              <td className={styles.mono} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
-              <td style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+              <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
+              <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
+              <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
@@ -1337,7 +1492,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
             </tr>
           ))}</tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
@@ -1362,6 +1517,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const [fixingPnCount, setFixingPnCount] = useState(false);
   const [fixingTime, setFixingTime] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
     const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
 
@@ -1376,92 +1532,35 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
         onStatusChange?.({ loading: false, result: data });
         onValidated?.();
       } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
-    }, [monthId, onlyIds?.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [monthId, onlyIds?.join(','), onStatusChange, onValidated]);
 
     useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     useImperativeHandle(ref, () => ({ run }), [run]);
 
-    const fixPn = async () => {
-      setFixing(true); setError(null);
+    const doFix = async (
+      label: string, url: string, body: object,
+      setLoading: (v: boolean) => void,
+      getFixed: (d: any) => { fixed: number; total?: number },
+    ) => {
+      setLoading(true); setError(null);
       try {
-        const r = await fetch('/api/distribution/fix-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixing(false); }
+        const d = await r.json();
+        const { fixed, total } = getFixed(d);
+        setFixResult({ label, fixed, total, onConfirm: async () => { setFixResult(null); onFixed?.(); await run(); } });
+      } catch (e) { setError(String(e)); } finally { setLoading(false); }
     };
 
-    const fixConsec = async () => {
-      setFixingConsec(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/fix-consecutive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingConsec(false); }
-    };
-
-    const fixLp = async () => {
-      setFixingLp(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/fix-lp-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingLp(false); }
-    };
-
-    const fixShift = async () => {
-      setFixingShift(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/fix-shift-balance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingShift(false); }
-    };
-
-    const fixShiftAssigned = async () => {
-      setFixingShiftAssigned(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/step/4', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingShiftAssigned(false); }
-    };
-
-    const fixOtLate = async () => {
-      setFixingOtLate(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/step/5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingOtLate(false); }
-    };
-
-    const fixPnCount = async () => {
-      setFixingPnCount(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/fix-pn-count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingPnCount(false); }
-    };
-
-    const fixTime = async () => {
-      setFixingTime(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/step/5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.(); await run();
-      } catch (e) { setError(String(e)); } finally { setFixingTime(false); }
-    };
-
-    const fixLpAfterPn = async () => {
-      setFixingLpAfterPn(true); setError(null);
-      try {
-        const r = await fetch('/api/distribution/fix-lp-after-pn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId }) });
-        if (!r.ok) throw new Error(await r.text());
-        onFixed?.();
-        await run();
-      } catch (e) { setError(String(e)); } finally { setFixingLpAfterPn(false); }
-    };
+    const fixPn = () => doFix('Sửa vị trí PN', '/api/distribution/fix-pn', { monthId }, setFixing, d => ({ fixed: d.fixed, total: d.total }));
+    const fixConsec = () => doFix('Sửa ngày liên tiếp', '/api/distribution/fix-consecutive', { monthId }, setFixingConsec, d => ({ fixed: d.fixed, total: d.total }));
+    const fixLp = () => doFix('Cân bằng LP', '/api/distribution/fix-lp-balance', { monthId }, setFixingLp, d => ({ fixed: d.fixed }));
+    const fixShift = () => doFix('Cân bằng ca', '/api/distribution/fix-shift-balance', { monthId }, setFixingShift, d => ({ fixed: d.fixed }));
+    const fixShiftAssigned = () => doFix('Chia ca lại', '/api/distribution/step/4', { monthId }, setFixingShiftAssigned, d => ({ fixed: d.fixed ?? 0 }));
+    const fixOtLate = () => doFix('Phân bổ lại OT/Trễ', '/api/distribution/step/5', { monthId }, setFixingOtLate, d => ({ fixed: d.fixed ?? 0 }));
+    const fixPnCount = () => doFix('Sửa số ngày PN', '/api/distribution/fix-pn-count', { monthId }, setFixingPnCount, d => ({ fixed: d.fixed, total: d.total }));
+    const fixTime = () => doFix('Sửa giờ vào/ra', '/api/distribution/step/5', { monthId }, setFixingTime, d => ({ fixed: d.fixed ?? 0 }));
+    const fixLpAfterPn = () => doFix('Cập nhật LP sau PN', '/api/distribution/fix-lp-after-pn', { monthId }, setFixingLpAfterPn, d => ({ fixed: d.fixed }));
 
     const statusClass: Record<CheckStatus, string> = { ok: styles.checkCardOk, warning: styles.checkCardWarn, error: styles.checkCardError };
     const dotClass: Record<CheckStatus, string> = { ok: styles.dotOk, warning: styles.dotWarn, error: styles.dotError };
@@ -1472,7 +1571,30 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     return (
       <div className={styles.validateWrap} style={{ borderTop: '2px solid #e2e8f0', marginTop: 4 }}>
         {error && <div style={{ background: '#fef2f2', padding: 10, color: '#b91c1c' }}>⚠️ Lỗi: {error}</div>}
+        {fixResult && (
+          <div className={styles.modalOverlay}>
+            <div className={styles.modalCard} style={{ maxWidth: 360 }}>
+              <div className={styles.modalIcon} style={{ background: fixResult.fixed > 0 ? '#f0fdf4' : '#fef9c3' }}>
+                <span style={{ fontSize: 28 }}>{fixResult.fixed > 0 ? '✅' : '⚠️'}</span>
+              </div>
+              <h2 className={styles.modalTitle}>{fixResult.label}</h2>
+              <p className={styles.modalDesc}>
+                {fixResult.fixed === 0
+                  ? <span style={{ color: '#b91c1c' }}>Không sửa được trường hợp nào. Cần sửa thủ công.</span>
+                  : fixResult.total !== undefined && fixResult.fixed < fixResult.total
+                    ? <>Đã sửa <strong style={{ color: '#15803d' }}>{fixResult.fixed}</strong> / <strong>{fixResult.total}</strong> trường hợp.<br /><span style={{ color: '#b91c1c' }}>Còn {fixResult.total - fixResult.fixed} chưa sửa được. Cần sửa thủ công.</span></>
+                    : <>Đã sửa <strong style={{ color: '#15803d' }}>{fixResult.fixed}</strong> trường hợp thành công.</>
+                }
+              </p>
+              <button className={styles.modalBtnOk} onClick={fixResult.onConfirm} autoFocus>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                OK
+              </button>
+            </div>
+          </div>
+        )}
         {result && (
+          
           <div className={styles.validateGrid}>
             {result.results.map(check => (
               <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilterId === check.id ? ` ${styles.checkCardActive}` : ''}`}>
@@ -1480,7 +1602,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   if (check.violationCount > 0 && onFilterChange) {
                     const newId = activeFilterId === check.id ? null : check.id;
                     setActiveFilterId(newId);
-                    onFilterChange(newId ? new Set(check.violations.map(v => v.code)) : null);
+                    onFilterChange(newId ? new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)) : null);
                   }
                 }}>
                   <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
@@ -1639,7 +1761,7 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
 
   return (
     <div className={styles.tableOuter}>
-      <div className={styles.tableWrap}>
+      <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.7rem' }}>
           <thead>
             <tr>
@@ -1705,7 +1827,7 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
@@ -1735,6 +1857,14 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       setAllRows(null);
     }
   }, [allRows, monthId, step]);
+
+  const refreshAllRows = useCallback(async () => {
+    if (!allRows) return;
+    try {
+      const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
+      if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+    } catch { /* ignore */ }
+  }, [allRows, monthId, step]);
   const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
   const dataEl = !data
     ? <div className={styles.emptyState}>Đang tải...</div>
@@ -1747,7 +1877,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       <div style={validateOpen ? undefined : { display: 'none' }}>
         <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['pn_start_day_import']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra PN trong file import không được trước ngày quy định" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
       </div>
-      {dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} />}
+      {dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} />}
     </>
   );
   if (step === 2) return (
@@ -1756,7 +1886,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       <div style={validateOpen ? undefined : { display: 'none' }}>
         <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'pn_start_day', 'pn_count', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN, số ngày PN, cân bằng LP trong phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />
       </div>
-      {dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} />}
+      {dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} />}
     </>
   );
   if (step === 3) return (

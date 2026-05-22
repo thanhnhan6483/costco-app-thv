@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const changes: { empId: string; day: number; dayType: number }[] = [];
+    let totalViolating = 0;
 
     for (const emp of emps) {
       const days = daysByEmp.get(emp.empId) ?? [];
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       const diff = pnDays.length - emp.phepNam;
 
       if (diff === 0) continue;
+      totalViolating++;
 
       // Build arrangement array (0-based, length = daysInMonth)
       const arr = Array(daysInMonth).fill(1); // default LP
@@ -94,8 +96,9 @@ export async function POST(req: NextRequest) {
       await conn.run('COMMIT');
     } catch (e) { await conn.run('ROLLBACK'); throw e; }
 
+    const fixedEmps = new Set(changes.map(c => c.empId)).size;
     await conn.close();
-    return NextResponse.json({ ok: true, fixed: changes.length });
+    return NextResponse.json({ ok: true, fixed: fixedEmps, total: totalViolating });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });

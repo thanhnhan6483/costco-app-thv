@@ -4,7 +4,9 @@
 .stepper {
   display: flex; align-items: stretch;
   background: var(--white); border-bottom: 1px solid var(--gray-200);
-  padding: 0 12px 0 0; overflow-x: auto;
+  padding: 0 12px 0 0; overflow-x: auto; scrollbar-width: none;
+}
+.stepper::-webkit-scrollbar { display: none;
 }
 .stepperSpacer { flex: 1; min-width: 12px; }
 .stepperRunWrap {
@@ -139,17 +141,15 @@
   background: #f8fafc;
   border-bottom: 2px solid var(--gray-200);
   position: sticky;
-  top: 33px;
-  z-index: 1;
+  top: var(--filter-top, 29px);
+  z-index: 9;
 }
 .colFilter { position: relative; display: flex; align-items: center; }
 .colFilterIcon {
-  position: absolute; left: 6px; font-size: 10px;
-  color: var(--gray-400); display: flex; align-items: center;
-  pointer-events: none; line-height: 1;
+  display: none;
 }
 .colFilterInput {
-  width: 100%; padding: 4px 20px 4px 22px;
+  width: 100%; padding: 4px 20px 4px 6px;
   border: 1px solid var(--gray-200); border-radius: 4px;
   font-size: 0.7rem; color: var(--gray-700); background: #fff;
   outline: none; font-family: inherit;
@@ -188,7 +188,7 @@
 .dataTable th, .gridTable th {
   background: var(--gray-50); color: var(--gray-600); font-weight: 600;
   padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--gray-200);
-  white-space: nowrap; position: sticky; top: 0; z-index: 2;
+  white-space: nowrap; position: sticky; top: 0; z-index: 10;
   border-right: 1px solid var(--gray-200);
 }
 .dataTable td, .gridTable td {
@@ -197,6 +197,24 @@
   border-right: 1px solid var(--gray-100);
 }
 .dataTable tr:hover td, .gridTable tr:hover td { background: #f0f9ff; }
+
+/* ── Sticky columns ── */
+.sc0 { position: sticky; left: 0;     z-index: 3; }
+.sc1 { position: sticky; left: 32px;  z-index: 3; }
+.sc2 { position: sticky; left: 152px; z-index: 3; }
+.gridTable th.sc0, .gridTable th.sc1, .gridTable th.sc2 { z-index: 20; background: var(--gray-50); }
+.filterRow.filterRow th.sc0, .filterRow.filterRow th.sc1, .filterRow.filterRow th.sc2 { z-index: 15; background: #f8fafc; }
+.gridTable td.sc0, .gridTable td.sc1, .gridTable td.sc2 { background: #fff; }
+.gridTable tr:hover td.sc0,
+.gridTable tr:hover td.sc1,
+.gridTable tr:hover td.sc2 { background: #f0f9ff; }
+.sc2 { position: sticky; left: 152px; z-index: 3; }
+.sc2::after {
+  content: ''; position: absolute;
+  right: -6px; top: 0; bottom: 0; width: 6px;
+  background: linear-gradient(to right, rgba(0,0,0,0.06), transparent);
+  pointer-events: none;
+}
 .mono { font-family: monospace; color: var(--primary) !important; font-weight: 600; }
 .num { font-variant-numeric: tabular-nums; }
 .empName { text-align: left !important; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -268,7 +286,7 @@
 .pageEllipsis { font-size: 0.78rem; color: var(--gray-400); padding: 0 2px; line-height: 26px; }
 
 /* ── Validate Panel ── */
-.validateWrap { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.validateWrap { padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
 .validateHeader {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
@@ -305,41 +323,41 @@
 .btnFixPn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btnFixInline {
-  margin-left: auto; padding: 3px 10px; border-radius: 5px; font-size: 0.72rem; font-weight: 600;
+  margin-left: auto; padding: 2px 8px; border-radius: 5px; font-size: 0.7rem; font-weight: 600;
   cursor: pointer; border: 1px solid #d97706; background: #fef3c7; color: #92400e;
   transition: all 0.1s; white-space: nowrap; flex-shrink: 0;
 }
 .btnFixInline:hover:not(:disabled) { background: #f59e0b; color: #fff; border-color: #d97706; }
 .btnFixInline:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.validateGrid { display: flex; flex-direction: column; gap: 10px; }
+.validateGrid { display: flex; flex-direction: column; gap: 5px; }
 .checkCard {
-  border-radius: 10px; border: 1px solid var(--gray-200);
+  border-radius: 7px; border: 1px solid var(--gray-200);
   overflow: hidden; transition: box-shadow 0.12s;
 }
-.checkCard:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-.checkCardOk    { border-left: 4px solid #22c55e; }
-.checkCardWarn  { border-left: 4px solid #f59e0b; }
-.checkCardError { border-left: 4px solid #ef4444; }
-.checkCardActive { background: #eff6ff; border-color: #3b82f6; border-left: 4px solid #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
+.checkCard:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.checkCardOk    { border-left: 3px solid #22c55e; }
+.checkCardWarn  { border-left: 3px solid #f59e0b; }
+.checkCardError { border-left: 3px solid #ef4444; }
+.checkCardActive { background: #eff6ff; border-color: #3b82f6; border-left: 3px solid #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
 
 .checkCardHeader {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; cursor: pointer;
   background: var(--gray-50); user-select: none;
 }
 .checkCardHeader:hover { background: #f1f5f9; }
 .checkStatusDot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
-.dotOk    { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
-.dotWarn  { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
-.dotError { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.18); }
+.dotOk    { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.18); }
+.dotWarn  { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.18); }
+.dotError { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.18); }
 
-.checkLabel { font-size: 0.85rem; font-weight: 700; color: var(--gray-800); flex: 1; }
+.checkLabel { font-size: 0.78rem; font-weight: 700; color: var(--gray-800); flex: 1; }
 .checkDesc  { font-size: 0.75rem; color: var(--gray-500); flex: 2; }
 .checkCount {
-  font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; flex-shrink: 0;
+  font-size: 0.72rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; flex-shrink: 0;
 }
 .countOk    { background: #f0fdf4; color: #15803d; }
 .countWarn  { background: #fffbeb; color: #b45309; }
