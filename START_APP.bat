@@ -4,38 +4,40 @@ cd /d "%~dp0"
 title THV - Quan Ly Cham Cong
 
 echo.
-echo  Thu muc hien tai: %CD%
-echo  Kiem tra package.json:
-if exist "package.json" (echo  [OK] Co package.json) else (echo  [LOI] KHONG co package.json)
-echo.
 echo  ============================================
 echo    TAN HUE VIEN - Quan Ly Cham Cong
 echo  ============================================
 echo.
 
-:: Kiem tra Node.js
+:: Kiem tra Node.js va version
 node -v >nul 2>&1
-if %errorlevel% neq 0 goto NO_NODE
+if %errorlevel% neq 0 goto INSTALL_NODE
 
+for /f "tokens=1 delims=." %%m in ('node -v') do set NODE_MAJOR=%%m
+set NODE_MAJOR=%NODE_MAJOR:v=%
+if "%NODE_MAJOR%"=="20" goto NODE_OK
+
+echo  [!] Dang dung Node.js sai phien ban (can v20).
+echo  [*] Tu dong cai dat Node.js v20 LTS...
+goto INSTALL_NODE
+
+:INSTALL_NODE
+echo  [*] Dang tai Node.js v20 LTS (khoang 30MB)...
+powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.19.2/node-v20.19.2-x64.msi' -OutFile '%TEMP%\node20.msi' -UseBasicParsing"
+if %errorlevel% neq 0 goto DOWNLOAD_FAIL
+echo  [*] Dang cai dat Node.js v20...
+msiexec /i "%TEMP%\node20.msi" /qn /norestart
+if %errorlevel% neq 0 goto INSTALL_NODE_FAIL
+echo  [OK] Da cai Node.js v20. Dang khoi dong lai...
+echo.
+echo  Vui long KHOI DONG LAI MAY roi chay lai START_APP.bat
+echo.
+pause
+exit /b 0
+
+:NODE_OK
 for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
 echo  [OK] Node.js %NODE_VER%
-
-:: Kiem tra version Node phai la v20.x
-for /f "tokens=1 delims=." %%m in ("%NODE_VER:v=%") do set NODE_MAJOR=%%m
-if %NODE_MAJOR% neq 20 (
-    echo.
-    echo  [LOI] Node.js %NODE_VER% khong tuong thich!
-    echo  Phan mem yeu cau Node.js phien ban 20 LTS.
-    echo.
-    echo  Vui long:
-    echo    1. Vao https://nodejs.org/en/download
-    echo    2. Chon "Previous Releases" hoac tim "20.x LTS"
-    echo    3. Cai dat, khoi dong lai may, chay lai file nay
-    echo.
-    pause
-    start https://nodejs.org/en/download
-    goto END
-)
 echo.
 
 :: Cai dependencies
@@ -70,27 +72,21 @@ powershell -Command "Start-Sleep 3; Start-Process 'http://localhost:3000'"
 call npm.cmd start
 goto END
 
-:NO_NODE
-echo.
-echo  [LOI] Chua co Node.js!
-echo  1. Vao https://nodejs.org
-echo  2. Tai phien ban LTS va cai dat
-echo  3. Khoi dong lai may, chay lai file nay
-echo.
-start https://nodejs.org
+:DOWNLOAD_FAIL
+echo  [LOI] Khong tai duoc Node.js. Kiem tra ket noi Internet.
+echo  Hoac tai thu cong tai: https://nodejs.org/dist/v20.19.2/node-v20.19.2-x64.msi
+goto END
+
+:INSTALL_NODE_FAIL
+echo  [LOI] Cai dat Node.js that bai. Thu chay lai voi quyen Administrator.
 goto END
 
 :INSTALL_FAIL
-echo.
-echo  [LOI] Cai dat thu vien that bai.
-echo  Kiem tra ket noi Internet va thu lai.
-echo.
+echo  [LOI] Cai dat thu vien that bai. Kiem tra ket noi Internet va thu lai.
 goto END
 
 :BUILD_FAIL
-echo.
 echo  [LOI] Build that bai. Lien he ky thuat de duoc ho tro.
-echo.
 goto END
 
 :END
