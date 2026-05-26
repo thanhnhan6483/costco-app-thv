@@ -18,7 +18,10 @@ export interface AllocParams {
   workdaysThreshold: number;
   pnStartFromDay: number;
   maxOtPerDayHours: number;
+  minOtPerDayMinutes: number;      // QT7: OT tối thiểu/ngày (phút), 0 = không áp dụng
   otStartFromDay: number;
+  maxOtBetweenRestHours: number;   // QT9: OT tối đa giữa 2 ngày nghỉ (giờ)
+  maxOtBalanceDiffMinutes: number; // QT8: chênh lệch OT tối đa trong phòng (phút)
   maxLatePerDayMinutes: number;
   lateStartFromDay: number;
   specialGroupHourReduction: number;
@@ -400,16 +403,58 @@ export function distributeOT(
 ): number[] {
   const result: number[] = arrangement.map(v => (v !== 0 ? -1 : 0));
   let remaining = totalHours;
+  const minOtH = params.minOtPerDayMinutes > 0 ? params.minOtPerDayMinutes / 60 : 0;
+  const maxBetweenH = params.maxOtBetweenRestHours ?? 12;
+
+  // Tính OT tích lũy giữa 2 ngày nghỉ (QT9)
+  // Mỗi "kỳ" là chuỗi ngày làm liên tiếp giữa 2 ngày nghỉ
+  // Xây dựng map: index → periodId
+  const periodId: number[] = new Array(arrangement.length).fill(-1);
+  let pid = 0;
+  let inWork = false;
+  for (let i = 0; i < arrangement.length; i++) {
+    if (arrangement[i] === 0) {
+      if (!inWork) { inWork = true; pid++; }
+      periodId[i] = pid;
+    } else {
+      inWork = false;
+    }
+  }
+  const periodOT = new Map<number, number>(); // pid → tổng OT đã phân bổ (giờ)
+
   let idx = params.otStartFromDay - 1;
   while (remaining > 0 && idx < result.length) {
     if (result[idx] === 0) {
-      const amount = Math.min(randInt(1, params.maxOtPerDayHours), remaining);
-      result[idx] = amount;
-      remaining -= amount;
+      const pid2 = periodId[idx];
+      const usedInPeriod = periodOT.get(pid2) ?? 0;
+      const canAddInPeriod = Math.max(0, maxBetweenH - usedInPeriod);
+      if (canAddInPeriod <= 0) { idx++; continue; }
+
+      const lo = minOtH > 0 ? Math.min(minOtH, remaining, params.maxOtPerDayHours) : 1;
+      const hi = Math.min(params.maxOtPerDayHours, remaining, canAddInPeriod);
+      if (lo > hi) { idx++; continue; }
+
+      const amount = lo + Math.random() * (hi - lo);
+      const rounded = Math.round(amount * 4) / 4;
+      result[idx] = rounded;
+      remaining -= rounded;
+      periodOT.set(pid2, usedInPeriod + rounded);
     }
     idx++;
   }
-  return result;
+
+  // Fallback: nếu còn remaining (tất cả period đã đầy QT9), phân bổ tiếp bỏ qua giới hạn period
+  if (remaining > 0) {
+    idx = params.otStartFromDay - 1;
+    while (remaining > 0 && idx < result.length) {
+      if (result[idx] === 0) {
+        const add = Math.min(params.maxOtPerDayHours, remaining);
+        result[idx] = (result[idx] > 0 ? result[idx] : 0) + add;
+        remaining -= add;
+      }
+      idx++;
+    }
+  }
 }
 
 /* ── Bước 4: Phân bổ Trễ ────────────────────────── */
@@ -581,8 +626,9 @@ export function step6_generateTime(
   if (dayType === 2) return { checkIn: 'PN', checkOut: 'PN' };
   if (dayType !== 0) return { checkIn: '', checkOut: '' };
 
-  const shift = shiftCode === 'C2' && shift2 ? shift2
-    : shift1 ?? DEFAULT_SHIFT;
+  const shift = (shiftCode === 'C2' && shift2) ? shift2
+    : (shiftCode === 'C1' && shift1) ? shift1
+    : shift1 ?? shift2 ?? DEFAULT_SHIFT;
 
   let checkIn  = randomTime(shift.windowStart, shift.clockIn);
   let checkOut = randomTime(shift.clockOut, shift.windowEnd);

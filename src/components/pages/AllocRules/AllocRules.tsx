@@ -160,6 +160,19 @@ export default function AllocRules() {
     await load(); setSaving(false); setDeleteId(null);
   };
 
+  const [seeding, setSeeding] = useState(false);
+  const doSeed = async () => {
+    if (!confirm('Xóa toàn bộ quy tắc hiện tại và seed lại 9 quy tắc mặc định?')) return;
+    setSeeding(true);
+    try {
+      const res = await fetch(`/api/alloc-rules/seed?month=${activeMonthId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await load();
+    } catch (e) { alert('Lỗi: ' + (e instanceof Error ? e.message : String(e))); }
+    finally { setSeeding(false); }
+  };
+
   /* ── Render ─────────────────────────────── */
   return (
     <div className={s.page}>
@@ -175,6 +188,12 @@ export default function AllocRules() {
         <div className={s.actionBarRight}>
           <button className={`${s.btnAction} ${s.btnActionPrimary}`} onClick={() => openCreate()} disabled={activeMonthLocked}>
             <IconPlus /><span>Thêm Mới</span>
+          </button>
+          <div className={s.dividerV} />
+          <button className={s.btnAction} onClick={doSeed} disabled={seeding || activeMonthLocked}
+            title="Xóa và seed lại 9 quy tắc mặc định" style={{ color: '#d97706' }}>
+            <span className={seeding ? s.spinning : ''}>⚙️</span>
+            <span>{seeding ? 'Đang seed…' : 'Seed Mặc Định'}</span>
           </button>
           <div className={s.dividerV} />
           <a

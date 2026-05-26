@@ -34,8 +34,11 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
     workdaysThreshold:         27, // hardcode như Python gốc
     pnStartFromDay:            m['pn_start_from_day']             ?? 15,
     maxOtPerDayHours:          m['max_ot_per_day_hours']          ?? 4,
+    minOtPerDayMinutes:        m['min_ot_per_day_minutes']        ?? 60,
     otStartFromDay:            m['ot_distribution_start_day']     ?? 15,
-    maxLatePerDayMinutes:      m['max_late_per_day_minutes']      ?? 14,
+    maxOtBetweenRestHours:     m['max_ot_between_rest_hours']     ?? 12,
+    maxOtBalanceDiffMinutes:   m['max_ot_balance_diff_minutes']   ?? 30,
+    maxLatePerDayMinutes:      m['max_late_per_day_minutes']      ?? 9,
     lateStartFromDay:          m['late_distribution_start_day']   ?? 15,
     specialGroupHourReduction: m['special_group_work_hour_reduction'] ?? 1,
     skipEqualRestDeptCodes:    skipCodes,

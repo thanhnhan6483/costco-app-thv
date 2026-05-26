@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
 
     const empMap = new Map<string, {
       code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string;
+      workdays: string; specialGroup: string;
       days: typeof rows;
       workCount: number; lpCount: number; pnCount: number; totalOT: number; totalLate: number;
     }>();

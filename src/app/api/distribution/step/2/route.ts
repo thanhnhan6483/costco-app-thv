@@ -72,16 +72,17 @@ export async function POST(req: NextRequest) {
       deptTarget.set(deptId, Math.round(median));
     }
 
-    // 3. Build map empId → clamped workdays (target ±1)
+    // 3. Build map empId → clamped workdays (target ± maxDayOffDifference)
     const clampedWorkdays = new Map<string, number>();
+    const diff = params.maxDayOffDifference;
     for (const emp of emps) {
       const deptId = emp.departmentId ?? '';
       const wd = parseFloat(emp.workdays) || 27;
       if (deptTarget.has(deptId)) {
         const target = deptTarget.get(deptId)!;
-        clampedWorkdays.set(emp.id, Math.max(target - 1, Math.min(target + 1, wd)));
+        clampedWorkdays.set(emp.id, Math.max(target - diff, Math.min(target + diff, wd)));
       } else {
-        clampedWorkdays.set(emp.id, wd); // BGD hoặc không có phòng: giữ nguyên
+        clampedWorkdays.set(emp.id, wd);
       }
     }
     // ─────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
       specialGroup: emp.specialGroup ?? '', groupCodeEndDate: emp.groupCodeEndDate ?? '',
       ngayNghiCuoiThangTruoc: emp.ngayNghiCuoiThangTruoc ?? '',
       workdays: emp.workdays ?? '27', overtimeHours: emp.overtimeHours ?? '0',
-      lateMinutes: emp.lateMinutes ?? '0', phepNam: emp.phepNam ?? '1',
+      lateMinutes: emp.lateMinutes ?? '0', phepNam: emp.phepNam ?? '0',
       days: DAY_COLS.map(c => emp[c] ?? ''),
       _normalizedWorkdays: String(clampedWorkdays.get(emp.id) ?? emp.workdays ?? '27'),
     }));
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
     const processed = emps.length;
     await markStepDone(monthId, 2);
     await conn.close();
-    return NextResponse.json({ ok: true, step: 1, processed });
+    return NextResponse.json({ ok: true, step: 2, processed });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });

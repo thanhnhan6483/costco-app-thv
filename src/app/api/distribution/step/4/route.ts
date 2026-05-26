@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadParams, markStepDone, DAY_COLS } from '@/lib/stepHelpers';
+import { loadParams, markStepDone, loadMonthInfo } from '@/lib/stepHelpers';
 import { step5_distributeOTLate } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
   const conn = await getConn();
   try {
     const params = await loadParams(monthId);
+    const { daysInMonth } = await loadMonthInfo(monthId);
 
     const emps = await conn.all<{ id: string; overtimeHours: string; lateMinutes: string }>(
       `SELECT id, overtime_hours AS overtimeHours, late_minutes AS lateMinutes
@@ -55,8 +56,54 @@ export async function POST(req: NextRequest) {
     }
 
     await markStepDone(monthId, 4);
+
+    // QT8: cân bằng OT trong phòng ban (inline, không gọi HTTP)
+    const maxDiffH = params.maxOtBalanceDiffMinutes / 60;
+    const empDeptRows = await conn.all<{ empId: string; deptId: string }>(
+      `SELECT id AS empId, department_id AS deptId FROM employees WHERE month_id = ? AND active = TRUE`, monthId
+    );
+    const deptEmpsMap = new Map<string, string[]>();
+    for (const e of empDeptRows) {
+      if (!deptEmpsMap.has(e.deptId)) deptEmpsMap.set(e.deptId, []);
+      deptEmpsMap.get(e.deptId)!.push(e.empId);
+    }
+    const otRows = await conn.all<{ empId: string; day: number; dayType: number; otHours: number }>(
+      `SELECT employee_id AS empId, day, day_type AS dayType, ot_hours AS otHours
+       FROM distribution_results WHERE month_id = ?`, monthId
+    );
+    type OTDay = { dayType: number; otHours: number };
+    const empOTMap = new Map<string, Map<number, OTDay>>();
+    for (const r of otRows) {
+      if (!empOTMap.has(r.empId)) empOTMap.set(r.empId, new Map());
+      empOTMap.get(r.empId)!.set(Number(r.day), { dayType: Number(r.dayType), otHours: Number(r.otHours) });
+    }
+    const otUpdates: { empId: string; day: number; otHours: number }[] = [];
+    for (const [, members] of deptEmpsMap) {
+      if (members.length < 2) continue;
+      const dim = daysInMonth;
+      for (let d = 1; d <= dim; d++) {
+        const otList = members
+          .map(id => ({ id, ot: empOTMap.get(id)?.get(d)?.otHours ?? 0, dt: empOTMap.get(id)?.get(d)?.dayType ?? -1 }))
+          .filter(m => m.dt === 0 && m.ot > 0);
+        if (otList.length < 2) continue;
+        const maxOt = Math.max(...otList.map(m => m.ot));
+        const minOt = Math.min(...otList.map(m => m.ot));
+        if (maxOt - minOt <= maxDiffH) continue;
+        const avg = Math.round((otList.reduce((s, m) => s + m.ot, 0) / otList.length) * 4) / 4;
+        for (const m of otList) {
+          if (Math.abs(m.ot - avg) > 0.01) otUpdates.push({ empId: m.id, day: d, otHours: avg });
+        }
+      }
+    }
+    for (const u of otUpdates) {
+      await conn.run(
+        `UPDATE distribution_results SET ot_hours = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
+        u.otHours, monthId, u.empId, u.day
+      );
+    }
+
     await conn.close();
-    return NextResponse.json({ ok: true, step: 5, processed: emps.length });
+    return NextResponse.json({ ok: true, step: 4, processed: emps.length, otBalanceFixes: otUpdates.length });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });

@@ -433,6 +433,115 @@ export async function GET(req: NextRequest) {
     results.push(checkImportPN);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check QT7: OT tối thiểu/ngày (nếu có OT thì ≥ minOtPerDayMinutes)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkQt7: CheckResult = {
+      id: 'ot_min_per_day',
+      label: 'Tăng ca tối thiểu/ngày',
+      description: params.minOtPerDayMinutes > 0
+        ? `Nếu có OT thì phải ≥ ${params.minOtPerDayMinutes} phút/ngày`
+        : 'Không áp dụng (min OT = 0)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    if (params.minOtPerDayMinutes > 0) {
+      const minOtH = params.minOtPerDayMinutes / 60;
+      for (const emp of emps) {
+        const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+        for (const d of emp.days) {
+          if (d.otHours > 0 && d.otHours < minOtH) {
+            checkQt7.violations.push({
+              code: emp.code, name: emp.name, deptName, day: d.day,
+              detail: `OT ngày ${d.day}: ${Math.round(d.otHours * 60)}ph (dưới tối thiểu ${params.minOtPerDayMinutes}ph)`,
+            });
+          }
+        }
+      }
+    }
+    checkQt7.violationCount = checkQt7.violations.length;
+    checkQt7.status = checkQt7.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkQt7);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check QT8: OT cân bằng trong phòng ban (chênh ≤ maxOtBalanceDiffMinutes)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkQt8: CheckResult = {
+      id: 'ot_balance',
+      label: 'OT cân bằng trong phòng',
+      description: `Chênh lệch OT giữa NV cùng phòng ≤ ${params.maxOtBalanceDiffMinutes} phút/ngày`,
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    {
+      const maxDiffH = params.maxOtBalanceDiffMinutes / 60;
+      // Group NV theo phòng, mỗi ngày kiểm tra chênh lệch OT
+      const deptDayOT = new Map<string, Map<number, number[]>>();
+      for (const emp of emps) {
+        for (const d of emp.days) {
+          if (d.dayType !== 0 || d.otHours <= 0) continue;
+          if (!deptDayOT.has(emp.deptId)) deptDayOT.set(emp.deptId, new Map());
+          const dm = deptDayOT.get(emp.deptId)!;
+          if (!dm.has(d.day)) dm.set(d.day, []);
+          dm.get(d.day)!.push(d.otHours);
+        }
+      }
+      for (const [deptId, dayMap] of deptDayOT) {
+        const deptName = deptMap.get(deptId)?.name ?? '—';
+        for (const [day, otList] of dayMap) {
+          if (otList.length < 2) continue;
+          const diff = Math.max(...otList) - Math.min(...otList);
+          if (diff > maxDiffH) {
+            checkQt8.violations.push({
+              code: '—', name: deptName, deptName, day,
+              detail: `Ngày ${day}: OT chênh ${Math.round(diff * 60)}ph (max ${params.maxOtBalanceDiffMinutes}ph) — [${otList.map(h => Math.round(h * 60) + 'ph').join(', ')}]`,
+            });
+          }
+        }
+      }
+    }
+    checkQt8.violationCount = checkQt8.violations.length;
+    checkQt8.status = checkQt8.violationCount === 0 ? 'ok' : 'warning';
+    results.push(checkQt8);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check QT9: OT tối đa giữa 2 ngày nghỉ ≤ maxOtBetweenRestHours
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkQt9: CheckResult = {
+      id: 'ot_between_rest',
+      label: 'OT tối đa giữa 2 ngày nghỉ',
+      description: `Tổng OT giữa 2 ngày nghỉ liên tiếp ≤ ${params.maxOtBetweenRestHours}h`,
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      // Chia thành các "kỳ" giữa 2 ngày nghỉ
+      let periodOT = 0; let periodStart = 1;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayData = emp.days.find(x => x.day === d);
+        if (!dayData || dayData.dayType !== 0) {
+          // Ngày nghỉ → kết thúc kỳ
+          if (periodOT > params.maxOtBetweenRestHours) {
+            checkQt9.violations.push({
+              code: emp.code, name: emp.name, deptName, day: periodStart,
+              detail: `OT từ ngày ${periodStart}–${d - 1}: ${periodOT.toFixed(1)}h (vượt ${params.maxOtBetweenRestHours}h)`,
+            });
+          }
+          periodOT = 0; periodStart = d + 1;
+        } else {
+          periodOT += dayData.otHours;
+        }
+      }
+      // Kiểm tra kỳ cuối tháng
+      if (periodOT > params.maxOtBetweenRestHours) {
+        checkQt9.violations.push({
+          code: emp.code, name: emp.name, deptName, day: periodStart,
+          detail: `OT từ ngày ${periodStart}–${daysInMonth}: ${periodOT.toFixed(1)}h (vượt ${params.maxOtBetweenRestHours}h)`,
+        });
+      }
+    }
+    checkQt9.violationCount = checkQt9.violations.length;
+    checkQt9.status = checkQt9.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkQt9);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const filtered = filterIds ? results.filter(r => filterIds.has(r.id)) : results;

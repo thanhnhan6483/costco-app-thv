@@ -4,6 +4,7 @@ import {
   AllocParams, EmployeeInput, ShiftInfo,
   processEmployee, DayResult,
 } from '@/lib/distributionEngine';
+import { loadParams } from '@/lib/stepHelpers';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +19,6 @@ interface RawShift {
   id: string; departmentId: string | null; shiftType: string;
   windowStart: string; clockIn: string; clockOut: string; windowEnd: string;
 }
-interface RawRule { paramKey: string; paramValue: number | null; }
 interface RawDept { id: string; code: string; name: string; }
 
 function nanOrNum(v: unknown): number | null {
@@ -33,23 +33,7 @@ export async function POST(req: NextRequest) {
     if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
 
     /* 1. Load alloc params */
-    const rawRules = await conn.all<RawRule>(
-      `SELECT param_key AS paramKey, param_value AS paramValue FROM alloc_rules WHERE month_id = ?`, monthId
-    );
-    const ruleMap = Object.fromEntries(rawRules.map(r => [r.paramKey, r.paramValue]));
-    const activeKeys = new Set(rawRules.map(r => r.paramKey));
-    const params: AllocParams = {
-      maxConsecutiveDays:        ruleMap['max_consecutive_days']          ?? 6,
-      workdaysThreshold:         ruleMap['workdays_algorithm_threshold']  ?? 27,
-      pnStartFromDay:            ruleMap['pn_start_from_day']             ?? 15,
-      usePnPreferredPosition:    activeKeys.has('pn_preferred_position'),
-      maxOtPerDayHours:          ruleMap['max_ot_per_day_hours']          ?? 4,
-      otStartFromDay:            ruleMap['ot_distribution_start_day']     ?? 15,
-      maxLatePerDayMinutes:      ruleMap['max_late_per_day_minutes']      ?? 14,
-      lateStartFromDay:          ruleMap['late_distribution_start_day']   ?? 15,
-      specialGroupHourReduction: ruleMap['special_group_work_hour_reduction'] ?? 1,
-      skipEqualRestDeptCodes:    [],
-    };
+    const params = await loadParams(monthId);
 
     /* 2. Load month info */
     const months = await conn.all<{ fromDate: string; toDate: string }>(

@@ -1,7 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadShiftMap, loadSpecialDeptIds, markStepDone, getShiftEntry } from '@/lib/stepHelpers';
-import { step4_assignShift, step4_assignShiftsBatch } from '@/lib/distributionEngine';
+import { step4_assignShiftsBatch } from '@/lib/distributionEngine';
+const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
 
@@ -27,16 +28,42 @@ export async function POST(req: NextRequest) {
     }
 
     // Tính toán tất cả changes in-memory
+    // QT5: chia ca cân bằng theo phòng ban — mỗi ngày đếm C1/C2 trong phòng, ưu tiên ca ít hơn
+    // deptDayCount[deptId][day] = { c1: số NV Ca1, c2: số NV Ca2 }
+    const deptDayCount = new Map<string, Map<number, { c1: number; c2: number }>>();
+
     const rows: string[] = [];
     for (const emp of emps) {
       const deptId = emp.departmentId ?? null;
       const entry = getShiftEntry(shiftMap, deptId);
       const isCommonShift = !deptId || !shiftMap.has(deptId);
       const days = daysByEmp.get(emp.id) ?? [];
-      const assigned = step4_assignShiftsBatch(days, entry.ca1, entry.ca2, isCommonShift);
-      for (const a of assigned) {
-        const sc = (a.shiftCode ?? '').replace(/'/g, "''");
-        rows.push(`('${emp.id}',${a.day},'${sc}')`);
+
+      if (!entry.ca1 || !entry.ca2) {
+        // Chỉ 1 ca → gán thẳng
+        const assigned = step4_assignShiftsBatch(days, entry.ca1, entry.ca2, isCommonShift);
+        for (const a of assigned) {
+          const sc = (a.shiftCode ?? '').replace(/'/g, "''");
+          rows.push(`('${emp.id}',${a.day},'${sc}')`);
+        }
+        continue;
+      }
+
+      // Có 2 ca → chia cân bằng theo phòng
+      const key = deptId ?? 'DEFAULT';
+      if (!deptDayCount.has(key)) deptDayCount.set(key, new Map());
+      const dayCount = deptDayCount.get(key)!;
+
+      for (const d of days) {
+        if (d.dayType !== 0) { rows.push(`('${emp.id}',${d.day},'')`); continue; }
+        if (!dayCount.has(d.day)) dayCount.set(d.day, { c1: 0, c2: 0 });
+        const cnt = dayCount.get(d.day)!;
+        // Chọn ca ít hơn; nếu bằng nhau thì random
+        let sc: string;
+        if (cnt.c1 < cnt.c2) { sc = 'C1'; cnt.c1++; }
+        else if (cnt.c2 < cnt.c1) { sc = 'C2'; cnt.c2++; }
+        else { sc = randInt(1, 2) === 1 ? 'C1' : 'C2'; sc === 'C1' ? cnt.c1++ : cnt.c2++; }
+        rows.push(`('${emp.id}',${d.day},'${sc}')`);
       }
     }
 
@@ -58,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     await markStepDone(monthId, 3);
     await conn.close();
-    return NextResponse.json({ ok: true, step: 4, processed: emps.length });
+    return NextResponse.json({ ok: true, step: 3, processed: emps.length });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
