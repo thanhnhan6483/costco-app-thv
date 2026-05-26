@@ -27,7 +27,7 @@ interface AllocRule {
 
 type Filters = { groupCode: string; groupName: string; name: string; paramKey: string; defaultParam: string; specificValue: string };
 const BLANK_FILTER: Filters = { groupCode: '', groupName: '', name: '', paramKey: '', defaultParam: '', specificValue: '' };
-const BLANK_FORM = { groupCode: '', groupName: '', name: '', paramKey: '', defaultParam: '', specificValue: '' };
+const BLANK_FORM = { groupCode: '', groupName: '', name: '', paramKey: '', paramValue: '', defaultParam: '', specificValue: '' };
 
 /* ── 4 nhóm quy tắc chuẩn ─────────────────── */
 const PRESET_GROUPS = [
@@ -113,6 +113,7 @@ export default function AllocRules() {
     setForm({
       groupCode: r.groupCode, groupName: r.groupName,
       name: r.name, paramKey: r.paramKey ?? '',
+      paramValue: r.paramValue != null ? String(r.paramValue) : '',
       defaultParam: r.defaultParam,
       specificValue: r.specificValue ?? '',
     });
@@ -132,7 +133,10 @@ export default function AllocRules() {
       if (editId) {
         await fetch(`/api/alloc-rules/${editId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            ...form,
+            paramValue: form.paramValue !== '' ? Number(form.paramValue) : null,
+          }),
         });
       } else {
         const res = await fetch('/api/alloc-rules', {
@@ -227,7 +231,15 @@ export default function AllocRules() {
                     placeholder="VD: max_consecutive_days" style={{ fontFamily: 'monospace' }} />
                 </div>
                 <div className={s.field}>
-                  <label className={s.label}>Giá trị mặc định</label>
+                  <label className={s.label}>Giá trị áp dụng (số) <span style={{color:'var(--primary)',fontWeight:700}}>← engine dùng</span></label>
+                  <input className={s.input} type="number" value={form.paramValue}
+                    onChange={e => setForm(f => ({ ...f, paramValue: e.target.value }))}
+                    placeholder="VD: 6" />
+                </div>
+              </div>
+              <div className={s.row2}>
+                <div className={s.field}>
+                  <label className={s.label}>Giá trị mặc định (hiển thị)</label>
                   <input className={s.input} value={form.defaultParam}
                     onChange={e => setForm(f => ({ ...f, defaultParam: e.target.value }))}
                     placeholder="VD: 6 ngày" />
@@ -281,7 +293,8 @@ export default function AllocRules() {
                 <th style={{ minWidth: 160 }}>TÊN NHÓM</th>
                 <th style={{ minWidth: 200 }}>QUY TẮC</th>
                 <th style={{ minWidth: 160 }}>MÃ QUY TẮC</th>
-                <th style={{ minWidth: 140 }}>GIÁ TRỊ MẶC ĐỊNH</th>
+                <th style={{ minWidth: 100 }}>GIÁ TRỊ (SỐ)</th>
+                <th style={{ minWidth: 140 }}>GIÁ TRỊ HIỂN THỊ</th>
                 <th style={{ minWidth: 220 }}>GHI CHÚ</th>
                 <th className={s.thAction}>THAO TÁC</th>
               </tr>
@@ -291,6 +304,7 @@ export default function AllocRules() {
                 <th><ColFilter value={col.groupName} placeholder="Tên nhóm…" onChange={setF('groupName')} /></th>
                 <th><ColFilter value={col.name} placeholder="Quy tắc…" onChange={setF('name')} /></th>
                 <th><ColFilter value={col.paramKey} placeholder="Mã…" onChange={setF('paramKey')} /></th>
+                <th />
                 <th><ColFilter value={col.defaultParam} placeholder="Giá trị…" onChange={setF('defaultParam')} /></th>
                 <th><ColFilter value={col.specificValue} placeholder="Ghi chú…" onChange={setF('specificValue')} /></th>
                 <th />
@@ -298,7 +312,7 @@ export default function AllocRules() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className={s.noResult}>
+                <tr><td colSpan={9} className={s.noResult}>
                   Không có kết quả.
                   {hasFilter && <button className={s.linkBtn} onClick={() => setCol(BLANK_FILTER)}> Xóa bộ lọc</button>}
                 </td></tr>
@@ -319,6 +333,17 @@ export default function AllocRules() {
                         fontFamily: 'monospace', letterSpacing: '0.02em',
                       }}>
                         {r.paramKey}
+                      </span>
+                    ) : <span style={{ color: 'var(--gray-300)', fontSize: 12 }}>—</span>}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {r.paramValue != null ? (
+                      <span style={{
+                        display: 'inline-block', background: '#eff6ff', color: '#1d4ed8',
+                        border: '1px solid #bfdbfe', borderRadius: 5,
+                        padding: '2px 10px', fontSize: 13, fontWeight: 700,
+                      }}>
+                        {r.paramValue}
                       </span>
                     ) : <span style={{ color: 'var(--gray-300)', fontSize: 12 }}>—</span>}
                   </td>

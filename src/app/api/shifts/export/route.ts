@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
   );
   await conn.close();
 
-  const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào', 'Giờ Ra', 'Cửa Sổ Vào', 'Cửa Sổ Ra'];
-  const data = rows.map(r => [r.name, r.departmentCode ?? '', r.shiftType, r.clockIn, r.clockOut, r.windowStart ?? '', r.windowEnd ?? '']);
+  const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)'];
+  const data = rows.map(r => [r.name, r.departmentCode ?? '', r.shiftType, r.windowStart ?? '', r.clockIn, r.clockOut, r.windowEnd ?? '']);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...data]);

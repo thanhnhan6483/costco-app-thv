@@ -31,10 +31,10 @@ interface Shift {
   departmentName: string | null;
   departmentCode: string | null;
   shiftType: string;
-  windowStart: string;
-  clockIn: string;
-  clockOut: string;
-  windowEnd: string;
+  windowStart: string | number;
+  clockIn: string | number;
+  clockOut: string | number;
+  windowEnd: string | number;
   createdAt: string;
 }
 
@@ -86,6 +86,22 @@ function SortTh({
       </span>
     </th>
   );
+}
+
+/* ── Helpers ──────────────────────────────────── */
+/** Chuẩn hóa giờ về HH:MM (xử lý cả số thực DuckDB lẫn chuỗi) */
+function formatTime(val: string | number | null | undefined): string {
+  if (val === null || val === undefined || val === '') return '';
+  // DuckDB TIME trả về số giây trong ngày (integer) hoặc fraction of day (float)
+  if (typeof val === 'number') {
+    const totalSec = val < 1 ? Math.round(val * 86400) : Math.round(val);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+  const m = String(val).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return String(val);
+  return m[1].padStart(2, '0') + ':' + m[2];
 }
 
 /* ── Main ─────────────────────────────────────── */
@@ -179,10 +195,10 @@ export default function Shifts() {
       name: r.name,
       departmentId: r.departmentId ?? '',
       shiftType: r.shiftType,
-      windowStart: r.windowStart,
-      clockIn: r.clockIn,
-      clockOut: r.clockOut,
-      windowEnd: r.windowEnd,
+      windowStart: formatTime(r.windowStart),
+      clockIn: formatTime(r.clockIn),
+      clockOut: formatTime(r.clockOut),
+      windowEnd: formatTime(r.windowEnd),
     });
     setEditId(r.id); setShowForm(true);
   };
@@ -477,10 +493,10 @@ export default function Shifts() {
                       {dept ? dept.name : <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Ca chung (mặc định)</span>}
                     </td>
                     <td><span className={ss.typeBadge} data-type={r.shiftType}>{r.shiftType}</span></td>
-                    <td className={s.timeCell}>{r.windowStart || <span className={s.noNote}>—</span>}</td>
-                    <td className={`${s.timeCell} ${ss.timeMain}`}>{r.clockIn}</td>
-                    <td className={`${s.timeCell} ${ss.timeMain}`}>{r.clockOut}</td>
-                    <td className={s.timeCell}>{r.windowEnd || <span className={s.noNote}>—</span>}</td>
+                    <td className={s.timeCell}>{formatTime(r.windowStart) || <span className={s.noNote}>—</span>}</td>
+                    <td className={`${s.timeCell} ${ss.timeMain}`}>{formatTime(r.clockIn)}</td>
+                    <td className={`${s.timeCell} ${ss.timeMain}`}>{formatTime(r.clockOut)}</td>
+                    <td className={s.timeCell}>{formatTime(r.windowEnd) || <span className={s.noNote}>—</span>}</td>
                     <td>
                       <div className={s.actions}>
                         <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa" disabled={activeMonthLocked}><IconEdit /></button>

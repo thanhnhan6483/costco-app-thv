@@ -4,11 +4,11 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào', 'Giờ Ra', 'Cửa Sổ Vào', 'Cửa Sổ Ra'];
+const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)'];
 const SAMPLE_ROWS = [
-  ['Ca Sáng Kinh Doanh', 'KD', 'Ca 1', '07:30', '16:30', '07:20', '16:35'],
-  ['Ca Chiều Bảo Vệ',    'BV', 'Ca 2', '14:00', '22:00', '13:50', '22:10'],
-  ['Ca Chung Công Ty',   '',   'Chung','07:30', '16:30', '07:20', '16:35'],
+  ['Ca Sáng Kinh Doanh', 'KD', 'Ca 1', '07:20', '07:30', '16:30', '16:35'],
+  ['Ca Chiều Bảo Vệ',    'BV', 'Ca 2', '13:50', '14:00', '22:00', '22:10'],
+  ['Ca Chung Công Ty',   '',   'Chung','07:20', '07:30', '16:30', '16:35'],
 ];
 
 export async function GET() {
@@ -25,6 +25,21 @@ export async function GET() {
   });
 }
 
+/** Convert Excel time (fraction of day hoặc chuỗi) → "HH:MM" */
+function toHHMM(val: unknown): string {
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'number') {
+    const totalMin = Math.round(val * 1440); // 1440 = 24*60
+    const h = Math.floor(totalMin / 60) % 24;
+    const m = totalMin % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+  const s = String(val).trim();
+  const match = s.match(/^(\d{1,2}):(\d{2})/);
+  if (match) return match[1].padStart(2, '0') + ':' + match[2];
+  return s;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -32,9 +47,9 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: 'Không có file' }, { status: 400 });
 
     const buf = Buffer.from(await file.arrayBuffer());
-    const wb = XLSX.read(buf, { type: 'buffer' });
+    const wb = XLSX.read(buf, { type: 'buffer', cellDates: false });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+    const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
     if (!data.length) return NextResponse.json({ error: 'File trống' }, { status: 400 });
     if (!('Tên Ca' in data[0]) || !('Giờ Vào' in data[0])) {
       return NextResponse.json({ error: 'File không đúng cấu trúc. Vui lòng tải mẫu.' }, { status: 422 });
@@ -56,10 +71,10 @@ export async function POST(req: NextRequest) {
       const name       = String(row['Tên Ca']       ?? '').trim();
       const deptCode   = String(row['Mã Phòng Ban'] ?? '').trim().toUpperCase();
       const shiftType  = String(row['Loại Ca']      ?? '').trim() || 'Ca 1';
-      const clockIn    = String(row['Giờ Vào']      ?? '').trim();
-      const clockOut   = String(row['Giờ Ra']       ?? '').trim();
-      const winStart   = String(row['Cửa Sổ Vào']  ?? '').trim();
-      const winEnd     = String(row['Cửa Sổ Ra']   ?? '').trim();
+      const winStart   = toHHMM(row['Giờ Vào (BD)']);
+      const clockIn    = toHHMM(row['Giờ Vào']);
+      const clockOut   = toHHMM(row['Giờ Tan']);
+      const winEnd     = toHHMM(row['Giờ Tan (KT)']);
 
       if (!name || !clockIn || !clockOut) {
         results.skipped++; results.skippedCodes.push(name || '(trống)'); continue;
