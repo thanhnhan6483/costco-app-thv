@@ -46,9 +46,12 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ error: 'Không có file' }, { status: 400 });
 
+    const sheetName = (formData.get('sheetName') as string) || undefined;
+
     const buf = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: 'buffer', cellDates: false });
-    const ws = wb.Sheets[wb.SheetNames[0]];
+    const targetSheet = sheetName && wb.SheetNames.includes(sheetName) ? sheetName : wb.SheetNames[0];
+    const ws = wb.Sheets[targetSheet];
     const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
     if (!data.length) return NextResponse.json({ error: 'File trống' }, { status: 400 });
     if (!('Tên Ca' in data[0]) || !('Giờ Vào' in data[0])) {
