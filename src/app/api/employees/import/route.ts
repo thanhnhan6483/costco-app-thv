@@ -35,10 +35,13 @@ export async function POST(req: NextRequest) {
     const monthId = (form.get('monthId') as string | null) ?? DEFAULT_MONTH_ID;
     if (!file) return NextResponse.json({ error: 'Không có file' }, { status: 400 });
 
+    const sheetName = (form.get('sheetName') as string) || undefined;
+
     const XLSX = await import('xlsx-js-style');
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
+    const targetSheet = sheetName && wb.SheetNames.includes(sheetName) ? sheetName : wb.SheetNames[0];
+    const ws = wb.Sheets[targetSheet];
     const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' });
 
     // ── Validate file ──────────────────────────────────────────────

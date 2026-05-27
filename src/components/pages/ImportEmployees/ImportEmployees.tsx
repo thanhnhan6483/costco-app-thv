@@ -160,6 +160,10 @@ export default function ImportEmployees() {
     unmappedDept: { code: string; name: string; deptCode: string }[];
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [showSheetSelector, setShowSheetSelector] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // ── Selection & Bulk edit ──────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -445,11 +449,10 @@ export default function ImportEmployees() {
     } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
     finally { setSyncing(false); }
   };
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+  const doImport = async (file: File, sheetName: string) => {
     setImporting(true);
     try {
-      const fd = new FormData(); fd.append('file', file); fd.append('monthId', activeMonthId);
+      const fd = new FormData(); fd.append('file', file); fd.append('monthId', activeMonthId); fd.append('sheetName', sheetName);
       const res = await fetch('/api/employees/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -459,7 +462,46 @@ export default function ImportEmployees() {
       setImportResult(data); await load();
     } catch (err) {
       setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: [err instanceof Error ? err.message : String(err)], unmappedDept: [] });
-    } finally { setImporting(false); if (fileRef.current) fileRef.current.value = ''; }
+    } finally {
+      setImporting(false);
+      setShowSheetSelector(false);
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      if (workbook.SheetNames.length > 1) {
+        setAvailableSheets(workbook.SheetNames);
+        setSelectedSheet(workbook.SheetNames[0]);
+        setPendingFile(file);
+        setShowSheetSelector(true);
+      } else {
+        await doImport(file, workbook.SheetNames[0]);
+      }
+    } catch (err) {
+      setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: ['Lỗi đọc file: ' + (err instanceof Error ? err.message : String(err))], unmappedDept: [] });
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const handleSheetConfirm = () => {
+    if (pendingFile && selectedSheet) {
+      doImport(pendingFile, selectedSheet);
+    }
+  };
+
+  const handleSheetCancel = () => {
+    setShowSheetSelector(false);
+    setPendingFile(null);
+    setAvailableSheets([]);
+    setSelectedSheet('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   return (
@@ -757,6 +799,39 @@ export default function ImportEmployees() {
             </div>
             <div className={s.confirmActions}>
               <button className={s.btnPrimary} onClick={() => setSyncResult(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet selector modal */}
+      {showSheetSelector && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal} style={{ maxWidth: 480 }}>
+            <div className={s.confirmIcon} style={{ background: '#eff6ff', color: '#1d4ed8' }}>📊</div>
+            <h3 className={s.confirmTitle}>Chọn Sheet để Import</h3>
+            <p className={s.confirmDesc} style={{ marginBottom: 16 }}>
+              File Excel có <strong>{availableSheets.length} sheets</strong>. Vui lòng chọn sheet cần import:
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <select
+                className={s.input}
+                value={selectedSheet}
+                onChange={(e) => setSelectedSheet(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}
+              >
+                {availableSheets.map(sheet => (
+                  <option key={sheet} value={sheet}>{sheet}</option>
+                ))}
+              </select>
+            </div>
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={handleSheetConfirm} disabled={importing}>
+                {importing ? '⏳ Đang import…' : '✅ Import'}
+              </button>
+              <button className={s.btnSecondary} onClick={handleSheetCancel} disabled={importing}>
+                Hủy
+              </button>
             </div>
           </div>
         </div>

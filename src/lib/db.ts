@@ -71,20 +71,8 @@ async function initSchema(db: Database): Promise<void> {
     }
   } catch { /* bảng chưa tồn tại */ }
 
-  /* Đảm bảo tháng 01/2026 tồn tại (tháng mặc định cho dữ liệu cũ) */
-  try {
-    const existing = await conn.all<{ cnt: number }>(
-      `SELECT COUNT(*) AS cnt FROM months WHERE id = '${DEFAULT_MONTH_ID}'`
-    );
-    if (Number(existing[0].cnt) === 0) {
-      await conn.run(
-        `INSERT INTO months (id, label, month, from_date, to_date, note, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        DEFAULT_MONTH_ID, 'Tháng 01/2026', '01/2026', '01/01/2026', '31/01/2026',
-        'Tháng mặc định – dữ liệu ban đầu', '2026-01-01'
-      );
-    }
-  } catch { /* bảng chưa tồn tại, sẽ được seed ở dưới */ }
+  /* Tháng mặc định sẽ được tạo trong seedIfEmpty() nếu DB trống */
+  /* Không tự động tạo lại nếu user đã xóa */
 
   /* departments – Phòng ban */
   await conn.run(`

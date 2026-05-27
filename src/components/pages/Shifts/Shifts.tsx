@@ -125,7 +125,7 @@ export default function Shifts() {
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [col, setCol] = useState<Filters>({
-    name: '', departmentId: '', isDefault: '', shiftType: '', otCalc: '',
+    name: '', departmentId: '', shiftType: '',
   });
   const setF = (k: keyof Filters) => (v: string) => setCol(p => ({ ...p, [k]: v }));
   const hasFilter = Object.values(col).some(v => v !== '');
@@ -169,9 +169,7 @@ export default function Shifts() {
     const base = rows.filter(r =>
       (!col.name || r.name.toLowerCase().includes(col.name.toLowerCase())) &&
       (!col.departmentId || r.departmentId === col.departmentId) &&
-      (col.isDefault === '' || (col.isDefault === 'true' ? r.isDefault : !r.isDefault)) &&
-      (!col.shiftType || r.shiftType === col.shiftType) &&
-      (!col.otCalc  || r.otCalc === col.otCalc)
+      (!col.shiftType || r.shiftType === col.shiftType)
     );
     if (!sortKey) return base;
     const numCols: SortKey[] = [];
@@ -182,8 +180,7 @@ export default function Shifts() {
         vb = (b as unknown as Record<string, number>)[sortKey] ?? 0;
         return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
       }
-      if (sortKey === 'isDefault') { va = a.isDefault ? '1' : '0'; vb = b.isDefault ? '1' : '0'; }
-      else if (sortKey === 'departmentName') { va = (a.departmentName ?? '').toLowerCase(); vb = (b.departmentName ?? '').toLowerCase(); }
+      if (sortKey === 'departmentName') { va = (a.departmentName ?? '').toLowerCase(); vb = (b.departmentName ?? '').toLowerCase(); }
       else { va = String((a as unknown as Record<string, unknown>)[sortKey] ?? '').toLowerCase(); vb = String((b as unknown as Record<string, unknown>)[sortKey] ?? '').toLowerCase(); }
       return sortDir === 'asc' ? (va as string).localeCompare(vb as string, 'vi') : (vb as string).localeCompare(va as string, 'vi');
     });

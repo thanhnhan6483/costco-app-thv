@@ -13,9 +13,10 @@ const RULES = [
   { id: '7', groupCode: 'OT_RULE',              groupName: 'Quy tắc tăng ca',    name: 'Tăng ca tối thiểu/ngày',            paramKey: 'min_ot_per_day_minutes',         paramValue: 60,   defaultParam: '60 phút/ngày',        description: 'Nếu có tăng ca, số phút OT trong ngày phải ≥ 60 phút. Đặt 0 để tắt.' },
   { id: '8', groupCode: 'OT_RULE',              groupName: 'Quy tắc tăng ca',    name: 'OT cân bằng trong phòng ban',       paramKey: 'max_ot_balance_diff_minutes',    paramValue: 30,   defaultParam: 'Chênh lệch ≤ 30 phút', description: 'Nhân viên cùng phòng ban có số giờ OT trong cùng ngày gần bằng nhau. Chênh lệch tối đa (phút).' },
   { id: '9', groupCode: 'OT_RULE',              groupName: 'Quy tắc tăng ca',    name: 'Tăng ca tối đa giữa hai ngày nghỉ', paramKey: 'max_ot_between_rest_hours',      paramValue: 12,   defaultParam: '12 giờ',              description: 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt N tiếng.' },
+  { id: '10', groupCode: 'WORK_RULE',           groupName: 'Quy tắc làm việc',   name: 'Vị trí phép năm ưu tiên',           paramKey: 'pn_preferred_position',          paramValue: null, defaultParam: 'Cuối kỳ nghỉ',       description: 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi.' },
 ];
 
-/* GET /api/alloc-rules/seed?month=xxx — xóa và seed lại 9 quy tắc mặc định */
+/* GET /api/alloc-rules/seed?month=xxx — xóa và seed lại quy tắc mặc định (giá trị tháng 4/2026) */
 export async function GET(req: NextRequest) {
   const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
   try {
