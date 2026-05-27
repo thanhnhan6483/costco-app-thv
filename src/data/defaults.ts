@@ -55,9 +55,9 @@ export const DEFAULT_LEAVE_TYPES: LeaveType[] = [
 ];
 
 export const DEFAULT_SPECIAL_GROUPS: SpecialGroup[] = [
-  { code: 'U18', name: 'Dưới 18 tuổi', maxHoursPerDay: 7, legalBasis: 'Bộ luật Lao động điều 146' },
-  { code: 'PREG', name: 'Mang thai', maxHoursPerDay: 7, legalBasis: 'Bộ luật Lao động điều 137' },
-  { code: 'NURSG', name: 'Nuôi con nhỏ (< 12 tháng)', maxHoursPerDay: 7, legalBasis: 'Bộ luật Lao động điều 137' },
+  { code: '18_DUOI_18', name: 'Dưới 18 tuổi', workHours: 7, note: 'Bộ luật Lao động điều 146' },
+  { code: '19A_CO_THAI', name: 'Mang thai', workHours: 7, note: 'Bộ luật Lao động điều 137' },
+  { code: '19_NUOI_CON_NHO', name: 'Nuôi con nhỏ (< 12 tháng)', workHours: 7, note: 'Bộ luật Lao động điều 137' },
 ];
 
 export const DEFAULT_ALLOC_RULES: AllocRule[] = [
@@ -76,7 +76,7 @@ export const SAMPLE_EMPLOYEES: Employee[] = [
   },
   {
     id: '2', code: 'NV002', name: 'Trần Thị Bích', department: 'KD',
-    groupCode: 'PREG', groupCodeEndDate: '31/05/2026',
+    groupCode: '19A_CO_THAI', groupCodeEndDate: '31/05/2026',
     workdays: 24, overtimeHours: 0, lateMinutes: 10, phepNam: 0,
     attendance: { '1': 'X', '2': 'X', '3': 'P', '4': 'X', '5': 'X', '6': 'X', '7': 'LP', '8': 'X' },
   },

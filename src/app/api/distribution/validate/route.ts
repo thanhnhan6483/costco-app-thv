@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check1: CheckResult = {
       id: 'consecutive_days',
-      label: 'Ngày làm liên tiếp',
+      label: `Ngày làm liên tiếp (≤ ${params.maxConsecutiveDays} ngày)`,
       description: `Không quá ${params.maxConsecutiveDays} ngày làm liên tiếp`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check2: CheckResult = {
       id: 'pn_start_day',
-      label: 'Vị trí phép năm',
+      label: `Vị trí phép năm (≥ ngày ${params.pnStartFromDay})`,
       description: activeKeys.has('pn_start_from_day')
         ? `PN chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`
         : 'Không áp dụng (rule đã tắt)',
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkPnCount: CheckResult = {
       id: 'pn_count',
-      label: 'Số ngày phép năm',
+      label: 'Số ngày phép năm (= phepNam)',
       description: 'Số ngày PN trong tháng phải đúng bằng phép năm của NV',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check4: CheckResult = {
       id: 'ot_max_per_day',
-      label: 'Tăng ca tối đa/ngày',
+      label: `Tăng ca tối đa/ngày (≤ ${params.maxOtPerDayHours}h)`,
       description: `OT không quá ${params.maxOtPerDayHours}h mỗi ngày`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -195,7 +195,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check5: CheckResult = {
       id: 'ot_start_day',
-      label: 'Tăng ca từ ngày thứ mấy',
+      label: `Tăng ca từ ngày thứ mấy (≥ ngày ${params.otStartFromDay})`,
       description: `Tăng ca chỉ phân bổ từ ngày ${params.otStartFromDay}`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check6: CheckResult = {
       id: 'late_max_per_day',
-      label: 'Đi trễ tối đa/ngày',
+      label: `Đi trễ tối đa/ngày (≤ ${params.maxLatePerDayMinutes} phút)`,
       description: `Trễ không quá ${params.maxLatePerDayMinutes} phút mỗi ngày`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -243,7 +243,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const check7: CheckResult = {
       id: 'late_start_day',
-      label: 'Trễ từ ngày thứ mấy',
+      label: `Trễ từ ngày thứ mấy (≥ ngày ${params.lateStartFromDay})`,
       description: `Trễ chỉ phân bổ từ ngày ${params.lateStartFromDay}`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -267,7 +267,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkShift: CheckResult = {
       id: 'shift_assigned',
-      label: 'Chia ca',
+      label: 'Chia ca (100% ngày làm có ca)',
       description: 'Tất cả ngày làm (X) phải được gán ca (Ca 1 / Ca 2)',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -292,7 +292,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkShiftBalance: CheckResult = {
       id: 'shift_balance',
-      label: 'Cân bằng ca trong phòng',
+      label: 'Cân bằng ca trong phòng (chênh ≤ 1 NV)',
       description: 'Số NV Ca1 và Ca2 trong cùng phòng mỗi ngày chênh ≤ 1',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -333,7 +333,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkTime: CheckResult = {
       id: 'check_time',
-      label: 'Giờ vào/ra',
+      label: 'Giờ vào/ra (checkIn < checkOut)',
       description: 'Ngày làm phải có giờ vào/ra hợp lệ (checkIn < checkOut)',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -358,38 +358,73 @@ export async function GET(req: NextRequest) {
     results.push(checkTime);
     const check8: CheckResult = {
       id: 'lp_balance',
-      label: 'Cân bằng ngày nghỉ trong phòng',
-      description: 'Số ngày LP giữa NV cùng phòng ban không chênh lệch quá 1',
+      label: `Cân bằng ngày nghỉ trong phòng (chênh ≤ ${Math.floor(100 * 0.4)}% người)`,
+      description: 'Số NV nghỉ/làm mỗi ngày trong phòng không chênh lệch quá nhiều',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     // Nhóm NV theo phòng ban (bỏ qua skipEqualRestDeptCodes)
     const skipCodes = new Set(params.skipEqualRestDeptCodes.map(c => c.toUpperCase()));
-    const deptEmps = new Map<string, { code: string; name: string; lpCount: number }[]>();
+    const deptEmpsMap = new Map<string, string[]>(); // deptId → empIds
     for (const emp of emps) {
       const dept = deptMap.get(emp.deptId);
       if (!dept || skipCodes.has(dept.code.toUpperCase())) continue;
-      const lpCount = emp.days.filter(d => d.dayType === 1).length;
-      if (!deptEmps.has(emp.deptId)) deptEmps.set(emp.deptId, []);
-      deptEmps.get(emp.deptId)!.push({ code: emp.code, name: emp.name, lpCount });
+      if (!deptEmpsMap.has(emp.deptId)) deptEmpsMap.set(emp.deptId, []);
+      deptEmpsMap.get(emp.deptId)!.push(emp.empId);
     }
-    for (const [deptId, members] of deptEmps) {
-      if (members.length < 2) continue;
+    
+    // Với mỗi phòng, kiểm tra cân bằng theo từng ngày
+    for (const [deptId, memberIds] of deptEmpsMap) {
+      if (memberIds.length < 2) continue;
       const deptName = deptMap.get(deptId)?.name ?? '—';
-      const lpCounts = members.map(m => m.lpCount);
-      const minLP = Math.min(...lpCounts);
-      const maxLP = Math.max(...lpCounts);
-      if (maxLP - minLP > params.maxDayOffDifference) {
+      const violatingDays: { day: number; workCount: number; restCount: number; diff: number }[] = [];
+      
+      // Với mỗi ngày trong tháng
+      for (let day = 1; day <= daysInMonth; day++) {
+        let workCount = 0;  // Số người làm (X)
+        let restCount = 0;  // Số người nghỉ (LP, PN, NL...)
+        
+        for (const empId of memberIds) {
+          const emp = emps.find(e => e.empId === empId);
+          if (!emp) continue;
+          
+          const dayData = emp.days.find(d => d.day === day);
+          if (!dayData) continue;
+          
+          if (dayData.dayType === 0) {
+            workCount++; // Ngày làm (X)
+          } else {
+            restCount++; // Ngày nghỉ (LP, PN, NL, Ô, TS...)
+          }
+        }
+        
+        const total = workCount + restCount;
+        if (total === 0) continue; // Không có data
+        
+        // Tính chênh lệch
+        const diff = Math.abs(workCount - restCount);
+        // Cho phép chênh tối đa 40% hoặc maxDayOffDifference người (lấy giá trị lớn hơn)
+        const maxAllowedDiff = Math.max(
+          Math.floor(total * 0.4),
+          params.maxDayOffDifference
+        );
+        
+        if (diff > maxAllowedDiff) {
+          violatingDays.push({ day, workCount, restCount, diff });
+        }
+      }
+      
+      if (violatingDays.length > 0) {
         // Dòng summary cho phòng
         check8.violations.push({
           code: '—', name: `📊 ${deptName}`, deptName, day: 0,
-          detail: `${members.length} NV — ngày LP thấp nhất ${minLP}, cao nhất ${maxLP}, chênh ${maxLP - minLP} ngày`,
+          detail: `${memberIds.length} NV — ${violatingDays.length} ngày vi phạm cân bằng`,
         });
-        // Chi tiết từng NV lệch
-        for (const m of members) {
-          if (m.lpCount !== minLP && m.lpCount !== maxLP) continue;
+        // Chi tiết TẤT CẢ các ngày vi phạm
+        for (const vd of violatingDays) {
+          const percent = Math.round((vd.diff / (vd.workCount + vd.restCount)) * 100);
           check8.violations.push({
-            code: m.code, name: m.name, deptName, day: 0,
-            detail: `${m.lpCount} ngày LP — ${m.lpCount === maxLP ? 'nhiều nhất trong phòng' : 'ít nhất trong phòng, cần tăng thêm ' + (maxLP - 1 - m.lpCount) + '–' + (maxLP - m.lpCount) + ' ngày'}`,
+            code: '—', name: deptName, deptName, day: vd.day,
+            detail: `Ngày ${vd.day}: ${vd.workCount} người làm, ${vd.restCount} người nghỉ (chênh ${vd.diff} người = ${percent}%)`,
           });
         }
       }
@@ -411,7 +446,7 @@ export async function GET(req: NextRequest) {
     );
     const checkImportPN: CheckResult = {
       id: 'pn_start_day_import',
-      label: 'PN trong dữ liệu import',
+      label: `PN trong dữ liệu import (≥ ngày ${params.pnStartFromDay})`,
       description: `PN trong file import chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
@@ -437,7 +472,9 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkQt7: CheckResult = {
       id: 'ot_min_per_day',
-      label: 'Tăng ca tối thiểu/ngày',
+      label: params.minOtPerDayMinutes > 0
+        ? `Tăng ca tối thiểu/ngày (≥ ${params.minOtPerDayMinutes} phút)`
+        : 'Tăng ca tối thiểu/ngày',
       description: params.minOtPerDayMinutes > 0
         ? `Nếu có OT thì phải ≥ ${params.minOtPerDayMinutes} phút/ngày`
         : 'Không áp dụng (min OT = 0)',
@@ -466,7 +503,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkQt8: CheckResult = {
       id: 'ot_balance',
-      label: 'OT cân bằng trong phòng',
+      label: `OT cân bằng trong phòng (chênh ≤ ${params.maxOtBalanceDiffMinutes} phút)`,
       description: `Chênh lệch OT giữa NV cùng phòng ≤ ${params.maxOtBalanceDiffMinutes} phút/ngày`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -506,7 +543,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkQt9: CheckResult = {
       id: 'ot_between_rest',
-      label: 'OT tối đa giữa 2 ngày nghỉ',
+      label: `OT tối đa giữa 2 ngày nghỉ (≤ ${params.maxOtBetweenRestHours}h)`,
       description: `Tổng OT giữa 2 ngày nghỉ liên tiếp ≤ ${params.maxOtBetweenRestHours}h`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -544,7 +581,12 @@ export async function GET(req: NextRequest) {
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const filtered = filterIds ? results.filter(r => filterIds.has(r.id)) : results;
+    // Chỉ hiển thị 3 checks quan trọng về OT (trừ khi có filter cụ thể)
+    const IMPORTANT_OT_CHECKS = new Set(['ot_min_per_day', 'ot_balance', 'ot_between_rest']);
+    const filtered = filterIds 
+      ? results.filter(r => filterIds.has(r.id)) 
+      : results.filter(r => IMPORTANT_OT_CHECKS.has(r.id));
+    
     const totalViolations = filtered.reduce((s, r) => s + r.violationCount, 0);
     const hasError = filtered.some(r => r.status === 'error');
     const hasWarning = filtered.some(r => r.status === 'warning');

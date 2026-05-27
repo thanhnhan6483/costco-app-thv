@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     }
 
     await markStepDone(monthId, 5);
+    await markStepDone(monthId, 6);
     await conn.close();
     return NextResponse.json({ ok: true, step: 5, processed: emps.length });
   } catch (e) {

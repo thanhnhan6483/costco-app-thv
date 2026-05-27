@@ -38,11 +38,7 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Không cho xóa tháng Master (01/2026) hoặc tháng đã khóa
-    if (id === 'month_jan2026') {
-      await conn.close();
-      return NextResponse.json({ error: 'Không thể xóa tháng Master (01/2026)' }, { status: 403 });
-    }
+    // Chỉ chặn xóa tháng đang bị khóa
     const [month] = await conn.all<{ locked: boolean }>(`SELECT locked FROM months WHERE id = ?`, id);
     if (month?.locked) {
       await conn.close();

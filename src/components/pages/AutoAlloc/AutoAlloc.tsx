@@ -345,7 +345,7 @@ export default function AutoAlloc() {
       const elapsedSec = Math.round((Date.now() - t0) / 1000);
       clearInterval(timer); setRunning(null); setElapsed(0);
       await fetch('/api/distribution/invalidate-after', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, afterDisplayStep: displayStep }) });
-      const laterSteps = STEPS.filter(s => s.num > displayStep && !s.viewOnly).map(s => s.num);
+      const laterSteps = STEPS.filter(s => s.num > displayStep).map(s => s.num);
       setStepCache(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); return n; });
       setStepData(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); return n; });
       setCompletionInfo({
@@ -354,6 +354,10 @@ export default function AutoAlloc() {
           setCompletionInfo(null);
           await refreshStatus();
           await loadStepData(displayStep, 1, undefined, true);
+          // Nếu bước này tự động đánh dấu xong bước 6 (bước 5), load sẵn dữ liệu bước 6
+          if (displayStep === 5) {
+            await loadStepData(6, 1, undefined, true);
+          }
         },
       });
     } catch (e) { clearInterval(timer); setRunning(null); setElapsed(0); throw e; }
@@ -1638,8 +1642,11 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   {check.id === 'shift_balance' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixShift(); }} disabled={fixingShift || loading} type="button">{fixingShift ? '...' : '⚖️ Cân bằng ca'}</button>
                   )}
-                  {(['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day'] as string[]).includes(check.id) && check.violationCount > 0 && (
+                  {(['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day', 'ot_min_per_day', 'ot_between_rest'] as string[]).includes(check.id) && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixOtLate(); }} disabled={fixingOtLate || loading} type="button">{fixingOtLate ? '...' : '🔧 Phân bổ lại'}</button>
+                  )}
+                  {check.id === 'ot_balance' && check.violationCount > 0 && (
+                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixOtLate(); }} disabled={fixingOtLate || loading} type="button">{fixingOtLate ? '...' : '⚖️ Cân bằng OT'}</button>
                   )}
                   {check.id === 'check_time' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
@@ -1672,6 +1679,40 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                           {isSummary
                             ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
                             : <><span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span><span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span><span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span></>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Violations cho OT checks */}
+                {(['ot_min_per_day', 'ot_between_rest'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                    {check.violations.map((v, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
+                        <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
+                        <span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span>
+                        <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {check.id === 'ot_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                    {check.violations.map((v, i) => {
+                      const isSummary = v.code === '—' && v.name.startsWith('📊');
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'baseline', gap: 8,
+                          padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
+                          background: isSummary ? '#fef9c3' : 'transparent',
+                          borderRadius: isSummary ? 6 : 0,
+                          borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
+                          marginTop: isSummary ? 4 : 0,
+                        }}>
+                          {isSummary
+                            ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
+                            : <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
                           }
                         </div>
                       );
@@ -1900,7 +1941,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   if (step === 4) return (
     <>
       <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['ot_max_per_day', 'ot_start_day', 'late_max_per_day', 'late_start_day']} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra giới hạn OT/ngày, ngày bắt đầu OT, giới hạn trễ/ngày, ngày bắt đầu trễ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
+        <ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
       </div>
       {dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />}
     </>

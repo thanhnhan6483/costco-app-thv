@@ -32,8 +32,8 @@ export interface LeaveType {
 export interface SpecialGroup {
   code: string;
   name: string;
-  maxHoursPerDay: number;
-  legalBasis: string;
+  workHours: number;
+  note?: string;
 }
 
 export interface Employee {

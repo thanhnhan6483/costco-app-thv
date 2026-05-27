@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadParams, loadMonthInfo } from '@/lib/stepHelpers';
+import { calcConsecutiveDays } from '@/lib/distributionEngine';
 export const runtime = 'nodejs';
 
 /**
@@ -8,6 +9,14 @@ export const runtime = 'nodejs';
  * Tìm NV có run ngày X > maxConsecutiveDays, hoán đổi ngày X cuối run
  * với một ngày LP khác trong tháng (ưu tiên LP gần nhất sau run).
  * Swap giữ nguyên tổng X và LP — không phá vỡ workdays hay lp_balance.
+ *
+ * FIX: xét ngayNghiCuoiThangTruoc để phát hiện vi phạm xuyên tháng.
+ * FIX: PN (dayType=2) cũng là ngày nghỉ → reset run như LP.
+ * 
+ * RÀNG BUỘC QUAN TRỌNG:
+ * - CHỈ được thay đổi: X (0), LP (1), PN (2) - dữ liệu tự sinh
+ * - TUYỆT ĐỐI KHÔNG thay đổi: dayType ≥ 3 - dữ liệu đầu vào cố định (Ô, TS, DS, O, NL, OF, P, ...)
+ * - CHỈ swap X (0) ↔ LP (1)
  */
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json() as { monthId: string };
@@ -26,8 +35,13 @@ export async function POST(req: NextRequest) {
        ORDER BY dr.employee_id, dr.day`, monthId
     );
 
-    const empInfoRows = await conn.all<{ id: string; code: string; name: string; deptName: string }>(
-      `SELECT e.id, e.code, e.name, COALESCE(d.name, '') AS deptName
+    // Load ngayNghiCuoiThangTruoc để tính consecutive xuyên tháng
+    const empInfoRows = await conn.all<{
+      id: string; code: string; name: string; deptName: string;
+      ngayNghiCuoiThangTruoc: string;
+    }>(
+      `SELECT e.id, e.code, e.name, COALESCE(d.name, '') AS deptName,
+              COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc
        FROM employees e
        LEFT JOIN departments d ON d.id = e.department_id
        WHERE e.month_id = ?`, monthId
@@ -43,50 +57,71 @@ export async function POST(req: NextRequest) {
 
     const changes: { empId: string; day: number; dayType: number }[] = [];
 
-    // Đếm tổng NV vi phạm trước khi sửa
+    // Hàm kiểm tra 1 ngày có phải "ngày làm" không (chỉ dayType=0 là làm)
+    const isWork = (dt: number) => dt === 0;
+
+    // Đếm tổng NV vi phạm trước khi sửa (xét cả xuyên tháng)
     let totalViolating = 0;
-    for (const [, arr] of empMap) {
-      let run = 0;
+    for (const [empId, arr] of empMap) {
+      const info = empInfoMap.get(empId);
+      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
+      let run = initialRun;
+      let violated = false;
       for (let i = 0; i < daysInMonth; i++) {
-        if (arr[i] === 0) { run++; if (run > max) { totalViolating++; break; } }
+        if (isWork(arr[i])) { run++; if (run > max) { violated = true; break; } }
         else run = 0;
       }
+      if (violated) totalViolating++;
     }
 
     for (const [empId, arr] of empMap) {
-      let maxIter = 50; // tránh vòng lặp vô hạn
+      const info = empInfoMap.get(empId);
+      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
+
+      let maxIter = 50;
       let changed = true;
       while (changed && maxIter-- > 0) {
         changed = false;
-        let run = 0; let runStart = 0;
+        let run = initialRun;
+        let runStart = -initialRun; // có thể âm (ngày tháng trước)
+
         for (let i = 0; i < daysInMonth; i++) {
-          if (arr[i] === 0) {
+          if (isWork(arr[i])) {
             if (run === 0) runStart = i;
             run++;
             if (run > max) {
-              // Tìm LP để swap: ưu tiên LP ngay sau run, rồi LP trước run
-              let lpIdx = -1;
-              for (let j = i + 1; j < daysInMonth; j++) {
-                if (arr[j] === 1) { lpIdx = j; break; }
-              }
-              if (lpIdx === -1) {
-                for (let j = runStart - 1; j >= 0; j--) {
+              // Vị trí cần chèn LP: ngày thứ max+1 trong run (tính từ đầu tháng)
+              const insertPos = Math.max(0, runStart + max);
+              
+              // CHỈ swap nếu insertPos là ngày làm (X=0)
+              // KHÔNG swap nếu là PN(2) hoặc các loại đặc biệt(3-9)
+              if (arr[insertPos] === 0) {
+                // Tìm LP để swap: ưu tiên LP ngay sau run, rồi LP trước run
+                // CHÚ Ý: CHỈ tìm LP (dayType=1), KHÔNG swap với PN(2) hoặc các loại đặc biệt(3-9)
+                let lpIdx = -1;
+                for (let j = i + 1; j < daysInMonth; j++) {
                   if (arr[j] === 1) { lpIdx = j; break; }
                 }
+                if (lpIdx === -1) {
+                  for (let j = (runStart > 0 ? runStart - 1 : 0); j >= 0; j--) {
+                    if (arr[j] === 1) { lpIdx = j; break; }
+                  }
+                }
+                if (lpIdx !== -1) {
+                  arr[insertPos] = 1;  // X → LP
+                  arr[lpIdx] = 0;      // LP → X
+                  changes.push({ empId, day: insertPos + 1, dayType: 1 });
+                  changes.push({ empId, day: lpIdx + 1, dayType: 0 });
+                  changed = true;
+                  break; // restart scan cho NV này
+                }
+                // Không có LP để swap → không sửa được
               }
-              if (lpIdx !== -1) {
-                // Swap: ngày X cuối run → LP, ngày LP tìm được → X
-                arr[i] = 1;
-                arr[lpIdx] = 0;
-                changes.push({ empId, day: i + 1, dayType: 1 });
-                changes.push({ empId, day: lpIdx + 1, dayType: 0 });
-                changed = true;
-                break; // restart scan cho NV này
-              }
-              // Không có LP để swap → không sửa được (hiếm)
+              break;
             }
           } else {
             run = 0;
+            runStart = i + 1;
           }
         }
       }
@@ -102,7 +137,9 @@ export async function POST(req: NextRequest) {
     for (const c of changes) changeMap.set(`${c.empId}_${c.day}`, c.dayType);
 
     for (const [key, dayType] of changeMap) {
-      const [empId, dayStr] = key.split('_');
+      const underscoreIdx = key.indexOf('_');
+      const empId = key.slice(0, underscoreIdx);
+      const dayStr = key.slice(underscoreIdx + 1);
       await conn.run(
         `UPDATE distribution_results SET day_type = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
         dayType, monthId, empId, Number(dayStr)
@@ -112,13 +149,14 @@ export async function POST(req: NextRequest) {
     // Kiểm tra lại sau khi sửa — NV nào vẫn còn vi phạm
     const unresolved: { code: string; name: string; deptName: string }[] = [];
     for (const [empId, arr] of empMap) {
-      let run = 0, stillViolating = false;
+      const info = empInfoMap.get(empId);
+      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
+      let run = initialRun, stillViolating = false;
       for (let i = 0; i < daysInMonth; i++) {
-        if (arr[i] === 0) { run++; if (run > max) { stillViolating = true; break; } }
+        if (isWork(arr[i])) { run++; if (run > max) { stillViolating = true; break; } }
         else run = 0;
       }
       if (stillViolating) {
-        const info = empInfoMap.get(empId);
         unresolved.push({ code: info?.code ?? empId, name: info?.name ?? '', deptName: info?.deptName ?? '' });
       }
     }

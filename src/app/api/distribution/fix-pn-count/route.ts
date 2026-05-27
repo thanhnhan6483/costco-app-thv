@@ -9,6 +9,11 @@ export const runtime = 'nodejs';
  * Sửa số ngày PN trong distribution_results cho đúng bằng phepNam của NV.
  * - Thừa PN: đổi PN thừa → LP (chọn PN đầu tiên)
  * - Thiếu PN: dùng placePNAtEndOfRestPeriod để thêm PN
+ * 
+ * RÀNG BUỘC QUAN TRỌNG:
+ * - CHỈ được thay đổi: X (0), LP (1), PN (2) - dữ liệu tự sinh
+ * - TUYỆT ĐỐI KHÔNG thay đổi: dayType ≥ 3 - dữ liệu đầu vào cố định (Ô, TS, DS, O, NL, OF, P, ...)
+ * - CHỈ thay đổi PN (2) ↔ LP (1)
  */
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json() as { monthId: string };
@@ -55,19 +60,24 @@ export async function POST(req: NextRequest) {
 
       if (diff > 0) {
         // Thừa PN: đổi PN thừa → LP (từ đầu tháng)
+        // CHÚ Ý: CHỈ thay đổi PN (dayType=2), KHÔNG động đến dữ liệu cố định (3-9)
         let toRemove = diff;
         for (const pnDay of pnDays.sort((a, b) => a - b)) {
           if (toRemove <= 0) break;
-          arr[pnDay - 1] = 1; // PN → LP
-          changes.push({ empId: emp.empId, day: pnDay, dayType: 1 });
-          toRemove--;
+          // Kiểm tra an toàn: chỉ đổi nếu đang là PN
+          if (arr[pnDay - 1] === 2) {
+            arr[pnDay - 1] = 1; // PN → LP
+            changes.push({ empId: emp.empId, day: pnDay, dayType: 1 });
+            toRemove--;
+          }
         }
       } else {
         // Thiếu PN: dùng placePNAtEndOfRestPeriod để thêm
+        // CHÚ Ý: placePNAtEndOfRestPeriod CHỈ thay đổi LP→PN, KHÔNG động đến dữ liệu cố định
         const needed = -diff;
         // Xóa PN hiện có để placePNAtEndOfRestPeriod đặt lại đúng số
         for (let i = 0; i < daysInMonth; i++) {
-          if (arr[i] === 2) arr[i] = 1; // PN → LP tạm
+          if (arr[i] === 2) arr[i] = 1; // PN → LP tạm (CHỈ thay đổi PN)
         }
         const fixed = placePNAtEndOfRestPeriod(arr, daysInMonth, params, emp.phepNam);
         // Ghi lại tất cả thay đổi so với arr gốc

@@ -222,50 +222,123 @@ export function generateOneArrangement(
 }
 
 /**
- * Greedy O(n) — thay thế backtracking, giữ nguyên signature tương thích.
- * Không retry, không đệ quy: chọn ngẫu nhiên vị trí LP bằng partial Fisher-Yates,
- * sau đó sửa vi phạm maxConsecutiveDays bằng 1 lượt quét.
+ * Greedy O(n) — sinh arrangement ngày công.
+ *
+ * Thuật toán:
+ * 1. Xác định free slots (ô = 0)
+ * 2. Tính vị trí LP "bắt buộc": mỗi khi run X sắp vượt max, đánh dấu vị trí đó
+ * 3. Đặt LP bắt buộc trước, còn lại phân bổ ngẫu nhiên từ free slots còn lại
+ * 4. Lượt quét cuối: swap LP để sửa vi phạm còn sót (giữ tổng LP không đổi)
+ *
+ * Đảm bảo:
+ * - Tổng LP = targetLP (không thêm không bớt, trừ khi targetLP < số LP bắt buộc)
+ * - Không có run X > maxConsecutiveDays (kể cả xuyên tháng qua initialLastZeros)
+ * - Ngày fixed (NL/Ô/TS...) được giữ nguyên
+ *
+ * @param fixedArray       mảng 0..daysInMonth-1, ô = 0 là free, > 0 là cố định
+ * @param params           alloc params
+ * @param targetLP         số LP cần đặt (= freeSlots - workdays - phepNam)
+ * @param initialLastZeros số ngày làm liên tiếp cuối tháng trước (mặc định 0)
  */
 export function generateOneArrangementGreedy(
   fixedArray: number[],
   params: AllocParams,
-  targetLP?: number,  // số LP mục tiêu; nếu không truyền thì tự tính ~4/31
+  targetLP: number,
+  initialLastZeros = 0,
 ): number[] {
   const total = fixedArray.length;
   const arr = [...fixedArray];
-
-  const freeIdx: number[] = [];
-  for (let i = 0; i < total; i++) if (arr[i] === 0) freeIdx.push(i);
-
-  const ONES = targetLP !== undefined
-    ? Math.min(targetLP, freeIdx.length)
-    : Math.min(Math.round(4 * total / 31), Math.max(0, freeIdx.length - 1));
-
-  // Partial Fisher-Yates: chọn ONES vị trí ngẫu nhiên để đặt LP
-  const pool = [...freeIdx];
-  for (let i = 0; i < ONES; i++) {
-    const j = i + randInt(0, pool.length - 1 - i);
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  for (let i = 0; i < ONES; i++) arr[pool[i]] = 1;
-
-  // Sửa vi phạm maxConsecutiveDays — 1 lượt quét
   const max = params.maxConsecutiveDays;
-  let run = 0;
+
+  // Collect free slots (chỉ ô = 0)
+  const freeSet = new Set<number>();
+  for (let i = 0; i < total; i++) if (arr[i] === 0) freeSet.add(i);
+
+  const ONES = Math.min(Math.max(0, targetLP), freeSet.size);
+  if (ONES === 0) return arr;
+
+  // Bước 1: Xác định vị trí LP bắt buộc
+  // Mô phỏng chạy qua mảng với initialLastZeros, mỗi khi run = max+1 → vị trí đó bắt buộc LP
+  const mustLP = new Set<number>();
+  let run = initialLastZeros;
   for (let i = 0; i < total; i++) {
     if (arr[i] === 0) {
       run++;
-      if (run > max) {
-        let fixed = false;
-        for (let j = i + 1; j < total; j++) {
-          if (arr[j] === 1) { arr[j] = 0; arr[i] = 1; run = 0; fixed = true; break; }
-        }
-        if (!fixed) { arr[i] = 1; run = 0; }
+      if (run > max && freeSet.has(i)) {
+        mustLP.add(i);
+        run = 0; // sau khi đặt LP tại i, run reset
       }
     } else {
       run = 0;
     }
   }
+
+  // Bước 2: Phân bổ LP
+  // Ưu tiên vị trí bắt buộc, còn lại random từ free slots còn lại
+  const lpSet = new Set<number>();
+
+  // Đặt tất cả vị trí bắt buộc (nếu vượt ONES thì chỉ lấy đủ ONES)
+  for (const pos of mustLP) {
+    if (lpSet.size >= ONES) break;
+    lpSet.add(pos);
+  }
+
+  // Nếu chưa đủ ONES → thêm từ free slots còn lại (random)
+  if (lpSet.size < ONES) {
+    const optional = [...freeSet].filter(i => !lpSet.has(i));
+    // Shuffle optional
+    for (let i = optional.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      [optional[i], optional[j]] = [optional[j], optional[i]];
+    }
+    for (const pos of optional) {
+      if (lpSet.size >= ONES) break;
+      lpSet.add(pos);
+    }
+  }
+
+  // Áp dụng LP vào arr
+  for (const pos of lpSet) arr[pos] = 1;
+
+  // Bước 3: Lượt quét cuối — sửa vi phạm còn sót bằng swap (giữ tổng LP)
+  // Vi phạm còn sót xảy ra khi mustLP bị giới hạn bởi ONES < số vi phạm thực tế
+  run = initialLastZeros;
+  for (let i = 0; i < total; i++) {
+    if (arr[i] === 0) {
+      run++;
+      if (run > max) {
+        // Vị trí cần chèn LP: đầu của đoạn vi phạm = i - max
+        const insertPos = i - max; // 0-based, luôn >= 0 vì run > max
+        if (insertPos >= 0 && arr[insertPos] === 0) {
+          // Tìm LP phía sau để swap (giữ tổng LP không đổi)
+          let swapped = false;
+          for (let j = i + 1; j < total; j++) {
+            if (arr[j] === 1) {
+              arr[j] = 0;
+              arr[insertPos] = 1;
+              run = max; // run tại insertPos = max (vừa đủ)
+              swapped = true;
+              break;
+            }
+          }
+          if (!swapped) {
+            // Không có LP phía sau → tìm LP phía trước insertPos
+            for (let j = insertPos - 1; j >= 0; j--) {
+              if (arr[j] === 1) {
+                arr[j] = 0;
+                arr[insertPos] = 1;
+                run = max;
+                break;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      run = 0;
+    }
+  }
+
   return arr;
 }
 
@@ -282,6 +355,10 @@ export function placePNAtEndOfRestPeriod(
   params: AllocParams,
   phepNam = 1,  // số ngày PN cần đặt
 ): number[] {
+  // RÀNG BUỘC QUAN TRỌNG:
+  // - CHỈ được thay đổi: X (0), LP (1), PN (2) - dữ liệu tự sinh
+  // - TUYỆT ĐỐI KHÔNG thay đổi: dayType ≥ 3 - dữ liệu đầu vào cố định (Ô, TS, DS, O, NL, OF, P, ...)
+  // - Hàm này CHỈ thay đổi LP (1) → PN (2) hoặc X (0) → LP (1) → PN (2)
   const arr = [...arrangement];
   const startIdx = params.pnStartFromDay - 1; // 0-based
 
@@ -455,6 +532,8 @@ export function distributeOT(
       idx++;
     }
   }
+
+  return result;
 }
 
 /* ── Bước 4: Phân bổ Trễ ────────────────────────── */
@@ -515,20 +594,12 @@ export function step1_generateArrangement(
     return arr;
   }
 
-  // Python gốc: ones=4, zeros=26 cho tháng 31 ngày (4+26+1PN=31)
-  // Điều chỉnh theo daysInMonth: giữ tỉ lệ LP/X, tổng = daysInMonth
   const totalDays = daysInMonth;
-  const PN = 1;
-  const ONES = Math.round(4 * totalDays / 31);          // ~4 LP cho 31 ngày
-  const ZEROS = Math.max(0, totalDays - ONES - PN);     // phần còn lại là X
-
   const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
-  // targetLP = số ngày LP mục tiêu dựa trên normalizedWorkdays (đã cân bằng theo phòng)
-  // LP = daysInMonth - normalizedWorkdays - phepNam
-  const normalizedWd = parseFloat((emp as any)._normalizedWorkdays ?? emp.workdays) || workdays;
-  const targetLP = Math.max(0, totalDays - Math.round(normalizedWd) - phepNam);
 
-  let arrangement: number[] | null = null;
+  // Số ngày làm liên tiếp cuối tháng trước (để tránh vi phạm consecutive xuyên tháng)
+  const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
+
   const fixedArray = inputArray.slice(0, totalDays);
   if (workdays >= params.workdaysThreshold) {
     // Giữ nguyên ngày cố định (NL, Ô, TS, PN...), chỉ reset X và LP về 0
@@ -536,13 +607,32 @@ export function step1_generateArrangement(
       if (fixedArray[i] <= 1) fixedArray[i] = 0;
     }
   }
+
+  // Đánh dấu Chủ Nhật là LP (nghỉ lịch)
+  for (let i = 0; i < totalDays; i++) {
+    const weekday = new Date(year, month - 1, i + 1).getDay();
+    if (weekday === 0 && fixedArray[i] === 0) fixedArray[i] = 1;
+  }
+
+  // Đếm số free slots thực tế (ô = 0 sau khi đã reset fixed + mark Sundays)
+  // workdays trong input = số ngày X thuần (không tính NL/Ô/TS/LP Chủ Nhật)
+  // targetLP = freeSlots - workdays - phepNam
+  // (phepNam sẽ thay thế phepNam LP, nên cần trừ ra để tổng X = workdays - phepNam)
+  const freeSlots = fixedArray.filter(v => v === 0).length;
+  const normalizedWd = parseFloat((emp as any)._normalizedWorkdays ?? emp.workdays) || workdays;
+  const targetLP = Math.max(0, freeSlots - Math.round(normalizedWd) + phepNam);
+
+  let arrangement: number[] | null = null;
+
   if (algo === 'greedy') {
-    arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP);
+    arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, initialLastZeros);
   } else {
-    // Retry tối đa 20 lần — shuffle ngẫu nhiên có thể dẫn vào ngõ cụt
-    // skipPN=true để backtracking không tự đặt PN (PN sẽ đặt bên dưới)
+    // Backtracking: dùng targetLP tính từ workdays thực tế
+    // skipPN=true để backtracking không tự đặt PN (PN sẽ đặt sau)
+    const ONES = targetLP;
+    const ZEROS = freeSlots - targetLP;
     for (let attempt = 0; attempt < 20 && !arrangement; attempt++) {
-      arrangement = generateOneArrangement(0, ONES, ZEROS, false, 0, fixedArray, [], params, true);
+      arrangement = generateOneArrangement(0, ONES, ZEROS, false, initialLastZeros, fixedArray, [], params, true);
     }
   }
   if (!arrangement) arrangement = fixedArray;

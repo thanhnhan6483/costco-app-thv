@@ -657,15 +657,17 @@ export default function ConfigMonth() {
                           className={en.locked ? styles.btnIconLock : styles.btnIconUnlock}
                           onClick={() => handleToggleLock(en)}
                           title={en.locked ? 'Mở khóa cấu hình' : 'Khóa cấu hình'}
-                          disabled={en.id === 'month_jan2026'}
                         >
                           {en.locked ? <IconUnlock /> : <IconLock />}
                         </button>
-                        {!en.locked && (
-                          <button className={styles.btnIconDelete} onClick={() => confirmDelete(en.id)} title="Xóa">
-                            <IconDelete />
-                          </button>
-                        )}
+                        <button
+                          className={styles.btnIconDelete}
+                          onClick={() => !en.locked && confirmDelete(en.id)}
+                          title={en.locked ? 'Mở khóa trước khi xóa' : 'Xóa'}
+                          disabled={en.locked}
+                        >
+                          <IconDelete />
+                        </button>
                       </div>
                     </td>
                   </tr>
