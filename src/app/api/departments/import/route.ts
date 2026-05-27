@@ -70,11 +70,20 @@ export async function POST(req: NextRequest) {
     const buf = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: 'buffer' });
 
-    // Đọc sheet đầu tiên
-    const ws = wb.Sheets[wb.SheetNames[0]];
+    // Lấy tên sheet từ formData, nếu không có thì dùng sheet đầu tiên
+    const sheetName = (formData.get('sheetName') as string | null) ?? wb.SheetNames[0];
+    
+    // Kiểm tra sheet có tồn tại không
+    if (!wb.SheetNames.includes(sheetName)) {
+      return NextResponse.json({ 
+        error: `Sheet "${sheetName}" không tồn tại trong file` 
+      }, { status: 400 });
+    }
+
+    const ws = wb.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
 
-    if (!data.length) return NextResponse.json({ error: 'File trống' }, { status: 400 });
+    if (!data.length) return NextResponse.json({ error: 'Sheet trống' }, { status: 400 });
 
     // Validate cột bắt buộc
     const firstRow = data[0];

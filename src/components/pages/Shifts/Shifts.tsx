@@ -115,6 +115,8 @@ export default function Shifts() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedCodes: string[]; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -230,6 +232,24 @@ export default function Shifts() {
     await load(); setSaving(false); setDeleteId(null);
   };
 
+  const doDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      const res = await fetch(`/api/shifts/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId: activeMonthId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      await load();
+      setShowDeleteAll(false);
+    } catch (err) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   /* ── Export template ────────────────────────── */
   const downloadTemplate = () => {
     window.open('/api/shifts/import', '_blank');
@@ -310,6 +330,16 @@ export default function Shifts() {
             <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
+          <div className={s.dividerV} />
+          <button 
+            className={s.btnAction} 
+            onClick={() => setShowDeleteAll(true)} 
+            disabled={loading || activeMonthLocked || rows.length === 0}
+            style={{ color: '#dc2626' }}
+            title="Xóa tất cả ca làm việc"
+          >
+            <IconDelete /><span>Xóa Tất Cả</span>
+          </button>
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={() => { load(); loadDepts(); }} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
         </div>
@@ -401,6 +431,28 @@ export default function Shifts() {
             <div className={s.confirmActions}>
               <button className={s.btnDanger} onClick={doDelete} disabled={saving}>{saving ? '…' : '🗑️ Xóa'}</button>
               <button className={s.btnSecondary} onClick={() => setDeleteId(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete all confirm */}
+      {showDeleteAll && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal}>
+            <div className={s.confirmIcon} style={{ background: '#fef2f2', color: '#dc2626' }}>⚠️</div>
+            <h3 className={s.confirmTitle}>Xác nhận xóa tất cả</h3>
+            <p className={s.confirmDesc}>
+              Bạn có chắc chắn muốn xóa <strong>TẤT CẢ {rows.length} ca làm việc</strong>?<br />
+              <span style={{ color: '#dc2626', fontWeight: 600 }}>Hành động này không thể hoàn tác!</span>
+            </p>
+            <div className={s.confirmActions}>
+              <button className={s.btnDanger} onClick={doDeleteAll} disabled={deletingAll}>
+                {deletingAll ? 'Đang xóa…' : '🗑️ Xóa Tất Cả'}
+              </button>
+              <button className={s.btnSecondary} onClick={() => setShowDeleteAll(false)} disabled={deletingAll}>
+                Hủy
+              </button>
             </div>
           </div>
         </div>

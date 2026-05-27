@@ -82,6 +82,8 @@ export default function Departments() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [col, setCol] = useState<Filters>({ code: '', name: '', parentName: '', active: '', note: '' });
   const setF = (k: keyof Filters) => (v: string) => setCol(p => ({ ...p, [k]: v }));
   const hasFilter = Object.values(col).some(v => v !== '');
@@ -170,6 +172,24 @@ export default function Departments() {
     await load(); setSaving(false); setDeleteId(null);
   };
 
+  const doDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      const res = await fetch(`/api/departments/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId: activeMonthId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      await load();
+      setShowDeleteAll(false);
+    } catch (err) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   /* ── Export template ────────────────────────── */
   const downloadTemplate = () => {
     window.open('/api/departments/import', '_blank');
@@ -179,15 +199,44 @@ export default function Departments() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedCodes: string[]; errors: string[] } | null>(null);
+  const [showSheetSelector, setShowSheetSelector] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Đọc file để kiểm tra số sheet
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      
+      if (workbook.SheetNames.length > 1) {
+        // Có nhiều sheet → hiển thị popup chọn
+        setAvailableSheets(workbook.SheetNames);
+        setSelectedSheet(workbook.SheetNames[0]); // Chọn sheet đầu tiên mặc định
+        setPendingFile(file);
+        setShowSheetSelector(true);
+      } else {
+        // Chỉ có 1 sheet → import trực tiếp
+        await doImport(file, workbook.SheetNames[0]);
+      }
+    } catch (err) {
+      alert('Lỗi đọc file: ' + (err instanceof Error ? err.message : String(err)));
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const doImport = async (file: File, sheetName: string) => {
     setImporting(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('monthId', activeMonthId);
+      fd.append('sheetName', sheetName);
       const res = await fetch('/api/departments/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -197,8 +246,24 @@ export default function Departments() {
       alert('Lỗi import: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setImporting(false);
+      setShowSheetSelector(false);
+      setPendingFile(null);
       if (fileRef.current) fileRef.current.value = '';
     }
+  };
+
+  const handleSheetConfirm = () => {
+    if (pendingFile && selectedSheet) {
+      doImport(pendingFile, selectedSheet);
+    }
+  };
+
+  const handleSheetCancel = () => {
+    setShowSheetSelector(false);
+    setPendingFile(null);
+    setAvailableSheets([]);
+    setSelectedSheet('');
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   /* Danh sách phòng ban có thể chọn làm cấp trên (loại trừ chính nó) */
@@ -234,6 +299,16 @@ export default function Departments() {
             <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
+          <div className={s.dividerV} />
+          <button 
+            className={s.btnAction} 
+            onClick={() => setShowDeleteAll(true)} 
+            disabled={loading || activeMonthLocked || rows.length === 0}
+            style={{ color: '#dc2626' }}
+            title="Xóa tất cả phòng ban"
+          >
+            <IconDelete /><span>Xóa Tất Cả</span>
+          </button>
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={load} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
         </div>
@@ -292,6 +367,60 @@ export default function Departments() {
             <div className={s.confirmActions}>
               <button className={s.btnDanger} onClick={doDelete} disabled={saving}>{saving ? 'Đang xóa…' : '🗑️ Xóa'}</button>
               <button className={s.btnSecondary} onClick={() => setDeleteId(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteAll && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal}>
+            <div className={s.confirmIcon} style={{ background: '#fef2f2', color: '#dc2626' }}>⚠️</div>
+            <h3 className={s.confirmTitle}>Xác nhận xóa tất cả</h3>
+            <p className={s.confirmDesc}>
+              Bạn có chắc chắn muốn xóa <strong>TẤT CẢ {rows.length} phòng ban</strong>?<br />
+              <span style={{ color: '#dc2626', fontWeight: 600 }}>Hành động này không thể hoàn tác!</span>
+            </p>
+            <div className={s.confirmActions}>
+              <button className={s.btnDanger} onClick={doDeleteAll} disabled={deletingAll}>
+                {deletingAll ? 'Đang xóa…' : '🗑️ Xóa Tất Cả'}
+              </button>
+              <button className={s.btnSecondary} onClick={() => setShowDeleteAll(false)} disabled={deletingAll}>
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet selector modal */}
+      {showSheetSelector && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal} style={{ maxWidth: 480 }}>
+            <div className={s.confirmIcon} style={{ background: '#eff6ff', color: '#1d4ed8' }}>📊</div>
+            <h3 className={s.confirmTitle}>Chọn Sheet để Import</h3>
+            <p className={s.confirmDesc} style={{ marginBottom: 16 }}>
+              File Excel có <strong>{availableSheets.length} sheets</strong>. Vui lòng chọn sheet cần import:
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <select 
+                className={s.input}
+                value={selectedSheet}
+                onChange={(e) => setSelectedSheet(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', fontSize: 14 }}
+              >
+                {availableSheets.map(sheet => (
+                  <option key={sheet} value={sheet}>{sheet}</option>
+                ))}
+              </select>
+            </div>
+            <div className={s.confirmActions}>
+              <button className={s.btnPrimary} onClick={handleSheetConfirm} disabled={importing}>
+                {importing ? '⏳ Đang import…' : '✅ Import'}
+              </button>
+              <button className={s.btnSecondary} onClick={handleSheetCancel} disabled={importing}>
+                Hủy
+              </button>
             </div>
           </div>
         </div>

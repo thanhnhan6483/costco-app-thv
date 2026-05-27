@@ -73,6 +73,8 @@ export default function SpecialGroups() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(BLANK);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const [col, setCol] = useState<Filters>({ code: '', name: '', note: '' });
   const setF = (k: keyof Filters) => (v: string) => setCol(p => ({ ...p, [k]: v }));
   const hasFilter = Object.values(col).some(v => v !== '');
@@ -152,6 +154,24 @@ export default function SpecialGroups() {
     await load(); setSaving(false); setDeleteId(null);
   };
 
+  const doDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      const res = await fetch(`/api/special-groups/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId: activeMonthId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      await load();
+      setShowDeleteAll(false);
+    } catch (err) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedCodes: string[]; errors: string[] } | null>(null);
@@ -213,6 +233,15 @@ export default function SpecialGroups() {
             <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
+          <button
+            className={s.btnAction}
+            onClick={() => setShowDeleteAll(true)}
+            disabled={loading || activeMonthLocked || rows.length === 0}
+            style={{ color: '#dc2626' }}
+            title="Xóa tất cả nhóm đặc thù"
+          >
+            <IconDelete /><span>Xóa Tất Cả</span>
+          </button>
           <div className={s.dividerV} />
           <button className={s.btnAction} onClick={load} disabled={loading}><span className={loading ? s.spinning : ''}><IconRefresh /></span></button>
         </div>
@@ -293,6 +322,26 @@ export default function SpecialGroups() {
             <div className={s.confirmActions}>
               <button className={s.btnDanger} onClick={doDelete} disabled={saving}>🗑️ Xóa</button>
               <button className={s.btnSecondary} onClick={() => setDeleteId(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All confirm */}
+      {showDeleteAll && (
+        <div className={s.formOverlay}>
+          <div className={s.confirmModal}>
+            <div className={s.confirmIcon} style={{ background: '#fef2f2', color: '#dc2626' }}>⚠️</div>
+            <h3 className={s.confirmTitle}>Xác nhận xóa tất cả</h3>
+            <p className={s.confirmDesc}>
+              Bạn có chắc chắn muốn xóa <strong>TẤT CẢ {rows.length} nhóm đặc thù</strong>?<br />
+              <span style={{ color: 'var(--danger)', fontSize: 13 }}>⚠️ Hành động này không thể hoàn tác!</span>
+            </p>
+            <div className={s.confirmActions}>
+              <button className={s.btnDanger} onClick={doDeleteAll} disabled={deletingAll}>
+                {deletingAll ? 'Đang xóa…' : '🗑️ Xóa Tất Cả'}
+              </button>
+              <button className={s.btnSecondary} onClick={() => setShowDeleteAll(false)} disabled={deletingAll}>Hủy</button>
             </div>
           </div>
         </div>

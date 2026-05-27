@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   /* 2. Ca làm việc */
   const shifts = await conn.all<Record<string, unknown>>(
-    `SELECT s.name, d.code AS deptCode, s.shift_type, s.clock_in, s.clock_out, s.window_start, s.window_end
+    `SELECT s.name, d.code AS deptCode, s.shift_type, s.window_start, s.clock_in, s.clock_out, s.window_end
      FROM shifts s LEFT JOIN departments d ON d.id = s.department_id
      WHERE s.month_id = ? ORDER BY s.name`, monthId
   );
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   /* 5. Quy tắc phân bổ */
   const rules = await conn.all<Record<string, unknown>>(
-    `SELECT group_code, group_name, name, param_key, default_param, specific_value
+    `SELECT group_code, group_name, name, param_key, param_value, default_param, specific_value
      FROM alloc_rules WHERE month_id = ? ORDER BY group_code, created_at, id`, monthId
   );
 
@@ -82,15 +82,15 @@ export async function GET(req: NextRequest) {
 
   /* Sheet 2: Ca làm việc */
   const ws2 = XLSX.utils.aoa_to_sheet([
-    ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào', 'Giờ Ra', 'Cửa Sổ Vào', 'Cửa Sổ Ra'],
-    ...shifts.map(r => [r.name, r.deptCode ?? '', r.shift_type, r.clock_in, r.clock_out, r.window_start ?? '', r.window_end ?? '']),
+    ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)'],
+    ...shifts.map(r => [r.name, r.deptCode ?? '', r.shift_type, r.window_start ?? '', r.clock_in, r.clock_out, r.window_end ?? '']),
   ]);
   ws2['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, ws2, 'CaLamViec');
 
   /* Sheet 3: Loại nghỉ phép */
   const ws3 = XLSX.utils.aoa_to_sheet([
-    ['Mã Loại', 'Tên Loại Nghỉ', 'Ghi Chú'],
+    ['Mã Loại', 'Tên Loại Nghỉ', 'Mô Tả'],
     ...leaveTypes.map(r => [r.code, r.name, r.description ?? '']),
   ]);
   ws3['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 50 }];
@@ -106,31 +106,51 @@ export async function GET(req: NextRequest) {
 
   /* Sheet 5: Quy tắc phân bổ */
   const ws5 = XLSX.utils.aoa_to_sheet([
-    ['Nhóm', 'Tên Nhóm', 'Quy Tắc', 'Mã Quy Tắc', 'Giá Trị Mặc Định', 'Ghi Chú'],
+    ['Nhóm', 'Tên Nhóm', 'Quy Tắc', 'Mã Quy Tắc', 'Giá Trị (Số)', 'Giá Trị Hiển Thị', 'Ghi Chú'],
     ...rules.map(r => [
-      String(r.group_code ?? ''), String(r.group_name ?? ''), String(r.name ?? ''),
-      String(r.param_key ?? ''), String(r.default_param ?? ''), String(r.specific_value ?? ''),
+      String(r.group_code ?? ''), 
+      String(r.group_name ?? ''), 
+      String(r.name ?? ''),
+      String(r.param_key ?? ''), 
+      r.param_value != null ? String(r.param_value) : '', 
+      String(r.default_param ?? ''), 
+      String(r.specific_value ?? ''),
     ]),
   ]);
-  ws5['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 35 }, { wch: 30 }, { wch: 20 }, { wch: 30 }];
+  ws5['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 35 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 30 }];
   XLSX.utils.book_append_sheet(wb, ws5, 'QuyTacPhanBo');
 
   /* Sheet 6: Danh sách nhân viên */
   const empHeader = [
-    'Mã NV', 'Tên NV', 'Mã PB', 'Tên PB', 'Nhóm ĐT', 'Ngày Công',
-    ...Array.from({ length: 31 }, (_, i) => `N${i + 1}`),
-    'Phép Năm', 'Nghỉ Tháng Trước',
+    'employee_code', 'employee_name', 
+    'department_code', 'department_name', 
+    'group_code', 'group_name',
+    'group_code_end_date', 'workdays',
+    ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
+    'overtime_hours', 'late_minutes', 
+    'phep_nam', 'ngay_nghi_thang_truoc',
   ];
   const ws6 = XLSX.utils.aoa_to_sheet([
     empHeader,
     ...employees.map(r => [
-      r.code, r.name, r.dept_code ?? '', r.dept_name ?? '',
-      r.special_group ?? '', r.workdays ?? '',
+      r.code, r.name, 
+      r.dept_code ?? '', r.dept_name ?? '',
+      r.special_group ?? '', r.group_name ?? '',
+      r.group_code_end_date ?? '', r.workdays ?? '',
       ...Array.from({ length: 31 }, (_, i) => r[`day_${i + 1}`] ?? ''),
+      r.overtime_hours ?? '', r.late_minutes ?? '',
       r.phep_nam ?? '', formatDate(r.ngay_nghi_cuoi_thang_truoc),
     ]),
   ]);
-  ws6['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, ...Array(31).fill({ wch: 5 }), { wch: 10 }, { wch: 18 }];
+  ws6['!cols'] = [
+    { wch: 14 }, { wch: 22 },
+    { wch: 12 }, { wch: 22 },
+    { wch: 16 }, { wch: 24 },
+    { wch: 16 }, { wch: 8 },
+    ...Array(31).fill({ wch: 5 }),
+    { wch: 12 }, { wch: 10 }, 
+    { wch: 10 }, { wch: 18 },
+  ];
   XLSX.utils.book_append_sheet(wb, ws6, 'NhanVien');
 
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
