@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const conn = await getConn();
   try {
     const params = await loadParams(monthId);
-    const { daysInMonth } = await loadMonthInfo(monthId);
+    const { daysInMonth, month, year } = await loadMonthInfo(monthId);
 
     // Danh sách rule đang active — dùng để quyết định có chạy check hay không
     const activeRuleRows = await conn.all<{ paramKey: string }>(
@@ -49,13 +49,14 @@ export async function GET(req: NextRequest) {
     // Load distribution_results gộp theo NV
     const rawRows = await conn.all<{
       empId: string; empCode: string; empName: string; deptId: string;
-      phepNam: number;
+      phepNam: number; ngayNghiCuoiThangTruoc: string;
       day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string;
       checkIn: string; checkOut: string;
     }>(
       `SELECT dr.employee_id AS empId, e.code AS empCode, e.name AS empName,
               e.department_id AS deptId,
               COALESCE(CAST(e.phep_nam AS INTEGER), 0) AS phepNam,
+              COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc,
               dr.day, dr.day_type AS dayType,
               dr.ot_hours AS otHours, dr.late_mins AS lateMins,
               COALESCE(dr.shift_code, '') AS shiftCode,
@@ -68,11 +69,11 @@ export async function GET(req: NextRequest) {
 
     // Group by empId
     type DayData = { day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string; checkIn: string; checkOut: string };
-    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; days: DayData[] };
+    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; ngayNghiCuoiThangTruoc: string; days: DayData[] };
     const empMap = new Map<string, EmpData>();
     for (const r of rawRows) {
       if (!empMap.has(r.empId)) {
-        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, days: [] });
+        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
       }
       empMap.get(r.empId)!.days.push({ day: Number(r.day), dayType: Number(r.dayType), otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
     }
@@ -111,6 +112,77 @@ export async function GET(req: NextRequest) {
     check1.violationCount = check1.violations.length;
     check1.status = check1.violationCount === 0 ? 'ok' : 'error';
     results.push(check1);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check 1b: Khoảng cách ngày nghỉ liên tháng
+       (ngay_nghi_cuoi_thang_truoc + đầu tháng không vượt maxConsecutiveDays)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkCrossMonth: CheckResult = {
+      id: 'cross_month_consecutive',
+      label: `Khoảng cách ngày nghỉ liên tháng (≤ ${params.maxConsecutiveDays} ngày)`,
+      description: `Ngày làm cuối tháng trước + đầu tháng này không vượt ${params.maxConsecutiveDays} ngày liên tiếp`,
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    const calcConsecutiveDays = (ngayNghi: string): number => {
+      if (!ngayNghi) return 0;
+      const s = ngayNghi.trim().replace(/^["']|["']$/g, '');
+      if (!s) return 0;
+      let d: number, m: number, y: number;
+      if (s.includes('/')) {
+        const parts = s.split('/').map(Number);
+        if (parts.length < 2) return 0;
+        [d, m, y] = parts;
+      } else {
+        const parts = s.split('T')[0].split(' ')[0].split('-').map(Number);
+        if (parts.length < 3) return 0;
+        [y, m, d] = parts;
+      }
+      const lastDay = new Date(y, m, 0).getDate();
+      return Math.max(0, lastDay - d);
+    };
+    const formatDDMMYYYY = (s: string): string => {
+      if (!s) return '';
+      const clean = s.trim().replace(/^["']|["']$/g, '');
+      if (!clean) return '';
+      let d: number, m: number, y: number;
+      if (clean.includes('/')) {
+        const parts = clean.split('/').map(Number);
+        if (parts.length < 2) return s;
+        [d, m, y] = parts;
+      } else {
+        const parts = clean.split('T')[0].split(' ')[0].split('-').map(Number);
+        if (parts.length < 3) return s;
+        [y, m, d] = parts;
+      }
+      return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    };
+    for (const emp of emps) {
+      const initRun = emp.ngayNghiCuoiThangTruoc ? calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc) : 0;
+      if (initRun <= 0) continue;
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      let run = initRun;
+      let runStart = 1;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayData = emp.days.find(x => x.day === d);
+        if (dayData?.dayType === 0) {
+          run++;
+          if (runStart < 0) runStart = d;
+            if (run > params.maxConsecutiveDays) {
+            const suggestedDay = params.maxConsecutiveDays - initRun < 1 ? 1 : params.maxConsecutiveDays - initRun;
+            const suggestedDate = `${String(suggestedDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+            checkCrossMonth.violations.push({
+              code: emp.code, name: emp.name, deptName, day: runStart,
+              detail: `${run} ngày làm liên tiếp từ cuối tháng trước (đã làm ${initRun} ngày cuối T3, nghỉ ${formatDDMMYYYY(emp.ngayNghiCuoiThangTruoc || '')}) — vượt giới hạn ${params.maxConsecutiveDays}` +
+                ` — gợi ý: nên đổi X thành LP tại ngày ${suggestedDate}`,
+            });
+            break;
+          }
+        } else { run = 0; runStart = -1; }
+      }
+    }
+    checkCrossMonth.violationCount = checkCrossMonth.violations.length;
+    checkCrossMonth.status = checkCrossMonth.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkCrossMonth);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 2: PN chỉ từ ngày pnStartFromDay trở đi

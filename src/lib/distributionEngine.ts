@@ -102,14 +102,15 @@ function encodeDay(s: string): number {
 /** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
 export function calcConsecutiveDays(ngayNghi: string): number {
   if (!ngayNghi) return 0;
+  const s = ngayNghi.trim().replace(/^["']|["']$/g, '');
+  if (!s) return 0;
   let d: number, m: number, y: number;
-  if (ngayNghi.includes('/')) {
-    const parts = ngayNghi.split('/').map(Number);
+  if (s.includes('/')) {
+    const parts = s.split('/').map(Number);
     if (parts.length < 2) return 0;
     [d, m, y] = parts;
   } else {
-    // Format: YYYY-MM-DD hoặc YYYY-MM-DD HH:MM:SS
-    const parts = ngayNghi.split('T')[0].split(' ')[0].split('-').map(Number);
+    const parts = s.split('T')[0].split(' ')[0].split('-').map(Number);
     if (parts.length < 3) return 0;
     [y, m, d] = parts;
   }

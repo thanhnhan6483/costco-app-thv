@@ -64,10 +64,22 @@ function encodeDay(s) {
 function calcConsecutiveDays(ngayNghi) {
     if (!ngayNghi)
         return 0;
-    const parts = ngayNghi.split('/').map(Number);
-    if (parts.length < 2)
+    const s = ngayNghi.trim().replace(/^["']|["']$/g, '');
+    if (!s)
         return 0;
-    const [d, m, y] = parts;
+    let d, m, y;
+    if (s.includes('/')) {
+        const parts = s.split('/').map(Number);
+        if (parts.length < 2)
+            return 0;
+        [d, m, y] = parts;
+    }
+    else {
+        const parts = s.split('T')[0].split(' ')[0].split('-').map(Number);
+        if (parts.length < 3)
+            return 0;
+        [y, m, d] = parts;
+    }
     const lastDay = new Date(y, m, 0).getDate();
     return Math.max(0, lastDay - d);
 }
