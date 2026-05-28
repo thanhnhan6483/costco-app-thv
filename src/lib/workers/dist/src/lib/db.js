@@ -405,7 +405,7 @@ async function seedIfEmpty(conn) {
        window_start, clock_in, clock_out, window_end,
        late_minutes, ot_threshold, ot_calc, note, created_at)
     VALUES
-      ('s01', '${MID}', 'Ca làm việc chung của công ty', NULL,  TRUE,  '',       '07:20','07:30','16:30','16:35', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
+      ('s01', '${MID}', 'Ca làm việc chung',            NULL,  TRUE,  '',       '07:20','07:30','16:30','16:35', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
       ('s02', '${MID}', 'BỘ PHẬN TỔNG HỢP',             'd7',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
       ('s03', '${MID}', 'BỘ PHẬN KẾ TOÁN',              'd3',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
       ('s04', '${MID}', 'KHO THÀNH PHẨM',               'd2',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),

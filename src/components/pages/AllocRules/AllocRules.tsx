@@ -182,7 +182,7 @@ export default function AllocRules() {
     if (!confirm('Xóa toàn bộ quy tắc hiện tại và set lại quy tắc mặc định ?')) return;
     setSeeding(true);
     try {
-      const res = await fetch(`/api/alloc-rules/seed?month=month_apr2026`);
+      const res = await fetch(`/api/alloc-rules/seed?month=${activeMonthId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       await load();

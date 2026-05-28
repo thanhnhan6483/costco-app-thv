@@ -8,11 +8,11 @@ async function queryDepartments() {
     const monthsRes = await fetch(`${API_BASE}/api/months`);
     const months = await monthsRes.json();
     
-    // Find month 04/2026
-    const month042026 = months.find(m => m.month === '04/2026');
+    // Find month 01/2026
+    const month042026 = months.find(m => m.month === '01/2026');
     
     if (!month042026) {
-      console.log('Month 04/2026 not found!');
+      console.log('Month 01/2026 not found!');
       console.log('Available months:', months.map(m => m.month).join(', '));
       return;
     }
@@ -24,7 +24,7 @@ async function queryDepartments() {
     const deptRes = await fetch(`${API_BASE}/api/departments?month=${month042026.id}`);
     const departments = await deptRes.json();
     
-    console.log('\n=== PHÒNG BAN THÁNG 04/2026 ===\n');
+    console.log('\n=== PHÒNG BAN Master Data ===\n');
     console.log('Total:', departments.length, 'departments\n');
     
     departments.forEach((dept, index) => {

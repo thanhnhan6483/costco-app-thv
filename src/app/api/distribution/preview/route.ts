@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConn } from '@/lib/db';
+import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const monthId = searchParams.get('month') ?? 'month_jan2026';
+  const monthId = searchParams.get('month') ?? DEFAULT_MONTH_ID;
   const limit   = parseInt(searchParams.get('limit') ?? '10');
 
   const conn = await getConn();

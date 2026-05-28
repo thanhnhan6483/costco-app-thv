@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { Database } from 'duckdb-async';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const id = 'month_jan2026';
+const id = 'month_master';
 
 const db = await Database.create(path.join(__dirname, '..', 'data', 'costco.duckdb'));
 const conn = await db.connect();

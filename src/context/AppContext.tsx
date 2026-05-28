@@ -8,7 +8,7 @@ import {
   DEFAULT_DEPARTMENTS, DEFAULT_SHIFTS, DEFAULT_LEAVE_TYPES,
   DEFAULT_SPECIAL_GROUPS, DEFAULT_ALLOC_RULES, SAMPLE_EMPLOYEES
 } from '@/data/defaults';
-import { DEFAULT_MONTH_ID } from '@/lib/constants';
+import { DEFAULT_MONTH_ID, DEFAULT_MONTH_LABEL } from '@/lib/constants';
 
 interface AppState {
   currentMonth: string;
@@ -77,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeMonthLabel, setActiveMonthLabel] = useState(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('activeMonthLabel') : null;
     // Chỉ dùng nếu có dạng MM/YYYY hợp lệ
-    return (saved && /^\d{2}\/\d{4}$/.test(saved)) ? saved : '01/2026';
+    return (saved && /^\d{2}\/\d{4}$/.test(saved)) ? saved : DEFAULT_MONTH_LABEL;
   });
   const [activeMonthLocked, setActiveMonthLocked] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('activeMonthLocked') === 'true'

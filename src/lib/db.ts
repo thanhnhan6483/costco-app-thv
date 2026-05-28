@@ -4,7 +4,7 @@
  * Dữ liệu được lưu cục bộ tại: <project-root>/data/costco.duckdb
  *
  * v2: Mỗi bảng cấu hình có cột month_id → cấu hình độc lập theo từng Tháng chấm công.
- *     Dữ liệu cũ (không có month_id) sẽ được gắn vào tháng 'month_jan2026' (01/2026).
+ *     Dữ liệu cũ (không có month_id) sẽ được gắn vào tháng 'month_master' (01/2026).
  */
 import path from 'path';
 import { Database, Connection } from 'duckdb-async';
@@ -480,96 +480,178 @@ async function seedAdminUser(conn: Connection): Promise<void> {
 /* ─── Seed dữ liệu mẫu nếu DB trống ────────────────────── */
 async function seedIfEmpty(conn: Connection): Promise<void> {
   const rows = await conn.all<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM months`);
-  if (rows[0].cnt > 0) return; // Đã có dữ liệu, bỏ qua
+  if (rows[0].cnt > 0) return;
 
   const now = new Date().toISOString().slice(0, 10);
   const MID = DEFAULT_MONTH_ID;
 
-  // Seed tháng 01/2026
+  /* ── months ─────────────────────────── */
   await conn.run(`
     INSERT INTO months (id, label, month, from_date, to_date, note, created_at) VALUES
-      ('${MID}', 'Tháng 01/2026', '01/2026', '01/01/2026', '31/01/2026', 'Tháng mặc định – dữ liệu ban đầu', '2026-01-01')
+      ('${MID}', 'Master Data', '01/2026', '01/01/2026', '30/01/2026', 'Tháng mặc định – dữ liệu ban đầu', '${now}')
   `);
 
-  // Departments
+  /* ── departments (35) ──────────────── */
   await conn.run(`
     INSERT INTO departments (id, month_id, code, name, parent_id, active, note, created_at) VALUES
-      ('d1', '${MID}', 'KD',   'Kinh Doanh',   NULL, TRUE, '', '${now}'),
-      ('d2', '${MID}', 'SX',   'Sản Xuất',     NULL, TRUE, '', '${now}'),
-      ('d3', '${MID}', 'KT',   'Kế Toán',      NULL, TRUE, '', '${now}'),
-      ('d4', '${MID}', 'HR',   'Nhân Sự',      NULL, TRUE, '', '${now}'),
-      ('d5', '${MID}', 'BGD',  'Ban Giám Đốc', NULL, TRUE, '', '${now}'),
-      ('d6', '${MID}', 'BV',   'Bảo Vệ',       NULL, TRUE, '', '${now}'),
-      ('d7', '${MID}', 'TH',   'Tổng Hợp',     NULL, TRUE, '', '${now}'),
-      ('d8', '${MID}', 'CNTT', 'Công Nghệ TT', NULL, TRUE, '', '${now}')
+      ('d_BB',    '${MID}', 'BB',   'BÁNH BẮP',          NULL, TRUE, '', '${now}'),
+      ('d_BI',    '${MID}', 'BI',   'BÁNH IN',            NULL, TRUE, '', '${now}'),
+      ('d_BBK',   '${MID}', 'BBK',  'BAO BÌ KẸO',         NULL, TRUE, '', '${now}'),
+      ('d_BBL',   '${MID}', 'BBL',  'BAO BÌ LỚN',         NULL, TRUE, '', '${now}'),
+      ('d_BBN',   '${MID}', 'BBN',  'BAO BÌ NHỎ',         NULL, TRUE, '', '${now}'),
+      ('d_BV',    '${MID}', 'BV',   'BẢO VỆ',             NULL, TRUE, '', '${now}'),
+      ('d_CN',    '${MID}', 'CN',   'CHI NHÁNH',          NULL, TRUE, '', '${now}'),
+      ('d_CD',    '${MID}', 'CĐ',   'CƠ ĐIỆN',            NULL, TRUE, '', '${now}'),
+      ('d_CK',    '${MID}', 'CK',   'CƠ KHÍ',             NULL, TRUE, '', '${now}'),
+      ('d_CNTT',  '${MID}', 'CNTT', 'CÔNG NGHỆ THÔNG TIN',NULL, TRUE, '', '${now}'),
+      ('d_CH',    '${MID}', 'CH',   'CỬA HÀNG',           NULL, TRUE, '', '${now}'),
+      ('d_HN',    '${MID}', 'HN',   'HẠNH NHÂN',          NULL, TRUE, '', '${now}'),
+      ('d_KT',    '${MID}', 'KT',   'KẾ TOÁN',            NULL, TRUE, '', '${now}'),
+      ('d_K',     '${MID}', 'K',    'KHÂU KẸO',           NULL, TRUE, '', '${now}'),
+      ('d_KNL',   '${MID}', 'KNL',  'KHO NGUYÊN LIỆU',    NULL, TRUE, '', '${now}'),
+      ('d_KTP',   '${MID}', 'KTP',  'KHO THÀNH PHẨM',     NULL, TRUE, '', '${now}'),
+      ('d_KD',    '${MID}', 'KD',   'KINH DOANH',          NULL, TRUE, '', '${now}'),
+      ('d_KTH',   '${MID}', 'KTH',  'KỸ THUẬT',           NULL, TRUE, '', '${now}'),
+      ('d_LX',    '${MID}', 'LX',   'LẠP XƯỞNG',          NULL, TRUE, '', '${now}'),
+      ('d_LCH',   '${MID}', 'LCH',  'LÒ CHAY',            NULL, TRUE, '', '${now}'),
+      ('d_LN',    '${MID}', 'LN',   'LÒ MẶN',             NULL, TRUE, '', '${now}'),
+      ('d_LC',    '${MID}', 'LC',   'LONG CHÂU',          NULL, TRUE, '', '${now}'),
+      ('d_NB',    '${MID}', 'NB',   'NHÀ BẾP',            NULL, TRUE, '', '${now}'),
+      ('d_NH',    '${MID}', 'NH',   'NHÀ HÀNG',           NULL, TRUE, '', '${now}'),
+      ('d_NS',    '${MID}', 'NS',   'NHÂN SỰ',            NULL, TRUE, '', '${now}'),
+      ('d_PC',    '${MID}', 'PC',   'PÍA CHAY',           NULL, TRUE, '', '${now}'),
+      ('d_PM',    '${MID}', 'PM',   'PÍA MẶN',            NULL, TRUE, '', '${now}'),
+      ('d_QD1',   '${MID}', 'QĐ1',  'QUẬY ĐẬU 1',        NULL, TRUE, '', '${now}'),
+      ('d_QD2',   '${MID}', 'QĐ2',  'QUẬY ĐẬU 2',        NULL, TRUE, '', '${now}'),
+      ('d_SR',    '${MID}', 'SR',   'SẦU RIÊNG',          NULL, TRUE, '', '${now}'),
+      ('d_TX',    '${MID}', 'TX',   'TÀI XẾ',             NULL, TRUE, '', '${now}'),
+      ('d_TH',    '${MID}', 'TH',   'TỔNG HỢP',           NULL, TRUE, '', '${now}'),
+      ('d_TV',    '${MID}', 'TV',   'TRỨNG VỊT',          NULL, TRUE, '', '${now}'),
+      ('d_VS',    '${MID}', 'VS',   'VỆ SINH',            NULL, TRUE, '', '${now}'),
+      ('d_BGD',   '${MID}', 'BGĐ',  'BAN GIÁM ĐỐC',       NULL, TRUE, '', '${now}')
   `);
 
-  // Shifts
+  /* ── shifts (37) ────────────────────── */
   await conn.run(`
     INSERT INTO shifts
       (id, month_id, name, department_id, is_default, shift_type,
        window_start, clock_in, clock_out, window_end,
        late_minutes, ot_threshold, ot_calc, note, created_at)
     VALUES
-      ('s01', '${MID}', 'Ca làm việc chung của công ty', NULL,  TRUE,  '',       '07:20','07:30','16:30','16:35', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s02', '${MID}', 'BỘ PHẬN TỔNG HỢP',             'd7',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s03', '${MID}', 'BỘ PHẬN KẾ TOÁN',              'd3',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s04', '${MID}', 'KHO THÀNH PHẨM',               'd2',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s05', '${MID}', 'CHI NHÁNH ST',                 'd1',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s06', '${MID}', 'CƠ ĐIỆN',                      'd2',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s07', '${MID}', 'CƠ KHÍ',                       'd2',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s08', '${MID}', 'VỆ SINH',                      'd2',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s09', '${MID}', 'BỘ PHẬN BẢO VỆ',              'd6',  FALSE, 'Ca 1',   '05:50','06:00','14:00','14:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s10', '${MID}', 'BỘ PHẬN BẢO VỆ (Ca 2)',       'd6',  FALSE, 'Ca 2',   '09:50','10:00','18:00','18:10', 0,  0, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s11', '${MID}', 'CỬA HÀNG',                     'd1',  FALSE, 'Ca 1',   '06:20','06:30','14:30','14:40', 0,  0, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s12', '${MID}', 'CỬA HÀNG (Ca 2)',              'd1',  FALSE, 'Ca 2',   '11:50','12:00','20:00','20:10', 0,  0, 'Tính từ giờ vào (trưa)','', '${now}'),
-      ('s13', '${MID}', 'NHÀ HÀNG',                     'd1',  FALSE, 'Ca 1',   '06:20','06:30','14:30','14:40', 0,  0, 'Tính từ giờ vào (trưa)','', '${now}'),
-      ('s14', '${MID}', 'NHÀ HÀNG (Ca 2)',              'd1',  FALSE, 'Ca 2',   '11:50','12:00','20:00','20:10', 0,  0, 'Tính từ giờ vào (trưa)','', '${now}'),
-      ('s15', '${MID}', 'KINH DOANH',                   'd1',  FALSE, 'Ca 1',   '06:50','07:00','15:00','15:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s16', '${MID}', 'KINH DOANH (Ca 2)',            'd1',  FALSE, 'Ca 2',   '13:50','14:00','22:00','22:10', 0,  0, 'Tính từ giờ vào (trưa)','', '${now}'),
-      ('s17', '${MID}', 'Ca làm việc 7h30-10h20',       NULL,  FALSE, '',       '07:20','07:30','10:20','10:30', 0,  0, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s18', '${MID}', 'Ca làm việc 7h30-17h00',       NULL,  FALSE, '',       '07:20','07:30','17:00','17:00', 0,  0, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s19', '${MID}', 'Ca 17h',                        NULL,  FALSE, '',       '07:20','07:30','17:00','17:05', 0,  0, 'Tính từ giờ ra (công)',  '', '${now}'),
-      ('s20', '${MID}', 'Công nghệ TT',                 'd8',  FALSE, 'Ca 1',   '07:20','07:30','17:00','17:10', 0, 60, 'Tính từ giờ ra (công)',  '', '${now}')
+      /* BB - BÁNH BẮP */
+      ('s_BB1',   '${MID}', 'Ca 16h30',         'd_BB',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* BBK - BAO BÌ KẸO */
+      ('s_BBK1',  '${MID}', 'Ca 16h30',         'd_BBK', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* BBL - BAO BÌ LỚN */
+      ('s_BBL1',  '${MID}', 'Ca 16h30',         'd_BBL', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* BBN - BAO BÌ NHỎ */
+      ('s_BBN1',  '${MID}', 'Ca 16h30',         'd_BBN', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* BI - BÁNH IN */
+      ('s_BI1',   '${MID}', 'Ca 16h30',         'd_BI',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* BV - BẢO VỆ (Ca 1 + Ca 2) */
+      ('s_BV1',   '${MID}', '2 CA BV',          'd_BV',  FALSE, 'Ca 1', '05:50','06:00','14:00','14:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      ('s_BV2',   '${MID}', '2 CA BV',          'd_BV',  FALSE, 'Ca 2', '09:50','10:00','18:00','18:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* CĐ - CƠ ĐIỆN */
+      ('s_CD1',   '${MID}', 'Ca 17h',           'd_CD',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* CH - CỬA HÀNG (Ca 1 + Ca 2) */
+      ('s_CH1',   '${MID}', '2 CA CH/NH',       'd_CH',  FALSE, 'Ca 1', '06:20','06:30','14:30','14:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      ('s_CH2',   '${MID}', '2 CA CH/NH',       'd_CH',  FALSE, 'Ca 2', '11:50','12:00','20:00','20:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* CK - CƠ KHÍ */
+      ('s_CK1',   '${MID}', 'Ca 17h',           'd_CK',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* CN - CHI NHÁNH */
+      ('s_CN1',   '${MID}', 'Ca 17h',           'd_CN',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* CNTT - CÔNG NGHỆ THÔNG TIN */
+      ('s_CNTT1', '${MID}', 'Ca 17h',           'd_CNTT',FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* HN - HẠNH NHÂN */
+      ('s_HN1',   '${MID}', 'Ca 16h30',         'd_HN',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* K - KHÂU KẸO */
+      ('s_K1',    '${MID}', 'Ca 16h30',         'd_K',   FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* KD - KINH DOANH */
+      ('s_KD1',   '${MID}', 'Ca 17h',           'd_KD',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* KNL - KHO NGUYÊN LIỆU */
+      ('s_KNL1',  '${MID}', 'Ca 16h30',         'd_KNL', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* KT - KẾ TOÁN */
+      ('s_KT1',   '${MID}', 'Ca 17h',           'd_KT',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* KTH - KỸ THUẬT */
+      ('s_KTH1',  '${MID}', 'Ca 16h30',         'd_KTH', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* KTP - KHO THÀNH PHẨM */
+      ('s_KTP1',  '${MID}', 'Ca 17h',           'd_KTP', FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* LC - LONG CHÂU */
+      ('s_LC1',   '${MID}', 'Ca 16h30',         'd_LC',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* LCH - LÒ CHAY */
+      ('s_LCH1',  '${MID}', 'Ca 16h30',         'd_LCH', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* LN - LÒ MẶN */
+      ('s_LN1',   '${MID}', 'Ca 16h30',         'd_LN',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* LX - LẠP XƯỞNG */
+      ('s_LX1',   '${MID}', 'Ca 16h30',         'd_LX',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* NB - NHÀ BẾP */
+      ('s_NB1',   '${MID}', 'CA 8/CA HC',       'd_NB',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* NH - NHÀ HÀNG (Ca 1 + Ca 2) */
+      ('s_NH1',   '${MID}', '2 CA CH/NH',       'd_NH',  FALSE, 'Ca 1', '06:20','06:30','14:30','14:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      ('s_NH2',   '${MID}', '2 CA CH/NH',       'd_NH',  FALSE, 'Ca 2', '11:50','12:00','20:00','20:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* NS - NHÂN SỰ */
+      ('s_NS1',   '${MID}', 'Ca 16h30',         'd_NS',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* PC - PÍA CHAY */
+      ('s_PC1',   '${MID}', 'Ca 16h30',         'd_PC',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* PM - PÍA MẶN */
+      ('s_PM1',   '${MID}', 'Ca 16h30',         'd_PM',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* QĐ1 - QUẬY ĐẬU 1 */
+      ('s_QD1',   '${MID}', 'Ca 16h30',         'd_QD1', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* QĐ2 - QUẬY ĐẬU 2 */
+      ('s_QD2',   '${MID}', 'Ca 16h30',         'd_QD2', FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* SR - SẦU RIÊNG */
+      ('s_SR1',   '${MID}', 'Ca 16h30',         'd_SR',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* TH - TỔNG HỢP */
+      ('s_TH1',   '${MID}', 'Ca 17h',           'd_TH',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* TX - TÀI XẾ */
+      ('s_TX1',   '${MID}', 'Ca 17h',           'd_TX',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* TV - TRỨNG VỊT */
+      ('s_TV1',   '${MID}', 'Ca 16h30',         'd_TV',  FALSE, 'Ca 1', '07:15','07:30','16:30','16:35', 0, 0, 'Tính từ giờ ra (công)','', '${now}'),
+      /* VS - VỆ SINH */
+      ('s_VS1',   '${MID}', 'Ca 17h',           'd_VS',  FALSE, 'Ca 1', '07:15','07:30','17:00','17:05', 0, 0, 'Tính từ giờ ra (công)','', '${now}')
   `);
 
-  // Leave Types
+  /* ── leave_types (14) ───────────────── */
   await conn.run(`
     INSERT INTO leave_types (id, month_id, code, name, description, paid, note, created_at) VALUES
-      ('lt01', '${MID}', 'X',   'Làm 1 ngày',       'Ngày làm việc đầy đủ.',                         TRUE,  'Tính ngày công: Có',          '${now}'),
-      ('lt02', '${MID}', 'X/2', 'Làm nửa ngày',     'Làm việc nửa ngày (sáng hoặc chiều).',          TRUE,  'Tính ngày công: 0.5 ngày',    '${now}'),
-      ('lt03', '${MID}', 'P',   'Nghỉ có phép',     'Nghỉ được phê duyệt.',                           FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt04', '${MID}', 'PN',  'Phép năm',         'Nghỉ phép năm theo chính sách.',                 FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt05', '${MID}', 'Ô',   'Nghỉ ốm',          'Nghỉ ốm đau.',                                   FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt06', '${MID}', 'TS',  'Nghỉ thai sản',    'Nghỉ thai sản theo Luật.',                       FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt07', '${MID}', 'DS',  'Dưỡng sức',        'Nghỉ dưỡng sức.',                                FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt08', '${MID}', 'O',   'Nghỉ không phép',  'Vắng mặt không lý do.',                          FALSE, 'Tính ngày công: Không (vi phạm)', '${now}'),
-      ('lt09', '${MID}', 'NL',  'Nghỉ lễ',          'Ngày lễ quốc gia.',                              FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt10', '${MID}', 'L',   'Ngày nghỉ',        'Ngày nghỉ thường lệ hàng tuần.',                 FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt11', '${MID}', 'LP',  'Nghỉ chủ nhật',    'Ngày Chủ Nhật hoặc nghỉ lịch.',                 FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt12', '${MID}', 'LL',  'Đi làm ngày lễ',   'Làm bù ngày lễ/tết.',                            TRUE,  'Tính ngày công: Có (phụ cấp lễ)', '${now}'),
-      ('lt13', '${MID}', 'LN',  'Đi làm ngày nghỉ', 'Làm vào ngày nghỉ hàng tuần.',                  TRUE,  'Tính ngày công: Có (phụ cấp)', '${now}'),
-      ('lt14', '${MID}', 'H',   'Ngày hưởng lương', 'Ngày không đi làm nhưng hưởng lương.',           FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt15', '${MID}', 'B',   'Không đi làm',     'Ngày không đi làm không lý do rõ.',              FALSE, 'Tính ngày công: Không',       '${now}'),
-      ('lt16', '${MID}', 'OF',  'Thôi việc',        'Nhân viên đã nghỉ việc.',                        FALSE, 'Tính ngày công: Không',       '${now}')
+      ('lt_X',   '${MID}', 'X',   'Làm 1 ngày',       '', TRUE, 'Ngày làm việc đầy đủ.',                                   '${now}'),
+      ('lt_X2',  '${MID}', 'X/2', 'Làm nửa ngày',     '', TRUE, 'Làm việc nửa ngày (sáng hoặc chiều).',                    '${now}'),
+      ('lt_P',   '${MID}', 'P',   'Nghỉ có phép',     '', TRUE, 'Nghỉ được phê duyệt.',                                      '${now}'),
+      ('lt_PN',  '${MID}', 'PN',  'Phép năm',         '', TRUE, 'Nghỉ phép năm theo chính sách.',                             '${now}'),
+      ('lt_O',   '${MID}', 'Ô',   'Nghỉ ốm',          '', TRUE, 'Nghỉ ốm đau.',                                             '${now}'),
+      ('lt_TS',  '${MID}', 'TS',  'Nghỉ thai sản',    '', TRUE, 'Nghỉ thai sản theo Luật.',                                  '${now}'),
+      ('lt_DS',  '${MID}', 'DS',   'Dưỡng sức',       '', TRUE, 'Nghỉ dưỡng sức.',                                         '${now}'),
+      ('lt_O2',  '${MID}', 'O',   'Nghỉ không phép',  '', TRUE, 'Vắng mặt không lý do.',                                    '${now}'),
+      ('lt_NL',  '${MID}', 'NL',  'Nghỉ lễ',          '', TRUE, 'Ngày lễ quốc gia.',                                        '${now}'),
+      ('lt_LP',  '${MID}', 'LP',  'Nghỉ chủ nhật',    '', TRUE, 'Ngày nghỉ tua luân phiên hàng tuần.',                      '${now}'),
+      ('lt_LL',  '${MID}', 'LL',  'Đi làm ngày lễ',   '', TRUE, 'Làm bù ngày lễ/tết.',                                      '${now}'),
+      ('lt_H',   '${MID}', 'H',   'Ngày hưởng lương', '', TRUE, 'Ngày không đi làm nhưng hưởng lương.',                     '${now}'),
+      ('lt_B',   '${MID}', 'B',   'Không đi làm',     '', TRUE, 'Ngày chưa vào công ty làm.',                               '${now}'),
+      ('lt_OF',  '${MID}', 'OF',  'Thôi việc',        '', TRUE, 'Nhân viên đã nghỉ việc.',                                  '${now}')
   `);
 
-  // Alloc Rules (bao gồm các quy tắc WORK_RULE chi tiết)
+  /* ── special_groups (3) ─────────────── */
+  await conn.run(`
+    INSERT INTO special_groups (id, month_id, code, name, work_hours, note, created_at) VALUES
+      ('sg_18',   '${MID}', '18_DUOI_18',      'Nhóm dưới 18 tuổi',    7, 'Thời gian làm việc 7 giờ/ngày', '${now}'),
+      ('sg_19A',  '${MID}', '19A_CO_THAI',     'Nhóm có thai',         7, 'Thời gian làm việc 7 giờ/ngày', '${now}'),
+      ('sg_19B',  '${MID}', '19_NUOI_CON_NHO', 'Nhóm nuôi con nhỏ',    7, 'Thời gian làm việc 7 giờ/ngày', '${now}')
+  `);
+
+  /* ── alloc_rules (11) ───────────────── */
   await conn.run(`
     INSERT INTO alloc_rules (id, month_id, group_code, group_name, name, param_key, param_value, default_param, specific_value, description, active, created_at) VALUES
-      ('1',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Số ngày làm việc tối thiểu',      '',                             NULL, '6 ngày',                                    '', 'Quy định số ngày làm tối thiểu/tháng',              TRUE, '${now}'),
-      ('2',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Số ngày nghỉ phép tối đa',        '',                             NULL, '≤ 6 ngày',                                  '', 'Giới hạn nghỉ phép trong kỳ',                       TRUE, '${now}'),
-      ('3',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Phân bổ ca theo phòng ban',        '',                             NULL, 'Áp dụng cho mọi phòng ban trừ BGD',         '', 'Ưu tiên phân bổ ca theo phòng ban mặc định',        TRUE, '${now}'),
-      ('4',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Lịch nghỉ phép phải liên tiếp',   '',                             NULL, 'Cuối kỳ nghỉ',                              '', 'Ngày nghỉ phép phải đứng liền nhau',                TRUE, '${now}'),
-      ('5',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Cân bằng nhân lực theo ca',       '',                             NULL, 'Chênh lệch ≤ 1 NV/ca/ngày',                 '', 'Số NV/ca không được chênh lệch quá mức quy định',   TRUE, '${now}'),
-      ('6',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Thời gian đi trễ cho phép',       '',                             NULL, '9 phút/ngày',                               '', 'Số phút đi trễ tối đa được bỏ qua',                 TRUE, '${now}'),
-      ('7',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Giờ tăng ca tối đa',              '',                             NULL, '60 phút/ngày',                              '', 'Số phút Tăng ca tối đa được tính mỗi ngày',              TRUE, '${now}'),
-      ('8',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Sai lệch giờ ra cho phép',        '',                             NULL, 'Chênh lệch ≤ 30 phút/ngày',                 '', 'Giờ ra có thể lệch tối đa so với giờ chuẩn',        TRUE, '${now}'),
-      ('9',   '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Khoảng cách ca tối thiểu',        '',                             NULL, '12 giờ',                                    '', 'Thời gian nghỉ tối thiểu giữa 2 ca',                TRUE, '${now}'),
-      ('wk1', '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Giới hạn ngày làm liên tục',      'max_consecutive_days',         6,    '6 ngày',                                    'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ. Dùng để kiểm tra constraint backtracking.', '', TRUE, '${now}'),
-      ('wk2', '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Ngưỡng ngày công chọn giải thuật','workdays_algorithm_threshold',  27,   '27 ngày',                                   'Nếu workdays < 27 → dùng generateOneArrangement; nếu ≥ 27 → random từ pool.', '', TRUE, '${now}'),
-      ('wk3', '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Phép năm đặt từ ngày thứ',        'pn_start_from_day',            15,   'Từ ngày 15',                                'Phép năm (PN) chỉ được xếp vào các ngày từ ngày thứ 15 của tháng trở đi (index >= 14).', '', TRUE, '${now}'),
-      ('wk4', '${MID}', 'WORK_RULE', 'Quy tắc làm việc', 'Vị trí phép năm ưu tiên',         'pn_preferred_position',        NULL, 'Cuối kỳ nghỉ',                              'PN được xếp vào ngày CUỐI của chuỗi LP (nghỉ lịch) liên tiếp DÀI NHẤT tính từ ngày pn_start_from_day trở đi. Nếu nhiều chuỗi bằng nhau thì ưu tiên chuỗi cuối tháng.', '', TRUE, '${now}')
+      ('ar_1',  '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Giới hạn ngày làm liên tục',         'max_consecutive_days',          6,    '6 ngày',              '', 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.',                                                            TRUE, '${now}'),
+      ('ar_2',  '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Khoảng cách ngày nghỉ liên tháng',   'max_consecutive_days',          6,    '≤ 6 ngày',            '', 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.',                    TRUE, '${now}'),
+      ('ar_3',  '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Phân bổ ngày nghỉ đồng đều',         'max_day_off_difference',        1,    '±1 ngày',             '', 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.',                        TRUE, '${now}'),
+      ('ar_3b', '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Phòng ban bỏ qua cân bằng nghỉ',     'skip_equal_rest_dept_codes',    NULL, 'BGD',                 'BGD', 'Danh sách mã phòng ban KHÔNG áp dụng cân bằng ngày nghỉ, cách nhau bởi dấu phẩy. VD: BGD,KD',                             TRUE, '${now}'),
+      ('ar_4',  '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Vị trí phép năm (PN)',               'pn_start_from_day',             15,   'Từ ngày 15',          '', 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi.',                                      TRUE, '${now}'),
+      ('ar_5',  '${MID}', 'SHIFT_BALANCING_RULE', 'Quy tắc phân bổ ca', 'Phân bổ ca cân bằng',                'max_day_off_difference',        1,    'Chênh lệch ≤ 1 NV',  '', 'Số lượng nhân viên giữa các ca trong cùng phòng ban phải gần bằng nhau mỗi ngày.',                                        TRUE, '${now}'),
+      ('ar_6',  '${MID}', 'ATTENDANCE_RULE',      'Quy tắc chấm công',  'Đi trễ tối đa/ngày',                'max_late_per_day_minutes',      9,    '9 phút/ngày',         '', 'Không có ngày nào có số phút trễ > 9 phút.',                                                                              TRUE, '${now}'),
+      ('ar_7',  '${MID}', 'OT_RULE',              'Quy tắc tăng ca',    'Tăng ca tối thiểu/ngày',            'min_ot_per_day_minutes',        60,   '60 phút/ngày',        '', 'Nếu có tăng ca, số phút OT trong ngày phải ≥ 60 phút. Đặt 0 để tắt.',                                                    TRUE, '${now}'),
+      ('ar_8',  '${MID}', 'OT_RULE',              'Quy tắc tăng ca',    'OT cân bằng trong phòng ban',       'max_ot_balance_diff_minutes',   30,   'Chênh lệch ≤ 30 phút','', 'Nhân viên cùng phòng ban có số giờ OT trong cùng ngày gần bằng nhau. Chênh lệch tối đa (phút).',                          TRUE, '${now}'),
+      ('ar_9',  '${MID}', 'OT_RULE',              'Quy tắc tăng ca',    'Tăng ca tối đa giữa hai ngày nghỉ', 'max_ot_between_rest_hours',     12,   '12 giờ',              '', 'Tổng OT trong khoảng giữa hai ngày nghỉ liên tiếp không vượt N tiếng.',                                                   TRUE, '${now}'),
+      ('ar_10', '${MID}', 'WORK_RULE',            'Quy tắc làm việc',   'Vị trí phép năm ưu tiên',           'pn_preferred_position',         NULL, 'Cuối kỳ nghỉ',        '', 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi.',                                      TRUE, '${now}')
   `);
 }
 

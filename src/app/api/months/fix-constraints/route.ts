@@ -4,7 +4,7 @@
  * Chạy 1 lần sau khi upgrade.
  */
 import { NextResponse } from 'next/server';
-import { getConn } from '@/lib/db';
+import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -13,7 +13,7 @@ const TABLES = [
     name: 'departments',
     ddl: `CREATE TABLE departments (
       id         VARCHAR PRIMARY KEY,
-      month_id   VARCHAR NOT NULL DEFAULT 'month_jan2026',
+      month_id   VARCHAR NOT NULL DEFAULT '${DEFAULT_MONTH_ID}',
       code       VARCHAR NOT NULL,
       name       VARCHAR NOT NULL,
       parent_id  VARCHAR DEFAULT NULL,
@@ -27,7 +27,7 @@ const TABLES = [
     name: 'leave_types',
     ddl: `CREATE TABLE leave_types (
       id          VARCHAR PRIMARY KEY,
-      month_id    VARCHAR NOT NULL DEFAULT 'month_jan2026',
+      month_id    VARCHAR NOT NULL DEFAULT '${DEFAULT_MONTH_ID}',
       code        VARCHAR NOT NULL,
       name        VARCHAR NOT NULL,
       description VARCHAR DEFAULT '',
@@ -41,7 +41,7 @@ const TABLES = [
     name: 'special_groups',
     ddl: `CREATE TABLE special_groups (
       id         VARCHAR PRIMARY KEY,
-      month_id   VARCHAR NOT NULL DEFAULT 'month_jan2026',
+      month_id   VARCHAR NOT NULL DEFAULT '${DEFAULT_MONTH_ID}',
       code       VARCHAR NOT NULL,
       name       VARCHAR NOT NULL,
       work_hours DOUBLE DEFAULT 8.0,

@@ -2,7 +2,7 @@ const duckdb = require('duckdb');
 const db = new duckdb.Database('./data/costco.duckdb');
 
 // Tìm tháng 4/2026
-db.all(`SELECT id FROM months WHERE month LIKE '%04/2026%' OR month LIKE '%4/2026%'`, (err, months) => {
+db.all(`SELECT id FROM months WHERE month LIKE '%01/2026%' OR month LIKE '%4/2026%'`, (err, months) => {
   if (err) {
     console.error('Error finding month:', err);
     db.close();
@@ -12,7 +12,7 @@ db.all(`SELECT id FROM months WHERE month LIKE '%04/2026%' OR month LIKE '%4/202
   console.log('Months found:', JSON.stringify(months, null, 2));
   
   if (months.length === 0) {
-    console.log('No month 04/2026 found');
+    console.log('No month 01/2026 found');
     db.close();
     return;
   }
@@ -25,7 +25,7 @@ db.all(`SELECT id FROM months WHERE month LIKE '%04/2026%' OR month LIKE '%4/202
     if (err) {
       console.error('Error:', err);
     } else {
-      console.log('\nDepartments in month 04/2026:');
+      console.log('\nDepartments in month 01/2026:');
       console.log(JSON.stringify(rows, null, 2));
       console.log('\nTotal:', rows.length, 'departments');
     }

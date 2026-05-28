@@ -4,7 +4,7 @@ import { Database } from 'duckdb-async';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FROM = '1779071988703'; // Tháng 6/2025
-const TO   = 'month_jan2026';
+const TO   = 'month_master';
 const now  = new Date().toISOString().slice(0, 10);
 
 function newId(prefix) {
@@ -17,7 +17,7 @@ const conn = await db.connect();
 // Kiểm tra tháng đích đã tồn tại chưa
 const existing = await conn.all(`SELECT id FROM months WHERE id = ?`, TO);
 if (existing.length > 0) {
-  console.log('Tháng month_jan2026 đã tồn tại, bỏ qua.');
+  console.log('Tháng month_master đã tồn tại, bỏ qua.');
   await conn.close(); process.exit(0);
 }
 
@@ -102,6 +102,6 @@ for (const e of emps) {
 await conn.run('COMMIT');
 await conn.close();
 
-console.log(`Done. Tạo tháng master month_jan2026 từ tháng 6/2025:`);
+console.log(`Done. Tạo tháng master month_master từ tháng 6/2025:`);
 console.log(`  Departments: ${depts.length}, Shifts: ${shifts.length}, LeaveTypes: ${lts.length}`);
 console.log(`  SpecialGroups: ${sgs.length}, AllocRules: ${ars.length}, Employees: ${emps.length}`);

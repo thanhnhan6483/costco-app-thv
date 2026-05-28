@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH   = path.join(__dirname, '..', 'data', 'costco.duckdb');
-const MONTH_ID  = process.argv[2] ?? 'month_jan2026';
+const MONTH_ID  = process.argv[2] ?? 'month_master';
 const TARGET    = 1000; // số NV có ngày nghỉ
 
 const DAYS = ['26/09/2025','27/09/2025','28/09/2025','29/09/2025','30/09/2025'];

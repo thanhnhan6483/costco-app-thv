@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConn } from '@/lib/db';
+import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
 /**
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   const conn = await getConn();
   try {
     const body = await req.json().catch(() => ({}));
-    const mid = (body as { monthId?: string }).monthId || 'month_apr2026';
+    const mid = (body as { monthId?: string }).monthId || DEFAULT_MONTH_ID;
     const now = new Date().toISOString().slice(0, 10);
 
     // Migrate: thêm param_key/param_value nếu chưa có
