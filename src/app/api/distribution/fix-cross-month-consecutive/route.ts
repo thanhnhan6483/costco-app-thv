@@ -5,8 +5,9 @@ import { calcConsecutiveDays } from '@/lib/distributionEngine';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const { monthId } = await req.json() as { monthId: string };
+  const { monthId, empCodes } = await req.json() as { monthId: string; empCodes?: string[] };
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
+  const filterSet = empCodes ? new Set(empCodes.map(c => c.trim().toUpperCase())) : null;
 
   const conn = await getConn();
   try {
@@ -40,37 +41,57 @@ export async function POST(req: NextRequest) {
       if (r.day >= 1 && r.day <= daysInMonth) dayMap.get(r.empId)![r.day - 1] = Number(r.dayType);
     }
 
-    const isWork = (dt: number) => dt === 0;
-    const isPN = (dt: number) => dt === 2;
-    const calcNCPB = (arr: number[]) => arr.filter(dt => isWork(dt) || isPN(dt)).length;
-
     const changes: { empId: string; day: number; dayType: number }[] = [];
-    const affectedEmpIds = new Set<string>();
+    let problemCount = 0;
 
     for (const [empId, arr] of dayMap) {
       const emp = empMap.get(empId);
       if (!emp) continue;
-
-      const ncpb = calcNCPB(arr);
-      if (ncpb <= emp.workdays) continue;
-      affectedEmpIds.add(empId);
+      if (filterSet && !filterSet.has(emp.code.toUpperCase())) continue;
 
       const initRun = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc ?? '');
       if (initRun <= 0) continue;
 
-      const targetDay = max - initRun;
-      if (targetDay < 1 || targetDay > daysInMonth) continue;
-
-      const idx = targetDay - 1;
-      if (arr[idx] === 0) {
-        arr[idx] = 1;
-        changes.push({ empId, day: targetDay, dayType: 1 });
+      // Chỉ sửa vi phạm liên tháng (do initRun), không sửa toàn bộ consecutive
+      // Dùng single pass — không while loop để tránh crash V8 heap
+      let run = initRun;
+      let hadViolation = false;
+      for (let i = 0; i < daysInMonth; i++) {
+        if (arr[i] === 0) {
+          run++;
+          if (run > max) {
+            hadViolation = true;
+            // Vị trí cần LP: đầu run vi phạm trong current month
+            const insertPos = Math.max(0, i - max);
+            if (insertPos >= 0 && insertPos <= i && arr[insertPos] === 0) {
+              let swapIdx = -1;
+              for (let j = i + 1; j < daysInMonth; j++) {
+                if (arr[j] === 1) { swapIdx = j; break; }
+              }
+              if (swapIdx === -1) {
+                for (let j = insertPos - 1; j >= 0; j--) {
+                  if (arr[j] === 1) { swapIdx = j; break; }
+                }
+              }
+              if (swapIdx !== -1) {
+                arr[insertPos] = 1;
+                arr[swapIdx] = 0;
+                changes.push({ empId, day: insertPos + 1, dayType: 1 });
+                changes.push({ empId, day: swapIdx + 1, dayType: 0 });
+              }
+            }
+            break; // chỉ fix vi phạm đầu tiên (do initRun), các vi phạm sau để nút "Sửa liên tiếp" xử lý
+          }
+        } else {
+          run = 0; break;
+        }
       }
+      if (hadViolation) problemCount++;
     }
 
     if (changes.length === 0) {
       await conn.close();
-      return NextResponse.json({ ok: true, fixed: 0, total: affectedEmpIds.size, message: 'Không có nhân viên nào cần sửa (hoặc vị trí đã là LP)' });
+      return NextResponse.json({ ok: true, fixed: 0, total: problemCount, message: 'Không có nhân viên nào cần sửa (hoặc vị trí đã là LP)' });
     }
 
     await conn.run('BEGIN TRANSACTION');
@@ -88,9 +109,10 @@ export async function POST(req: NextRequest) {
     }
 
     await conn.close();
-    return NextResponse.json({ ok: true, fixed: changes.length, total: affectedEmpIds.size });
+    return NextResponse.json({ ok: true, fixed: changes.length / 2, total: problemCount });
   } catch (e) {
     await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+

@@ -228,7 +228,7 @@ test('PN đặt vào cuối chuỗi LP dài nhất', () => {
   assert.strictEqual(pnIdx, 21, `PN tại index ${pnIdx} (ngày ${pnIdx + 1}), expected index 21 (ngày 22)`);
 });
 
-test('Số PN sau khi đặt = phepNam', () => {
+test('Số PN sau khi đặt Phân bổ PN = Phép năm', () => {
   for (let i = 0; i < 20; i++) {
     const arr = Array(31).fill(0);
     // Đặt nhiều LP để có chỗ cho 2 PN
@@ -270,7 +270,7 @@ test('Số ngày làm (X) + PN = workdays=27', () => {
   }
 });
 
-test('Số PN = phepNam=1', () => {
+test('Số PN Phân bổ PN = Phép năm=1', () => {
   for (let i = 0; i < 30; i++) {
     const arr = step1_generateArrangement(makeEmp(), 31, 1, 2026, DEFAULT_PARAMS, false, 'greedy');
     const pn = countType(arr, 2);

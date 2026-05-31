@@ -83,38 +83,7 @@ export async function GET(req: NextRequest) {
     const results: CheckResult[] = [];
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 1: Ngày làm liên tiếp ≤ maxConsecutiveDays
-       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const check1: CheckResult = {
-      id: 'consecutive_days',
-      label: `Ngày làm liên tiếp (≤ ${params.maxConsecutiveDays} ngày)`,
-      description: `Không quá ${params.maxConsecutiveDays} ngày làm liên tiếp`,
-      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
-    };
-    for (const emp of emps) {
-      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      let run = 0; let runStart = 1;
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dayData = emp.days.find(x => x.day === d);
-        if (dayData?.dayType === 0) {
-          if (run === 0) runStart = d;
-          run++;
-          if (run > params.maxConsecutiveDays) {
-            check1.violations.push({
-              code: emp.code, name: emp.name, deptName, day: runStart,
-              detail: `${run} ngày làm liên tiếp từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`,
-            });
-            break;
-          }
-        } else { run = 0; }
-      }
-    }
-    check1.violationCount = check1.violations.length;
-    check1.status = check1.violationCount === 0 ? 'ok' : 'error';
-    results.push(check1);
-
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 1b: Khoảng cách ngày nghỉ liên tháng
+       Check 1: Khoảng cách ngày nghỉ liên tháng
        (ngay_nghi_cuoi_thang_truoc + đầu tháng không vượt maxConsecutiveDays)
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkCrossMonth: CheckResult = {
@@ -172,17 +141,48 @@ export async function GET(req: NextRequest) {
             const suggestedDate = `${String(suggestedDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
             checkCrossMonth.violations.push({
               code: emp.code, name: emp.name, deptName, day: runStart,
-              detail: `${run} ngày làm liên tiếp từ cuối tháng trước (đã làm ${initRun} ngày cuối T3, nghỉ ${formatDDMMYYYY(emp.ngayNghiCuoiThangTruoc || '')}) — vượt giới hạn ${params.maxConsecutiveDays}` +
+              detail: `${run} Giới hạn ngày làm liên tục từ cuối tháng trước (đã làm ${initRun} ngày cuối T3, nghỉ ${formatDDMMYYYY(emp.ngayNghiCuoiThangTruoc || '')}) — vượt giới hạn ${params.maxConsecutiveDays}` +
                 ` — gợi ý: nên đổi X thành LP tại ngày ${suggestedDate}`,
             });
             break;
           }
-        } else { run = 0; runStart = -1; }
+        } else { run = 0; runStart = -1; break; }
       }
     }
     checkCrossMonth.violationCount = checkCrossMonth.violations.length;
     checkCrossMonth.status = checkCrossMonth.violationCount === 0 ? 'ok' : 'error';
     results.push(checkCrossMonth);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check 2: Giới hạn ngày làm liên tục ≤ maxConsecutiveDays
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const check1: CheckResult = {
+      id: 'consecutive_days',
+      label: `Giới hạn ngày làm liên tục (≤ ${params.maxConsecutiveDays} ngày)`,
+      description: `Không quá ${params.maxConsecutiveDays} Giới hạn ngày làm liên tục`,
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      let run = 0; let runStart = 1;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayData = emp.days.find(x => x.day === d);
+        if (dayData?.dayType === 0) {
+          if (run === 0) runStart = d;
+          run++;
+          if (run > params.maxConsecutiveDays) {
+            check1.violations.push({
+              code: emp.code, name: emp.name, deptName, day: runStart,
+              detail: `${run} Giới hạn ngày làm liên tục từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`,
+            });
+            break;
+          }
+        } else { run = 0; }
+      }
+    }
+    check1.violationCount = check1.violations.length;
+    check1.status = check1.violationCount === 0 ? 'ok' : 'error';
+    results.push(check1);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 2: PN chỉ từ ngày pnStartFromDay trở đi
@@ -209,35 +209,10 @@ export async function GET(req: NextRequest) {
       }
     }
     check2.violationCount = check2.violations.length;
-    check2.status = check2.violationCount === 0 ? 'ok' : 'error';
+    check2.status = check2.violationCount === 0 ? 'ok' : 'warning';
     results.push(check2);
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check 2b: Số ngày PN phải đúng bằng phepNam
-       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const checkPnCount: CheckResult = {
-      id: 'pn_count',
-      label: 'Số ngày phép năm (= phepNam)',
-      description: 'Số ngày PN trong tháng phải đúng bằng phép năm của NV',
-      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
-    };
-    for (const emp of emps) {
-      if (emp.phepNam === 0) continue;
-      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const pnCount = emp.days.filter(d => d.dayType === 2).length;
-      if (pnCount !== emp.phepNam) {
-        checkPnCount.violations.push({
-          code: emp.code, name: emp.name, deptName, day: 0,
-          detail: `Có ${pnCount} ngày PN, cần ${emp.phepNam}`,
-        });
-      }
-    }
-    checkPnCount.violationCount = checkPnCount.violations.length;
-    checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
-    results.push(checkPnCount);
-
     /* check3 (pn_end_of_rest) đã bỏ — engine không đảm bảo PN đứng cuối LP trong step1 */
-
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 4: Tăng ca tối đa maxOtPerDayHours h/ngày
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -430,74 +405,82 @@ export async function GET(req: NextRequest) {
     results.push(checkTime);
     const check8: CheckResult = {
       id: 'lp_balance',
-      label: `Cân bằng ngày nghỉ trong phòng (chênh ≤ ${Math.floor(100 * 0.4)}% người)`,
-      description: 'Số NV nghỉ/làm mỗi ngày trong phòng không chênh lệch quá nhiều',
+      label: `Cân bằng ngày nghỉ trong phòng (chênh ≤ ±1 ngày)`,
+      description: 'Số NV nghỉ mỗi ngày không chênh quá ±1 so với trung bình phòng',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     // Nhóm NV theo phòng ban (bỏ qua skipEqualRestDeptCodes)
     const skipCodes = new Set(params.skipEqualRestDeptCodes.map(c => c.toUpperCase()));
-    const deptEmpsMap = new Map<string, string[]>(); // deptId → empIds
+    const deptEmpsMap = new Map<string, string[]>();
+    const empInfoMap = new Map<string, { code: string; name: string }>();
     for (const emp of emps) {
+      empInfoMap.set(emp.empId, { code: emp.code, name: emp.name });
       const dept = deptMap.get(emp.deptId);
       if (!dept || skipCodes.has(dept.code.toUpperCase())) continue;
       if (!deptEmpsMap.has(emp.deptId)) deptEmpsMap.set(emp.deptId, []);
       deptEmpsMap.get(emp.deptId)!.push(emp.empId);
     }
-    
-    // Với mỗi phòng, kiểm tra cân bằng theo từng ngày
+
     for (const [deptId, memberIds] of deptEmpsMap) {
-      if (memberIds.length < 2) continue;
+      if (memberIds.length < 3) continue;
       const deptName = deptMap.get(deptId)?.name ?? '—';
-      const violatingDays: { day: number; workCount: number; restCount: number; diff: number }[] = [];
-      
-      // Với mỗi ngày trong tháng
-      for (let day = 1; day <= daysInMonth; day++) {
-        let workCount = 0;  // Số người làm (X)
-        let restCount = 0;  // Số người nghỉ (LP, PN, NL...)
-        
-        for (const empId of memberIds) {
-          const emp = emps.find(e => e.empId === empId);
-          if (!emp) continue;
-          
-          const dayData = emp.days.find(d => d.day === day);
-          if (!dayData) continue;
-          
-          if (dayData.dayType === 0) {
-            workCount++; // Ngày làm (X)
-          } else {
-            restCount++; // Ngày nghỉ (LP, PN, NL, Ô, TS...)
-          }
-        }
-        
-        const total = workCount + restCount;
-        if (total === 0) continue; // Không có data
-        
-        // Tính chênh lệch
-        const diff = Math.abs(workCount - restCount);
-        // Cho phép chênh tối đa 40% hoặc maxDayOffDifference người (lấy giá trị lớn hơn)
-        const maxAllowedDiff = Math.max(
-          Math.floor(total * 0.4),
-          params.maxDayOffDifference
-        );
-        
-        if (diff > maxAllowedDiff) {
-          violatingDays.push({ day, workCount, restCount, diff });
+      const totalMembers = memberIds.length;
+
+      // Đếm số người nghỉ mỗi ngày
+      const dailyRest: number[] = new Array(daysInMonth + 1).fill(0);
+      for (const empId of memberIds) {
+        const emp = emps.find(e => e.empId === empId);
+        if (!emp) continue;
+        for (const d of emp.days) {
+          if (d.dayType !== 0) dailyRest[d.day]++;
         }
       }
-      
+
+      // Bỏ qua ngày đặc biệt (tất cả NV đều nghỉ — NL, lễ...)
+      const specialDays = new Set<number>();
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (dailyRest[day] >= totalMembers) specialDays.add(day);
+      }
+
+      const checkedDays = daysInMonth - specialDays.size;
+      if (checkedDays === 0) continue;
+
+      let totalRestDays = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (!specialDays.has(day)) totalRestDays += dailyRest[day];
+      }
+      const avg = totalRestDays / checkedDays;
+
+      const violatingDays: { day: number; restCount: number; deviation: number }[] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        if (specialDays.has(day)) continue;
+        const deviation = dailyRest[day] - avg;
+        if (deviation > 1 || deviation < -1) {
+          violatingDays.push({ day, restCount: dailyRest[day], deviation });
+        }
+      }
+
       if (violatingDays.length > 0) {
-        // Dòng summary cho phòng
+        const specialNote = specialDays.size > 0 ? ` (bỏ qua ${specialDays.size} ngày đặc biệt)` : '';
         check8.violations.push({
           code: '—', name: `📊 ${deptName}`, deptName, day: 0,
-          detail: `${memberIds.length} NV — ${violatingDays.length} ngày vi phạm cân bằng`,
+          detail: `${memberIds.length} NV — TB ${avg.toFixed(1)} nghỉ/ngày — ${violatingDays.length} ngày vi phạm${specialNote}`,
         });
-        // Chi tiết TẤT CẢ các ngày vi phạm
         for (const vd of violatingDays) {
-          const percent = Math.round((vd.diff / (vd.workCount + vd.restCount)) * 100);
           check8.violations.push({
             code: '—', name: deptName, deptName, day: vd.day,
-            detail: `Ngày ${vd.day}: ${vd.workCount} người làm, ${vd.restCount} người nghỉ (chênh ${vd.diff} người = ${percent}%)`,
+            detail: `Ngày ${vd.day}: ${vd.restCount} người nghỉ (${vd.deviation > 0 ? '+' : ''}${vd.deviation.toFixed(1)} so với TB)`,
           });
+        }
+        // Thêm per-employee để filter "Vi phạm" hoạt động
+        for (const empId of memberIds) {
+          const info = empInfoMap.get(empId);
+          if (info) {
+            check8.violations.push({
+              code: info.code, name: info.name, deptName, day: 0,
+              detail: `Phòng ${deptName} vi phạm cân bằng ngày nghỉ (±1)`,
+            });
+          }
         }
       }
     }
@@ -649,6 +632,30 @@ export async function GET(req: NextRequest) {
     checkQt9.violationCount = checkQt9.violations.length;
     checkQt9.status = checkQt9.violationCount === 0 ? 'ok' : 'error';
     results.push(checkQt9);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check Cuối: Số ngày PN phải đúng bằng phepNam
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkPnCount: CheckResult = {
+      id: 'pn_count',
+      label: 'Số ngày phép năm (Phân bổ PN = Phép năm)',
+      description: 'Số ngày PN trong tháng phải đúng bằng phép năm của NV',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      if (emp.phepNam === 0) continue;
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      const pnCount = emp.days.filter(d => d.dayType === 2).length;
+      if (pnCount !== emp.phepNam) {
+        checkPnCount.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `Có ${pnCount} ngày PN, cần ${emp.phepNam}`,
+        });
+      }
+    }
+    checkPnCount.violationCount = checkPnCount.violations.length;
+    checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkPnCount);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary

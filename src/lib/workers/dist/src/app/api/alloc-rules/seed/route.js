@@ -6,7 +6,7 @@ const server_1 = require("next/server");
 const db_1 = require("@/lib/db");
 exports.runtime = 'nodejs';
 const RULES = [
-    { id: '1', name: 'Giới hạn ngày làm liên tục', defaultParam: '6 ngày', description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
+    { id: '1', name: 'Giới hạn ngày làm liên tục', defaultParam: '6 ngày', description: 'Sau tối đa 6 Giới hạn ngày làm liên tục phải có ít nhất 1 ngày nghỉ.' },
     { id: '2', name: 'Khoảng cách ngày nghỉ liên tháng', defaultParam: '≤ 6 ngày', description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
     { id: '3', name: 'Phân bổ ngày nghỉ đồng đều', defaultParam: 'Áp dụng cho mọi phòng ban trừ Ban Giám đốc', description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
     { id: '4', name: 'Vị trí phép năm (PN)', defaultParam: 'Cuối kỳ nghỉ', description: 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi. Nếu nhiều chuỗi bằng nhau thì ưu tiên chuỗi gần cuối tháng hơn.' },

@@ -58,7 +58,7 @@ exports.DEFAULT_SPECIAL_GROUPS = [
     { code: 'NURSG', name: 'Nuôi con nhỏ (< 12 tháng)', maxHoursPerDay: 7, legalBasis: 'Bộ luật Lao động điều 137' },
 ];
 exports.DEFAULT_ALLOC_RULES = [
-    { id: 1, rule: 'Giới hạn ngày làm liên tục', param: '6 ngày', description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
+    { id: 1, rule: 'Giới hạn ngày làm liên tục', param: '6 ngày', description: 'Sau tối đa 6 Giới hạn ngày làm liên tục phải có ít nhất 1 ngày nghỉ.' },
     { id: 2, rule: 'Khoảng cách ngày nghỉ liên tháng', param: '≤ 6 ngày', description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
     { id: 3, rule: 'Phân bổ ngày nghỉ đồng đều', param: 'Áp dụng cho mọi phòng ban trừ Ban Giám đốc', description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
     { id: 4, rule: 'Vị trí phép năm (PN)', param: 'Cuối kỳ nghỉ', description: 'Ngày PN được ưu tiên xếp vào ngay sau ngày X cuối cùng trong kỳ nghỉ liền kề.' },

@@ -235,6 +235,7 @@ export default function AutoAlloc() {
     setValidateStatusMap(prev => ({ ...prev, [activeStep]: s }));
   const [step1Filter, setStep1Filter] = useState<'pn_before_15' | 'pn_mismatch' | null>(null);
   const validateRef = useRef<{ run: () => void }>(null);
+  const [recheckKey, setRecheckKey] = useState(0);
 
   const [completionInfo, setCompletionInfo] = useState<{
     stepNum: number | 'all'; stepLabel: string; stepIcon: string; elapsedSec: number;
@@ -450,17 +451,15 @@ export default function AutoAlloc() {
           {activeStep === 2 && !curStep?.viewOnly && (
             <>
               <div className={styles.dividerV} />
-              {/* .. ntnhan: ẩn tạm, chờ chỉnh thuật toán phân bổ để chạy nhanh hơn, nếu chạy nhanh thì sẽ hiển thị cả backtracking
               <button
                 className={`${styles.btnRunStep} ${algoRunning === 'backtracking' ? styles.btnRunning : ''}`}
                 onClick={() => runStep2WithAlgo('backtracking')}
                 disabled={isRunning || locked || !status['step1Done']}
-                id="btn-run-king"
+                id="btn-run-backtracking"
                 style={{ background: algoRunning === 'backtracking' ? undefined : '#f5f3ff', color: algoRunning === 'backtracking' ? undefined : '#6d28d9', borderColor: '#c4b5fd' }}
               >
                 {algoRunning === 'backtracking' ? <><span className={styles.spinnerSm} /> {elapsed}s</> : <><IconPlay /> Backtracking</>}
               </button>
-.           . */}
             </>
           )}
           <div className={styles.dividerV} />
@@ -499,7 +498,7 @@ export default function AutoAlloc() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             {[2, 3, 4, 5].includes(activeStep) && curStep && status[curStep.key] && (() => {
               const { loading, result } = validate2Status;
-              const doRun = () => { setValidateOpen(true); validateRef.current?.run(); };
+              const doRun = () => { setRecheckKey(k => k + 1); setValidateOpen(true); validateRef.current?.run(); };
               if (loading) return <button className={styles.btnExport} disabled style={{ minWidth: 130, justifyContent: 'center' }}>⏳ Đang kiểm tra...</button>;
               if (result) return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -579,6 +578,7 @@ export default function AutoAlloc() {
             validateRef={validateRef}
             step1Filter={step1Filter}
             validateResult={validate2Status.result}
+            recheckKey={recheckKey}
           />
         </div>
       </div>
@@ -910,13 +910,14 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
 /* === DayTypeGrid (Step 2) – Editable === */
 type EditKey = `${string}_${number}`; // "empCode_day"
 const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }: {
+function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, filterMode }: {
   rows: Record<string, unknown>[];
   monthId: string;
   monthLabel: string;
   onSaved?: () => void;
   locked?: boolean;
   filterCodes?: Set<string> | null;
+  filterMode?: FilterMode | null;
 }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
@@ -1036,7 +1037,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes }
     <div className={styles.tableOuter}>
       {filterCodes && filterCodes.size > 0 && (
         <div style={{ padding: '4px 12px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', fontSize: 12, color: '#1d4ed8' }}>
-          🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào điều kiện bên dưới để bỏ lọc
+          🔍 Đang lọc {filterCodes.size} nhân viên {filterMode === 'pass' ? 'đạt' : 'vi phạm'} — click lại vào nút lọc bên trên để bỏ lọc
         </div>
       )}
       <ScrollTable className={styles.tableWrap}>
@@ -1510,12 +1511,14 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
 }
 
 /* === ValidatePanel === */
+type FilterMode = 'violation' | 'pass';
+type FilterState = { mode: FilterMode; codes: Set<string> } | null;
 type CheckStatus = 'ok' | 'warning' | 'error';
 interface ViolationItem { code: string; name: string; deptName: string; day: number; detail: string; }
 interface CheckResult { id: string; label: string; description: string; status: CheckStatus; violations: ViolationItem[]; violationCount: number; checkedCount: number; }
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
-const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (codes: Set<string> | null) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; initialResult?: ValidateResult | null; }>(
+const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (filter: FilterState) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; initialResult?: ValidateResult | null; }>(
   function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange, initialResult }, ref) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ValidateResult | null>(initialResult ?? null);
@@ -1531,7 +1534,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
   const [fixingTime, setFixingTime] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
-    const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
+    const [activeFilter, setActiveFilter] = useState<{ id: string; mode: FilterMode } | null>(null);
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
 
     const run = useCallback(async () => {
@@ -1566,9 +1569,17 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     };
 
     const fixPn = () => doFix('Sửa vị trí PN', '/api/distribution/fix-pn', { monthId }, setFixing, d => ({ fixed: d.fixed, total: d.total }));
-    const fixConsec = () => doFix('Sửa ngày liên tiếp', '/api/distribution/fix-consecutive', { monthId }, setFixingConsec, d => ({ fixed: d.fixed, total: d.total }));
-    const fixCrossMonth = () => doFix('Sửa ngày liên tháng', '/api/distribution/fix-cross-month-consecutive', { monthId }, setFixingCrossMonth, d => ({ fixed: d.fixed, total: d.total }));
-    const fixLp = () => doFix('Cân bằng LP', '/api/distribution/fix-lp-balance', { monthId }, setFixingLp, d => ({ fixed: d.fixed }));
+    const fixConsec = () => {
+      const consecCheck = result?.results?.find(c => c.id === 'consecutive_days');
+      const empCodes = consecCheck?.violations?.filter(v => v.code !== '—').map(v => v.code) ?? [];
+      doFix('Sửa ngày liên tiếp', '/api/distribution/fix-consecutive', { monthId, empCodes }, setFixingConsec, d => ({ fixed: d.fixed, total: d.total }));
+    }
+    const fixCrossMonth = () => {
+      const crossCheck = result?.results?.find(c => c.id === 'cross_month_consecutive');
+      const empCodes = crossCheck?.violations?.filter(v => v.code !== '—').map(v => v.code) ?? [];
+      doFix('Sửa ngày liên tháng', '/api/distribution/fix-cross-month-consecutive', { monthId, empCodes }, setFixingCrossMonth, d => ({ fixed: d.fixed, total: d.total }));
+    }
+    const fixLp = () => doFix('Cân bằng LP', '/api/distribution/fix-rest-balance', { monthId }, setFixingLp, d => ({ fixed: d.fixed }));
     const fixShift = () => doFix('Cân bằng ca', '/api/distribution/fix-shift-balance', { monthId }, setFixingShift, d => ({ fixed: d.fixed }));
     const fixShiftAssigned = () => doFix('Chia ca lại', '/api/distribution/step/4', { monthId }, setFixingShiftAssigned, d => ({ fixed: d.fixed ?? 0 }));
     const fixOtLate = () => doFix('Phân bổ lại OT/Trễ', '/api/distribution/step/5', { monthId }, setFixingOtLate, d => ({ fixed: d.fixed ?? 0 }));
@@ -1611,26 +1622,26 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
           
           <div className={styles.validateGrid}>
             {result.results.map(check => (
-              <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilterId === check.id ? ` ${styles.checkCardActive}` : ''}`}>
-                <div className={styles.checkCardHeader} onClick={() => {
-                  if (check.violationCount > 0 && onFilterChange) {
-                    const newId = activeFilterId === check.id ? null : check.id;
-                    setActiveFilterId(newId);
-                    onFilterChange(newId ? new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)) : null);
-                  }
-                }}>
+              <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilter?.id === check.id ? ` ${styles.checkCardActive}` : ''}`}>
+                <div className={styles.checkCardHeader}>
                   <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                   <span className={styles.checkLabel}>{check.label}</span>
-                  <span className={`${styles.checkCount} ${countClass[check.status]}`}>{(() => { if (check.violationCount === 0) return `✓ ${check.checkedCount} đạt`; const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; return nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; })()}</span>
-                  {check.violationCount > 0 && (
-                    <span
-                      onClick={e => { e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }}
-                      style={{ fontSize: 11, color: '#2563eb', cursor: 'pointer', marginLeft: 4, textDecoration: 'underline', userSelect: 'none' }}
-                    >
-                      {expandedChecks.has(check.id) ? '(Ẩn)' : '(Chi tiết)'}
+                  <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
+                  {onFilterChange && (
+                    <span style={{ display: 'flex', gap: 2, marginLeft: 4, alignItems: 'center' }}>
+                      {activeFilter?.id === check.id && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 10, background: '#1d4ed8', color: '#fff', whiteSpace: 'nowrap' }}>🔍 Đang lọc</span>}
+                      {check.violationCount > 0 && (
+                        <span
+                          onClick={e => { e.stopPropagation(); const violatorCodes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'violation') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'violation' }); onFilterChange({ mode: 'violation', codes: violatorCodes }); } }}
+                          style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', background: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '#fee2e2' : '#f1f5f9', color: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '#b91c1c' : '#64748b', border: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '1px solid #fca5a5' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        >❌ Vi phạm</span>
+                      )}
+                      <span
+                        onClick={e => { e.stopPropagation(); const allViolatorCodes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'pass') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'pass' }); onFilterChange({ mode: 'pass', codes: allViolatorCodes }); } }}
+                        style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', background: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '#dcfce7' : '#f1f5f9', color: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '#15803d' : '#64748b', border: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '1px solid #86efac' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      >✅ Đạt</span>
                     </span>
                   )}
-                  {activeFilterId === check.id && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 10, background: '#1d4ed8', color: '#fff', marginLeft: 4 }}>🔍 Đang lọc</span>}
                   {check.id === 'consecutive_days' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
                   )}
@@ -1666,7 +1677,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   )}
                 </div>
                 {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
                         <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
@@ -1677,9 +1688,9 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
                     {check.violations.map((v, i) => {
-                      const isSummary = v.code === '—' && v.name.startsWith('📊');
+                      const isSummary = v.name.startsWith('📊');
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'baseline', gap: 8,
@@ -1691,7 +1702,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                         }}>
                           {isSummary
                             ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
-                            : <><span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span><span style={{ fontSize: 12, color: '#0f172a', minWidth: 140 }}>{v.name}</span><span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span></>
+                            : <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
                           }
                         </div>
                       );
@@ -1700,7 +1711,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                 )}
                 {/* Violations cho OT checks */}
                 {(['ot_min_per_day', 'ot_between_rest'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
                         <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
@@ -1711,7 +1722,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'ot_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
                     {check.violations.map((v, i) => {
                       const isSummary = v.code === '—' && v.name.startsWith('📊');
                       return (
@@ -1733,7 +1744,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'shift_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
                     {check.violations.map((v, i) => {
                       const isSummary = v.name.startsWith('📊');
                       return (
@@ -1887,28 +1898,50 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult }: {
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey }: {
   step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
   validateOpen?: boolean; onValidateOpen?: () => void; onValidateStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void;
-  validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; validateResult?: ValidateResult | null;
+  validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; validateResult?: ValidateResult | null; recheckKey?: number;
 }) {
   const [filterCodes, setFilterCodes] = useState<Set<string> | null>(null);
+  const [filterMode, setFilterMode] = useState<FilterMode | null>(null);
   const [allRows, setAllRows] = useState<Record<string, unknown>[] | null>(null);
   const [showDeptSummary, setShowDeptSummary] = useState(false);
-  useEffect(() => { if (!validateOpen) { setFilterCodes(null); setAllRows(null); } }, [validateOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!data) onLoad(); setShowDeptSummary(false); setAllRows(null); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!validateOpen) { setFilterCodes(null); setFilterMode(null); setAllRows(null); } }, [validateOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!data) onLoad(); setShowDeptSummary(false); setFilterCodes(null); setFilterMode(null); setAllRows(null); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setFilterCodes(null); setFilterMode(null); setAllRows(null); }, [recheckKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleFilterChange = useCallback(async (codes: Set<string> | null) => {
-    setFilterCodes(codes);
-    if (codes && codes.size > 0 && !allRows) {
-      // Fetch toàn bộ dữ liệu để filter không bị giới hạn trang
-      const apiNum = step;
-      try {
-        const r = await fetch(`/api/distribution/step/${apiNum}?month=${monthId}&page=1&limit=9999`);
-        if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
-      } catch { /* ignore */ }
-    } else if (!codes) {
+  const handleFilterChange = useCallback(async (filter: FilterState) => {
+    if (!filter) {
+      setFilterCodes(null);
+      setFilterMode(null);
       setAllRows(null);
+      return;
+    }
+    if (filter.mode === 'violation') {
+      setFilterMode('violation');
+      setFilterCodes(filter.codes);
+      if (!allRows) {
+        try {
+          const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
+          if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+        } catch { /* ignore */ }
+      }
+    } else {
+      // pass mode: compute complement = tất cả NV - NV vi phạm
+      setFilterMode('pass');
+      let rows = allRows;
+      if (!rows) {
+        try {
+          const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
+          if (r.ok) { const json = await r.json(); rows = json.data ?? []; setAllRows(rows); }
+        } catch { /* ignore */ }
+      }
+      if (rows) {
+        const allCodes = new Set((rows as any[]).map(r => r.code));
+        const passCodes = new Set([...allCodes].filter(c => !filter.codes.has(c)));
+        setFilterCodes(passCodes);
+      }
     }
   }, [allRows, monthId, step]);
 
@@ -1934,42 +1967,40 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       {dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} />}
     </>
   );
-  if (step === 2) return (
-    <>
-      <AllocConfigPanel monthId={monthId} />
-      <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 5 quy tắc: ngày làm liên tiếp, liên tháng, vị trí PN, số ngày PN, cân bằng LP trong phòng" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />
-      </div>
-      {dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} />}
-    </>
+  const stepWrapper = (content: React.ReactNode) => (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {content}
+    </div>
   );
-  if (step === 3) return (
-    <>
-      <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
-      </div>
-      {dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />}
-    </>
+  const gridWrapper = (grid: React.ReactNode) => (
+    <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{grid}</div>
   );
-  if (step === 4) return (
-    <>
-      <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
-      </div>
-      {dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />}
-    </>
+  const validateWrapper = (panel: React.ReactNode) => (
+    <div style={{ flexShrink: 0, maxHeight: '40%', overflowY: 'auto', display: validateOpen ? undefined : 'none' }}>{panel}</div>
   );
-  if (step === 5) return (
-    <>
-      <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
-      </div>
-      {dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} />}
-    </>
+
+  if (step === 2) return stepWrapper(
+    <><AllocConfigPanel monthId={monthId} />
+      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 5 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />)}
+      {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
+  );
+  if (step === 3) return stepWrapper(
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+      {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
+  );
+  if (step === 4) return stepWrapper(
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
+  );
+  if (step === 5) return stepWrapper(
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} />)}</>
   );
   if (step === 6) return dataEl ?? <FinalGrid rows={rows} monthLabel={monthLabel} />;
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }
+
+
 
 

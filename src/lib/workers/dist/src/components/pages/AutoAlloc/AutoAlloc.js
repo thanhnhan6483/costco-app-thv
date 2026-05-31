@@ -773,7 +773,7 @@ function ValidatePanel({ monthId, onlyIds, title, subtitle, btnId, onFixed, auto
 /* === AllocConfigPanel — Cấu hình áp dụng cho Bước 2 === */
 const STEP2_PARAM_KEYS = ['max_consecutive_days', 'workdays_algorithm_threshold', 'pn_start_from_day', 'pn_preferred_position', 'skip_equal_rest_dept_codes'];
 const STEP2_LABELS = {
-    max_consecutive_days: 'Ngày làm liên tiếp tối đa',
+    max_consecutive_days: 'Giới hạn ngày làm liên tục tối đa',
     workdays_algorithm_threshold: 'Ngưỡng chọn giải thuật',
     pn_start_from_day: 'PN từ ngày thứ',
     pn_preferred_position: 'Vị trí PN ưu tiên',

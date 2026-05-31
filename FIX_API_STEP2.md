@@ -10,9 +10,9 @@ Sau khi nhấn nút **"🔍 Kiểm tra"** ở Bước 2 và phát hiện vi ph�
 
 | # | API Endpoint | Check ID | Mục Đích | Phương Pháp |
 |---|--------------|----------|----------|-------------|
-| 1 | `/api/distribution/fix-consecutive` | `consecutive_days` | Sửa vi phạm ngày làm liên tiếp | Swap X ↔ LP |
+| 1 | `/api/distribution/fix-consecutive` | `consecutive_days` | Sửa vi phạm Giới hạn ngày làm liên tục | Swap X ↔ LP |
 | 2 | `/api/distribution/fix-pn` | `pn_start_day` | Sửa vị trí PN (chuyển về sau ngày 15) | Đặt lại PN |
-| 3 | `/api/distribution/fix-pn-count` | `pn_count` | Sửa số ngày PN (đúng = phepNam) | Thêm/Bớt PN |
+| 3 | `/api/distribution/fix-pn-count` | `pn_count` | Sửa số ngày PN (đúng Phân bổ PN = Phép năm) | Thêm/Bớt PN |
 | 4 | `/api/distribution/fix-lp-balance` | `lp_balance` | Cân bằng LP trong phòng | Thêm/Bớt LP |
 
 ---
@@ -22,7 +22,7 @@ Sau khi nhấn nút **"🔍 Kiểm tra"** ở Bước 2 và phát hiện vi ph�
 ### **Endpoint:** `POST /api/distribution/fix-consecutive`
 
 ### **Mục đích:**
-Sửa vi phạm ngày làm liên tiếp (> 6 ngày) bằng cách **swap X ↔ LP** để giữ nguyên tổng số ngày làm và ngày nghỉ.
+Sửa vi phạm Giới hạn ngày làm liên tục (> 6 ngày) bằng cách **swap X ↔ LP** để giữ nguyên tổng số ngày làm và ngày nghỉ.
 
 ### **Logic:**
 
@@ -245,7 +245,7 @@ Sau:   X X X X X X LP LP PN X X X X X X LP LP LP PN X X
 ```
 
 ### **Đặc điểm:**
-- ✅ Đảm bảo số PN = phepNam
+- ✅ Đảm bảo số PN Phân bổ PN = Phép năm
 - ✅ Thừa PN: xóa từ đầu tháng
 - ✅ Thiếu PN: thêm vào cuối kỳ nghỉ (dùng `placePNAtEndOfRestPeriod`)
 - ✅ Batch update trong transaction
@@ -471,7 +471,7 @@ Nhưng workdays đã thay đổi! ❌
 
 **4 API Fix cho Bước 2:**
 
-1. **fix-consecutive** ✅ - Sửa ngày làm liên tiếp (swap X ↔ LP) - **An toàn**
+1. **fix-consecutive** ✅ - Sửa Giới hạn ngày làm liên tục (swap X ↔ LP) - **An toàn**
 2. **fix-pn** ✅ - Sửa vị trí PN (đặt lại sau ngày 15) - **An toàn**
 3. **fix-pn-count** ✅ - Sửa số ngày PN (thêm/bớt) - **An toàn**
 4. **fix-lp-balance** ⚠️ - Cân bằng LP trong phòng - **KHÔNG khuyến nghị** (thay đổi workdays)

@@ -59,7 +59,7 @@ function encodeDay(s) {
     const v = (s ?? '').trim();
     return SYMBOL_TO_CODE[v] ?? 0;
 }
-/** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
+/** Số Giới hạn ngày làm liên tục cuối tháng trước từ ngày nghỉ cuối */
 function calcConsecutiveDays(ngayNghi) {
     if (!ngayNghi)
         return 0;

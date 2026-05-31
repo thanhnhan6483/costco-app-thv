@@ -21,7 +21,7 @@ const SEED: {
     name: 'Giới hạn ngày làm liên tục',
     paramKey: 'max_consecutive_days', paramValue: 6,
     dp: '6 ngày',
-    sv: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ. Dùng để kiểm tra constraint backtracking.',
+    sv: 'Sau tối đa 6 Giới hạn ngày làm liên tục phải có ít nhất 1 ngày nghỉ. Dùng để kiểm tra constraint backtracking.',
   },
   {
     id: 'wk2', gc: 'WORK_RULE', gn: 'Quy tắc làm việc',

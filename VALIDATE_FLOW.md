@@ -43,7 +43,7 @@ Nút **"Kiểm tra"** xuất hiện ở **Bước 2, 3, 4, 5** sau khi chạy xo
 │   results: [                                           │
 │     {                                                   │
 │       id: 'consecutive_days',                          │
-│       label: 'Ngày làm liên tiếp',                     │
+│       label: 'Giới hạn ngày làm liên tục',                     │
 │       status: 'error',                                 │
 │       violations: [                                    │
 │         { code, name, deptName, day, detail }          │
@@ -77,9 +77,9 @@ Nút **"Kiểm tra"** xuất hiện ở **Bước 2, 3, 4, 5** sau khi chạy xo
 ### 🔹 Bước 2: Phân bổ ngày công (4 checks)
 | ID | Label | Mô Tả | Tham Số |
 |----|-------|-------|---------|
-| `consecutive_days` | Ngày làm liên tiếp (≤ 6 ngày) | Không quá `maxConsecutiveDays` ngày làm liên tiếp | `max_consecutive_days = 6` |
+| `consecutive_days` | Giới hạn ngày làm liên tục (≤ 6 ngày) | Không quá `maxConsecutiveDays` Giới hạn ngày làm liên tục | `max_consecutive_days = 6` |
 | `pn_start_day` | Vị trí phép năm (≥ ngày 15) | PN chỉ được xếp từ ngày `pnStartFromDay` trở đi | `pn_start_from_day = 15` |
-| `pn_count` | Số ngày phép năm (= phepNam) | Số ngày PN trong tháng phải đúng bằng `phepNam` của NV | `phepNam` (từ employees) |
+| `pn_count` | Số ngày phép năm (Phân bổ PN = Phép năm) | Số ngày PN trong tháng phải đúng bằng `phepNam` của NV | `phepNam` (từ employees) |
 | `lp_balance` | Cân bằng ngày nghỉ trong phòng (chênh ≤ 1 ngày) | Số ngày LP giữa NV cùng phòng chênh ≤ `maxDayOffDifference` | `max_day_off_difference = 1` |
 
 ### 🔹 Bước 3: Chia ca (2 checks)
@@ -108,13 +108,13 @@ Nút **"Kiểm tra"** xuất hiện ở **Bước 2, 3, 4, 5** sau khi chạy xo
 
 ## 🔍 Chi Tiết Từng Check
 
-### ✅ Check 1: `consecutive_days` (Ngày làm liên tiếp ≤ 6 ngày)
+### ✅ Check 1: `consecutive_days` (Giới hạn ngày làm liên tục ≤ 6 ngày)
 
 **Mục đích:** Đảm bảo không có NV nào làm quá 6 ngày liên tiếp
 
 **Logic:**
 ```typescript
-let run = 0; // Đếm số ngày làm liên tiếp
+let run = 0; // Đếm số Giới hạn ngày làm liên tục
 for (let d = 1; d <= daysInMonth; d++) {
   if (dayType === 0) { // Ngày làm (X)
     run++;
@@ -125,7 +125,7 @@ for (let d = 1; d <= daysInMonth; d++) {
         name: emp.name,
         deptName: deptName,
         day: runStart,
-        detail: `${run} ngày làm liên tiếp từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`
+        detail: `${run} Giới hạn ngày làm liên tục từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`
       });
     }
   } else { // Ngày nghỉ
@@ -166,7 +166,7 @@ for (const d of emp.days) {
 
 ---
 
-### ✅ Check 3: `pn_count` (Số ngày phép năm = phepNam)
+### ✅ Check 3: `pn_count` (Số ngày phép năm Phân bổ PN = Phép năm)
 
 **Mục đích:** Số ngày PN trong tháng phải đúng bằng `phepNam` của NV
 
@@ -356,10 +356,10 @@ for (const d of emp.days) {
 ```
 ╔═══════════════════════════════════════════════════════╗
 ║ 🔍 Kiểm tra quy tắc ngày công                        ║
-║ Kiểm tra 4 quy tắc: ngày làm liên tiếp, vị trí PN... ║
+║ Kiểm tra 4 quy tắc: Giới hạn ngày làm liên tục, vị trí PN... ║
 ╠═══════════════════════════════════════════════════════╣
 ║                                                       ║
-║ ✅ Ngày làm liên tiếp (0 vi phạm)                    ║
+║ ✅ Giới hạn ngày làm liên tục (0 vi phạm)                    ║
 ║ ❌ Vị trí phép năm (5 vi phạm)                       ║
 ║    • NV001 - Nguyễn Văn A - Phòng IT                 ║
 ║      Ngày 10: PN tại ngày 10 (trước ngày 15)        ║
@@ -383,7 +383,7 @@ for (const d of emp.days) {
 Sau khi kiểm tra, nếu có vi phạm, có thể nhấn nút **"Sửa"** để tự động sửa:
 
 ### Bước 2: 4 API fix
-1. `/api/distribution/fix-consecutive` - Sửa vi phạm ngày làm liên tiếp
+1. `/api/distribution/fix-consecutive` - Sửa vi phạm Giới hạn ngày làm liên tục
 2. `/api/distribution/fix-pn` - Sửa vị trí PN (chuyển về sau ngày 15)
 3. `/api/distribution/fix-pn-count` - Sửa số ngày PN
 4. `/api/distribution/fix-lp-balance` - Sửa cân bằng LP trong phòng

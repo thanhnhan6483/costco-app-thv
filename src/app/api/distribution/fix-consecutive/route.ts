@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadParams, loadMonthInfo } from '@/lib/stepHelpers';
-import { calcConsecutiveDays } from '@/lib/distributionEngine';
 export const runtime = 'nodejs';
 
 /**
@@ -10,7 +9,6 @@ export const runtime = 'nodejs';
  * với một ngày LP khác trong tháng (ưu tiên LP gần nhất sau run).
  * Swap giữ nguyên tổng X và LP — không phá vỡ workdays hay lp_balance.
  *
- * FIX: xét ngayNghiCuoiThangTruoc để phát hiện vi phạm xuyên tháng.
  * FIX: PN (dayType=2) cũng là ngày nghỉ → reset run như LP.
  * 
  * RÀNG BUỘC QUAN TRỌNG:
@@ -19,8 +17,9 @@ export const runtime = 'nodejs';
  * - CHỈ swap X (0) ↔ LP (1)
  */
 export async function POST(req: NextRequest) {
-  const { monthId } = await req.json() as { monthId: string };
+  const { monthId, empCodes } = await req.json() as { monthId: string; empCodes?: string[] };
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
+  const filterSet = empCodes ? new Set(empCodes.map(c => c.trim().toUpperCase())) : null;
 
   const conn = await getConn();
   try {
@@ -28,25 +27,18 @@ export async function POST(req: NextRequest) {
     const { daysInMonth } = await loadMonthInfo(monthId);
     const max = params.maxConsecutiveDays;
 
+    // Load employee code map để lọc theo empCodes
+    const empCodeRows = await conn.all<{ id: string; code: string }>(
+      `SELECT id, code FROM employees WHERE month_id = ?`, monthId
+    );
+    const empIdToCode = new Map(empCodeRows.map(e => [e.id, e.code.toUpperCase()]));
+
     const drRows = await conn.all<{ empId: string; day: number; dayType: number }>(
       `SELECT dr.employee_id AS empId, dr.day, dr.day_type AS dayType
        FROM distribution_results dr
        WHERE dr.month_id = ?
        ORDER BY dr.employee_id, dr.day`, monthId
     );
-
-    // Load ngayNghiCuoiThangTruoc để tính consecutive xuyên tháng
-    const empInfoRows = await conn.all<{
-      id: string; code: string; name: string; deptName: string;
-      ngayNghiCuoiThangTruoc: string;
-    }>(
-      `SELECT e.id, e.code, e.name, COALESCE(d.name, '') AS deptName,
-              COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc
-       FROM employees e
-       LEFT JOIN departments d ON d.id = e.department_id
-       WHERE e.month_id = ?`, monthId
-    );
-    const empInfoMap = new Map(empInfoRows.map(e => [e.id, e]));
 
     // Group by empId → mảng dayType[0..daysInMonth-1]
     const empMap = new Map<string, number[]>();
@@ -60,12 +52,11 @@ export async function POST(req: NextRequest) {
     // Hàm kiểm tra 1 ngày có phải "ngày làm" không (chỉ dayType=0 là làm)
     const isWork = (dt: number) => dt === 0;
 
-    // Đếm tổng NV vi phạm trước khi sửa (xét cả xuyên tháng)
+    // Đếm tổng NV vi phạm trước khi sửa (chỉ trong tháng, không xét liên tháng)
     let totalViolating = 0;
     for (const [empId, arr] of empMap) {
-      const info = empInfoMap.get(empId);
-      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
-      let run = initialRun;
+      if (filterSet && !filterSet.has(empIdToCode.get(empId) ?? '')) continue;
+      let run = 0;
       let violated = false;
       for (let i = 0; i < daysInMonth; i++) {
         if (isWork(arr[i])) { run++; if (run > max) { violated = true; break; } }
@@ -75,15 +66,13 @@ export async function POST(req: NextRequest) {
     }
 
     for (const [empId, arr] of empMap) {
-      const info = empInfoMap.get(empId);
-      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
-
+      if (filterSet && !filterSet.has(empIdToCode.get(empId) ?? '')) continue;
       let maxIter = 50;
       let changed = true;
       while (changed && maxIter-- > 0) {
         changed = false;
-        let run = initialRun;
-        let runStart = -initialRun; // có thể âm (ngày tháng trước)
+        let run = 0;
+        let runStart = 0;
 
         for (let i = 0; i < daysInMonth; i++) {
           if (isWork(arr[i])) {
@@ -149,15 +138,13 @@ export async function POST(req: NextRequest) {
     // Kiểm tra lại sau khi sửa — NV nào vẫn còn vi phạm
     const unresolved: { code: string; name: string; deptName: string }[] = [];
     for (const [empId, arr] of empMap) {
-      const info = empInfoMap.get(empId);
-      const initialRun = calcConsecutiveDays(info?.ngayNghiCuoiThangTruoc ?? '');
-      let run = initialRun, stillViolating = false;
+      let run = 0, stillViolating = false;
       for (let i = 0; i < daysInMonth; i++) {
         if (isWork(arr[i])) { run++; if (run > max) { stillViolating = true; break; } }
         else run = 0;
       }
       if (stillViolating) {
-        unresolved.push({ code: info?.code ?? empId, name: info?.name ?? '', deptName: info?.deptName ?? '' });
+        unresolved.push({ code: empId, name: '', deptName: '' });
       }
     }
 

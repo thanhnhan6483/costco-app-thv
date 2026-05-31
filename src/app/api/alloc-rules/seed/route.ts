@@ -3,7 +3,7 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 export const runtime = 'nodejs';
 
 const RULES = [
-  { id: '1', groupCode: 'WORK_RULE',            groupName: 'Quy tắc làm việc',   name: 'Giới hạn ngày làm liên tục',         paramKey: 'max_consecutive_days',           paramValue: 6,    defaultParam: '6 ngày',              description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
+  { id: '1', groupCode: 'WORK_RULE',            groupName: 'Quy tắc làm việc',   name: 'Giới hạn ngày làm liên tục',         paramKey: 'max_consecutive_days',           paramValue: 6,    defaultParam: '6 ngày',              description: 'Sau tối đa 6 Giới hạn ngày làm liên tục phải có ít nhất 1 ngày nghỉ.' },
   { id: '2', groupCode: 'WORK_RULE',            groupName: 'Quy tắc làm việc',   name: 'Khoảng cách ngày nghỉ liên tháng',   paramKey: 'max_consecutive_days',           paramValue: 6,    defaultParam: '≤ 6 ngày',            description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
   { id: '3', groupCode: 'WORK_RULE',            groupName: 'Quy tắc làm việc',   name: 'Phân bổ ngày nghỉ đồng đều',         paramKey: 'max_day_off_difference',         paramValue: 1,    defaultParam: '±1 ngày',             description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
   { id: '3b', groupCode: 'WORK_RULE',           groupName: 'Quy tắc làm việc',   name: 'Phòng ban bỏ qua cân bằng nghỉ',     paramKey: 'skip_equal_rest_dept_codes',     paramValue: null, defaultParam: 'BGD',                 specificValue: 'BGD', description: 'Danh sách mã phòng ban KHÔNG áp dụng cân bằng ngày nghỉ, cách nhau bởi dấu phẩy. VD: BGD,KD' },

@@ -43,12 +43,12 @@ async function GET(req) {
         const totalEmps = emps.length;
         const results = [];
         /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-           Check 1: Ngày làm liên tiếp ≤ maxConsecutiveDays
+           Check 1: Giới hạn ngày làm liên tục ≤ maxConsecutiveDays
            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
         const check1 = {
             id: 'consecutive_days',
-            label: 'Ngày làm liên tiếp',
-            description: `Không quá ${params.maxConsecutiveDays} ngày làm liên tiếp`,
+            label: 'Giới hạn ngày làm liên tục',
+            description: `Không quá ${params.maxConsecutiveDays} Giới hạn ngày làm liên tục`,
             status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
         };
         for (const emp of emps) {
@@ -64,7 +64,7 @@ async function GET(req) {
                     if (run > params.maxConsecutiveDays) {
                         check1.violations.push({
                             code: emp.code, name: emp.name, deptName, day: runStart,
-                            detail: `${run} ngày làm liên tiếp từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`,
+                            detail: `${run} Giới hạn ngày làm liên tục từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`,
                         });
                         break;
                     }

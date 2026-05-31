@@ -79,7 +79,7 @@ function distributeOT(
   const minOtH = params.minOtPerDayMinutes / 60;  // Chuyển phút → giờ
   const maxBetweenH = params.maxOtBetweenRestHours;
   
-  // 2. Xác định "kỳ" (period): Chuỗi ngày làm liên tiếp giữa 2 ngày nghỉ
+  // 2. Xác định "kỳ" (period): Chuỗi Giới hạn ngày làm liên tục giữa 2 ngày nghỉ
   // Ví dụ: [0, 0, 1, 0, 0, 0, 1, 0] → period: [1, 1, -, 2, 2, 2, -, 3]
   const periodId: number[] = new Array(arrangement.length).fill(-1);
   let pid = 0;

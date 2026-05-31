@@ -60,7 +60,7 @@ function encodeDay(s) {
     const v = (s ?? '').trim();
     return SYMBOL_TO_CODE[v] ?? 0;
 }
-/** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
+/** Số Giới hạn ngày làm liên tục cuối tháng trước từ ngày nghỉ cuối */
 function calcConsecutiveDays(ngayNghi) {
     if (!ngayNghi)
         return 0;
@@ -429,13 +429,13 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
     }
     // Kiểm tra: input đã có PN cố định (từ file import)
     const fixedPnCount = inputArray.slice(0, daysInMonth).filter(v => v === 2).length;
-    if (fixedPnCount >= phepNam) {
+    if (fixedPnCount >Phân bổ PN = Phép năm) {
         // Đủ PN cố định → chỉ cần điền X và LP
         const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays, fixedPnCount, params.workdaysThreshold);
         return generateOneArrangement(0, ones, zeros, true, initialLastZeros, inputArray, [], params, true) ?? inputArray;
     }
     // Một số PN đã cố định, còn lại cần sinh
-    const remainingPn = phepNam - fixedPnCount;
+    const remainingPn Phân bổ PN = Phép năm - fixedPnCount;
     // ── Quy tắc mới: PN đặt vào cuối kỳ nghỉ ──
     const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays, phepNam, params.workdaysThreshold);
     const MAX_RETRIES = 12;

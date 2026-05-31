@@ -83,7 +83,7 @@ export const DEFAULT_SPECIAL_GROUPS: SpecialGroup[] = [
 ];
 
 export const DEFAULT_ALLOC_RULES: AllocRule[] = [
-  { id: 1, rule: 'Giới hạn ngày làm liên tục',         param: '6 ngày',              description: 'Sau tối đa 6 ngày làm liên tiếp phải có ít nhất 1 ngày nghỉ.' },
+  { id: 1, rule: 'Giới hạn ngày làm liên tục',         param: '6 ngày',              description: 'Sau tối đa 6 Giới hạn ngày làm liên tục phải có ít nhất 1 ngày nghỉ.' },
   { id: 2, rule: 'Khoảng cách ngày nghỉ liên tháng',   param: '≤ 6 ngày',            description: 'Khoảng cách giữa ngày nghỉ cuối tháng trước và ngày nghỉ đầu tháng hiện tại không vượt quá 6 ngày làm.' },
   { id: 3, rule: 'Phân bổ ngày nghỉ đồng đều',         param: '±1 ngày',             description: 'Số ngày nghỉ của các nhân viên trong cùng phòng ban được phân bổ đều. Chênh lệch tối đa: ±1 ngày.' },
   { id: 4, rule: 'Vị trí phép năm (PN)',                param: 'Từ ngày 15',         description: 'PN được xếp vào ngày CUỐI của chuỗi LP liên tiếp DÀI NHẤT tính từ ngày 15 trở đi.' },

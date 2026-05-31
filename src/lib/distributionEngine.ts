@@ -99,7 +99,7 @@ function encodeDay(s: string): number {
   return SYMBOL_TO_CODE[v] ?? 0;
 }
 
-/** Số ngày làm liên tiếp cuối tháng trước từ ngày nghỉ cuối */
+/** Số Giới hạn ngày làm liên tục cuối tháng trước từ ngày nghỉ cuối */
 export function calcConsecutiveDays(ngayNghi: string): number {
   if (!ngayNghi) return 0;
   const s = ngayNghi.trim().replace(/^["']|["']$/g, '');
@@ -184,11 +184,11 @@ export function generateOneArrangement(
   lastZeros: number,
   fixedArray: number[],
   current: number[],
+  firstOnePos: number,
   params: AllocParams,
-  skipPN = false,
 ): number[] | null {
   const total = fixedArray.length;
-  if (pos === total) return (skipPN || twoPlaced) ? current : null;
+  if (pos === total) return current;
 
   const fixed = fixedArray[pos];
 
@@ -196,7 +196,7 @@ export function generateOneArrangement(
   if (fixed > 2) {
     return generateOneArrangement(
       pos + 1, ones, zeros, twoPlaced, 0,
-      fixedArray, [...current, fixed], params, skipPN,
+      fixedArray, [...current, fixed], firstOnePos, params,
     );
   }
 
@@ -205,18 +205,18 @@ export function generateOneArrangement(
   const options: Option[] = [];
 
   if (fixed === 0) {
-    if (ones > 0)
+    if (ones > 0 && pos >= firstOnePos)
       options.push([ones - 1, zeros, twoPlaced, 0, 1]);
     if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
       options.push([ones, zeros - 1, twoPlaced, lastZeros + 1, 0]);
-    if (!skipPN && !twoPlaced && pos >= params.pnStartFromDay - 1)
+    if (!twoPlaced && pos >= params.pnStartFromDay - 1)
       options.push([ones, zeros, true, 0, 2]);
   }
   // fixed === 1 hoặc 2: không có option → return null (backtrack) — đúng Python gốc
 
   shuffle(options);
   for (const [no, nz, ntp, nlz, val] of options) {
-    const result = generateOneArrangement(pos + 1, no, nz, ntp, nlz, fixedArray, [...current, val], params, skipPN);
+    const result = generateOneArrangement(pos + 1, no, nz, ntp, nlz, fixedArray, [...current, val], firstOnePos, params);
     if (result) return result;
   }
   return null;
@@ -239,7 +239,7 @@ export function generateOneArrangement(
  * @param fixedArray       mảng 0..daysInMonth-1, ô = 0 là free, > 0 là cố định
  * @param params           alloc params
  * @param targetLP         số LP cần đặt (= freeSlots - workdays - phepNam)
- * @param initialLastZeros số ngày làm liên tiếp cuối tháng trước (mặc định 0)
+ * @param initialLastZeros số Giới hạn ngày làm liên tục cuối tháng trước (mặc định 0)
  */
 export function generateOneArrangementGreedy(
   fixedArray: number[],
@@ -485,7 +485,7 @@ export function distributeOT(
   const maxBetweenH = params.maxOtBetweenRestHours ?? 12;
 
   // Tính OT tích lũy giữa 2 ngày nghỉ (QT9)
-  // Mỗi "kỳ" là chuỗi ngày làm liên tiếp giữa 2 ngày nghỉ
+  // Mỗi "kỳ" là chuỗi Giới hạn ngày làm liên tục giữa 2 ngày nghỉ
   // Xây dựng map: index → periodId
   const periodId: number[] = new Array(arrangement.length).fill(-1);
   let pid = 0;
@@ -598,7 +598,7 @@ export function step1_generateArrangement(
   const totalDays = daysInMonth;
   const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
 
-  // Số ngày làm liên tiếp cuối tháng trước (để tránh vi phạm consecutive xuyên tháng)
+  // Số Giới hạn ngày làm liên tục cuối tháng trước (để tránh vi phạm consecutive xuyên tháng)
   const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
 
   const fixedArray = inputArray.slice(0, totalDays);
@@ -617,29 +617,35 @@ export function step1_generateArrangement(
 
   // Đếm số free slots thực tế (ô = 0 sau khi đã reset fixed + mark Sundays)
   // workdays trong input = số ngày X thuần (không tính NL/Ô/TS/LP Chủ Nhật)
-  // targetLP = freeSlots - workdays - phepNam
-  // (phepNam sẽ thay thế phepNam LP, nên cần trừ ra để tổng X = workdays - phepNam)
   const freeSlots = fixedArray.filter(v => v === 0).length;
   const normalizedWd = parseFloat((emp as any)._normalizedWorkdays ?? emp.workdays) || workdays;
-  const targetLP = Math.max(0, freeSlots - Math.round(normalizedWd) + phepNam);
 
   let arrangement: number[] | null = null;
 
   if (algo === 'greedy') {
+    // Greedy: dùng targetLP riêng (không đặt PN trong backtracking)
+    const targetLP = Math.max(0, freeSlots - Math.round(normalizedWd) + phepNam);
     arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, initialLastZeros);
+    if (!arrangement) arrangement = fixedArray;
+    if (phepNam > 0)
+      arrangement = placePNAtEndOfRestPeriod(arrangement, totalDays, params, phepNam);
   } else {
-    // Backtracking: dùng targetLP tính từ workdays thực tế
-    // skipPN=true để backtracking không tự đặt PN (PN sẽ đặt sau)
-    const ONES = targetLP;
-    const ZEROS = freeSlots - targetLP;
+    // Backtracking — đúng Python gốc: PN đặt trong backtracking
+    // ZEROS = ngày X (làm việc thực tế) = workdays - phepNam
+    // Backtracking đặt 1 PN (khi phepNam > 0), phần còn lại là LP
+    const workdaysVal = Math.round(normalizedWd);
+    const pnInBacktrack = phepNam > 0 ? 1 : 0;
+    const ZEROS = Math.max(0, Math.min(freeSlots - pnInBacktrack, workdaysVal - phepNam));
+    const ONES = freeSlots - ZEROS - pnInBacktrack;
     for (let attempt = 0; attempt < 20 && !arrangement; attempt++) {
-      arrangement = generateOneArrangement(0, ONES, ZEROS, false, initialLastZeros, fixedArray, [], params, true);
+      arrangement = generateOneArrangement(0, ONES, ZEROS, false, initialLastZeros, fixedArray, [], 0, params);
     }
+    if (!arrangement) arrangement = fixedArray;
+    // PN còn lại (nếu phepNam > 1) do placePNAtEndOfRestPeriod xử lý
+    const remainingPN = phepNam - pnInBacktrack;
+    if (remainingPN > 0)
+      arrangement = placePNAtEndOfRestPeriod(arrangement, totalDays, params, remainingPN);
   }
-  if (!arrangement) arrangement = fixedArray;
-
-  if (phepNam > 0)
-    arrangement = placePNAtEndOfRestPeriod(arrangement, totalDays, params, phepNam);
 
   return arrangement;
 }
@@ -799,11 +805,11 @@ export function processEmployee(
     arrangement = generateCalendarArray(month, year, inputArray, params);
   } else if (workdays < params.workdaysThreshold) {
     const { ones, zeros } = calcArrangementParams(inputArray, daysInMonth, workdays);
-    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, inputArray, [], params) ?? inputArray;
+    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, inputArray, [], 0, params) ?? inputArray;
   } else {
     const emptyFixed = Array(daysInMonth).fill(0);
     const { ones, zeros } = calcArrangementParams(emptyFixed, daysInMonth, workdays);
-    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, emptyFixed, [], params) ?? emptyFixed;
+    arrangement = generateOneArrangement(0, ones, zeros, false, initialLastZeros, emptyFixed, [], 0, params) ?? emptyFixed;
   }
   const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
   const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
