@@ -845,9 +845,11 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               if (dt >= 0) usedDTs.add(dt);
             }
           }
+          const seenDT = new Set<number>();
           return (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
             const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
-            if (dt < 0 || !usedDTs.has(dt)) return null;
+            if (dt < 0 || !usedDTs.has(dt) || seenDT.has(dt)) return null;
+            seenDT.add(dt);
             const sym = DT_SYMBOL[dt] ?? lt.code;
             return (
               <span key={lt.code} className={styles.legendItem}>
@@ -1133,9 +1135,11 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               if (dt >= 0) usedDTs.add(dt);
             }
           }
+          const seenDT = new Set<number>();
           return (Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
             const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
-            if (dt < 0 || !usedDTs.has(dt)) return null;
+            if (dt < 0 || !usedDTs.has(dt) || seenDT.has(dt)) return null;
+            seenDT.add(dt);
             const sym = DT_SYMBOL[dt] ?? lt.code;
             return (
               <span key={lt.code} className={styles.legendItem}>
@@ -1514,7 +1518,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
 type FilterMode = 'violation' | 'pass';
 type FilterState = { mode: FilterMode; codes: Set<string> } | null;
 type CheckStatus = 'ok' | 'warning' | 'error';
-interface ViolationItem { code: string; name: string; deptName: string; day: number; detail: string; }
+interface ViolationItem { code: string; name: string; deptName: string; day: number; detail: string; dailyBreakdown?: number[]; avgRest?: number; specialDays?: number[]; }
 interface CheckResult { id: string; label: string; description: string; status: CheckStatus; violations: ViolationItem[]; violationCount: number; checkedCount: number; }
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
@@ -1626,7 +1630,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                 <div className={styles.checkCardHeader}>
                   <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                   <span className={styles.checkLabel}>{check.label}</span>
-                  <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
+                  <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; if (check.id === 'lp_balance') { const dayCount = check.violations.filter(v => v.code === '—' && v.day > 0).length; return expandedChecks.has(check.id) ? `▴ ${dayCount} ngày vi phạm` : `▾ ${dayCount} ngày vi phạm`; } const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
                   {onFilterChange && (
                     <span style={{ display: 'flex', gap: 2, marginLeft: 4, alignItems: 'center' }}>
                       {activeFilter?.id === check.id && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 10, background: '#1d4ed8', color: '#fff', whiteSpace: 'nowrap' }}>🔍 Đang lọc</span>}
@@ -1688,22 +1692,49 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
-                    {check.violations.map((v, i) => {
-                      const isSummary = v.name.startsWith('📊');
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', maxHeight: '20lh', overflowY: 'auto' }}>
+                    {check.violations.filter(v => v.name.startsWith('📊') && v.dailyBreakdown).map((summary, i) => {
+                      const daysInMonth = Math.min(31, summary.dailyBreakdown!.length - 1);
+                      const dayNums = Array.from({ length: daysInMonth }, (_, j) => j + 1);
                       return (
-                        <div key={i} style={{
-                          display: 'flex', alignItems: 'baseline', gap: 8,
-                          padding: isSummary ? '4px 8px' : '2px 8px 2px 20px',
-                          background: isSummary ? '#fef9c3' : 'transparent',
-                          borderRadius: isSummary ? 6 : 0,
-                          borderLeft: isSummary ? '3px solid #eab308' : '2px solid #e2e8f0',
-                          marginTop: isSummary ? 4 : 0,
-                        }}>
-                          {isSummary
-                            ? <><span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>{v.name}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 4 }}>{v.detail}</span></>
-                            : <span style={{ fontSize: 11, color: '#475569' }}>{v.detail}</span>
-                          }
+                        <div key={i} style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 12, color: '#92400e', fontWeight: 600, marginBottom: 3 }}>
+                            {summary.name}
+                            <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 6 }}>{summary.detail}</span>
+                          </div>
+                          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 10 }}>
+                            <thead>
+                              <tr>
+                                {dayNums.map(d => (
+                                  <th key={d} style={{ padding: '1px 2px', textAlign: 'center', color: '#94a3b8', fontWeight: 400, borderBottom: '1px solid #e2e8f0' }}>Ngày {d}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                {dayNums.map(d => {
+                                  const isSpecial = summary.specialDays?.includes(d);
+                                  if (isSpecial) {
+                                    return (
+                                      <td key={d} style={{ padding: '1px 2px', textAlign: 'center', color: '#94a3b8', fontSize: 8 }}>NL</td>
+                                    );
+                                  }
+                                  const rest = summary.dailyBreakdown![d];
+                                  const deviation = rest - summary.avgRest!;
+                                  const isViolating = deviation > 1 || deviation < -1;
+                                  return (
+                                    <td key={d} style={{
+                                      padding: '1px 2px', textAlign: 'center',
+                                      fontWeight: isViolating ? 700 : 400,
+                                      color: isViolating ? '#dc2626' : '#0f172a',
+                                      background: isViolating ? '#fef2f2' : 'transparent',
+                                      borderRadius: 2,
+                                    }}>{rest}</td>
+                                  );
+                                })}
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                       );
                     })}

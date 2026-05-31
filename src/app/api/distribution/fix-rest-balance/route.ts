@@ -9,10 +9,12 @@ export const runtime = 'nodejs';
  *
  * Cân bằng số người nghỉ GIỮA CÁC NGÀY trong tháng bằng swap X ↔ LP.
  *
- * Logic mới: số người nghỉ mỗi ngày không chênh quá ±1 so với TB phòng.
- * - Ngày có quá nhiều người nghỉ (> TB+1) → đổi LP→X
- * - Ngày có quá ít người nghỉ (< TB-1) → đổi X→LP
- * - Swap giữa 2 ngày của cùng 1 NV: ngày nhiều nghỉ (LP) ↔ ngày ít nghỉ (X)
+ * Thuật toán: Chain Swap (Augmenting Path)
+ * - Tìm đường đi từ overDay → underDay qua nhiều bước (thay vì chỉ 1 bước)
+ * - BFS trên đồ thị hai phía: Day ⟷ Employee
+ *   - Day → Employee: employee có LP trên day đó (có thể đổi LP→X)
+ *   - Employee → Day: employee có X trên day đó (có thể đổi X→LP)
+ * - Kiểm tra consecutive trước khi chấp nhận path
  *
  * dayType mapping:
  * 0=X (làm), 1=LP (nghỉ), 2=PN (phép năm) ← có thể thay đổi
@@ -137,42 +139,140 @@ export async function POST(req: NextRequest) {
       }
       const avg = totalRest / checkedDays;
 
+      const underDaySet = new Set<number>();
+
       for (let round = 0; round < 50; round++) {
         const overDays: number[] = [];
-        const underDays: number[] = [];
+        underDaySet.clear();
         for (let d = 1; d <= daysInMonth; d++) {
           if (specialDays.has(d)) continue;
           if (dailyRest[d] > Math.floor(avg) + 1) overDays.push(d);
-          if (dailyRest[d] < Math.ceil(avg) - 1) underDays.push(d);
+          if (dailyRest[d] < Math.ceil(avg) - 1) underDaySet.add(d);
         }
-        if (overDays.length === 0 || underDays.length === 0) break;
+        if (overDays.length === 0 || underDaySet.size === 0) break;
 
-        let swapped = false;
-        for (const overDay of overDays) {
-          for (const underDay of underDays) {
+        // Phase 1: Sequential smoothing — direct swap gần nhất
+        for (const overDay of [...overDays]) {
+          if (underDaySet.size === 0) break;
+          if (dailyRest[overDay] <= Math.floor(avg) + 1) continue;
+
+          let bestUnder = -1, bestDist = Infinity;
+          for (const ud of underDaySet) {
+            const dist = Math.abs(ud - overDay);
+            if (dist < bestDist) { bestDist = dist; bestUnder = ud; }
+          }
+          if (bestUnder === -1) continue;
+
+          const emp = members.find(m => {
+            const dm = empDays.get(m.empId);
+            return dm && dm.get(overDay) === 1 && dm.get(bestUnder) === 0
+              && canSwapToWork(m.empId, overDay);
+          });
+          if (!emp) continue;
+
+          const dMap = empDays.get(emp.empId)!;
+          dMap.set(overDay, 0);
+          dMap.set(bestUnder, 1);
+          dailyRest[overDay]--;
+          dailyRest[bestUnder]++;
+          changes.push({ empId: emp.empId, day: overDay, dayType: 0 });
+          changes.push({ empId: emp.empId, day: bestUnder, dayType: 1 });
+          totalFixedDays++;
+
+          if (dailyRest[bestUnder] >= Math.ceil(avg) - 1) underDaySet.delete(bestUnder);
+        }
+
+        // Phase 2: BFS tìm augmenting path ngắn nhất từ overDay → underDay
+        // Không pre-mark overDays đã visited để cho phép đường đi qua overDay làm trung gian
+        const visitedDays = new Set<number>();
+        const visitedEmps = new Set<string>();
+        const parent = new Map<string, string>(); // child → parent
+        const queue: string[] = [];
+
+        // Initialize: push employees who have LP on any overDay (thay vì push overDays)
+        for (const day of overDays) {
+          for (const m of members) {
+            if (visitedEmps.has(m.empId)) continue;
+            const dayMap = empDays.get(m.empId);
+            if (!dayMap || dayMap.get(day) !== 1) continue;
+            if (!canSwapToWork(m.empId, day)) continue;
+            const empKey = `e:${m.empId}`;
+            visitedEmps.add(m.empId);
+            parent.set(empKey, `d:${day}`);
+            queue.push(empKey);
+          }
+        }
+
+        let found: string | null = null;
+
+        while (queue.length > 0 && !found) {
+          const cur = queue.shift()!;
+
+          if (cur.startsWith('d:')) {
+            // Day → Employee: emp có LP trên day này
+            const day = parseInt(cur.slice(2));
+            if (visitedDays.has(day)) continue;
+            visitedDays.add(day);
             for (const m of members) {
+              if (visitedEmps.has(m.empId)) continue;
               const dayMap = empDays.get(m.empId);
-              if (!dayMap) continue;
-              const overType = dayMap.get(overDay);
-              const underType = dayMap.get(underDay);
-              if (overType === 1 && underType === 0) {
-                if (!canSwapToWork(m.empId, overDay)) continue;
-                dayMap.set(overDay, 0);
-                dayMap.set(underDay, 1);
-                dailyRest[overDay]--;
-                dailyRest[underDay]++;
-                changes.push({ empId: m.empId, day: overDay, dayType: 0 });
-                changes.push({ empId: m.empId, day: underDay, dayType: 1 });
-                swapped = true;
-                totalFixedDays++;
+              if (!dayMap || dayMap.get(day) !== 1) continue;
+              if (!canSwapToWork(m.empId, day)) continue;
+              const empKey = `e:${m.empId}`;
+              visitedEmps.add(m.empId);
+              parent.set(empKey, cur);
+              queue.push(empKey);
+            }
+          } else {
+            // Employee → Day: emp có X trên day đó
+            const empId = cur.slice(2);
+            const dayMap = empDays.get(empId);
+            if (!dayMap) continue;
+            for (let d = 1; d <= daysInMonth; d++) {
+              if (visitedDays.has(d)) continue;
+              if (dayMap.get(d) !== 0) continue;
+              const dayKey = `d:${d}`;
+              if (underDaySet.has(d)) {
+                // Tìm thấy! Reconstruct path
+                // Path: day → emp → day → emp → ... → day
+                // parent: e:empA ← d:7, d:10 ← e:empA, ...
+                const path: (number | string)[] = [d];
+                let node: string = cur; // starts at emp
+                while (node) {
+                  if (node.startsWith('e:')) {
+                    path.unshift(node.slice(2)); // empId
+                  } else {
+                    path.unshift(parseInt(node.slice(2))); // day
+                  }
+                  node = parent.get(node) ?? '';
+                }
+                // Áp dụng swaps dọc theo path
+                // Path[0]=overDay, Path[1]=emp1, Path[2]=day2, Path[3]=emp2, ...
+                // Mỗi cặp (emp, leftDay, rightDay): LP(leftDay)→X, X(rightDay)→LP
+                for (let i = 1; i < path.length; i += 2) {
+                  const empId = path[i] as string;
+                  const leftDay = path[i - 1] as number;
+                  const rightDay = path[i + 1] as number;
+                  const dMap = empDays.get(empId)!;
+                  dMap.set(leftDay, 0);
+                  dMap.set(rightDay, 1);
+                  dailyRest[leftDay]--;
+                  dailyRest[rightDay]++;
+                  changes.push({ empId, day: leftDay, dayType: 0 });
+                  changes.push({ empId, day: rightDay, dayType: 1 });
+                  totalFixedDays++;
+                }
+                found = dayKey;
                 break;
               }
+              visitedDays.add(d);
+              parent.set(dayKey, cur);
+              queue.push(dayKey);
             }
-            if (swapped) break;
           }
-          if (swapped) break;
         }
-        if (!swapped) break;
+
+        if (!found) break;
       }
     }
 

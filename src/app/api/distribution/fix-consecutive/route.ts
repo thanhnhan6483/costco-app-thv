@@ -85,17 +85,37 @@ export async function POST(req: NextRequest) {
               // CHỈ swap nếu insertPos là ngày làm (X=0)
               // KHÔNG swap nếu là PN(2) hoặc các loại đặc biệt(3-9)
               if (arr[insertPos] === 0) {
-                // Tìm LP để swap: ưu tiên LP ngay sau run, rồi LP trước run
+                // Tìm tất cả LP để swap: ưu tiên LP sau run (gần nhất), rồi LP trước run
                 // CHÚ Ý: CHỈ tìm LP (dayType=1), KHÔNG swap với PN(2) hoặc các loại đặc biệt(3-9)
-                let lpIdx = -1;
+                const lpCandidates: number[] = [];
                 for (let j = i + 1; j < daysInMonth; j++) {
-                  if (arr[j] === 1) { lpIdx = j; break; }
+                  if (arr[j] === 1) lpCandidates.push(j);
                 }
-                if (lpIdx === -1) {
-                  for (let j = (runStart > 0 ? runStart - 1 : 0); j >= 0; j--) {
-                    if (arr[j] === 1) { lpIdx = j; break; }
+                for (let j = (runStart > 0 ? runStart - 1 : 0); j >= 0; j--) {
+                  if (arr[j] === 1) lpCandidates.push(j);
+                }
+
+                let lpIdx = -1;
+                for (const idx of lpCandidates) {
+                  // Check: LP→X không được nối 2 run > max
+                  // insertPos cũng đổi X→LP → nó là tường chắn, không đếm xuyên qua
+                  let beforeX = 0;
+                  if (idx > insertPos) {
+                    for (let b = idx - 1; b > insertPos && arr[b] === 0; b--) beforeX++;
+                  } else {
+                    for (let b = idx - 1; b >= 0 && arr[b] === 0; b--) beforeX++;
                   }
+                  let afterX = 0;
+                  if (idx < insertPos) {
+                    for (let a = idx + 1; a < insertPos && arr[a] === 0; a++) afterX++;
+                  } else {
+                    for (let a = idx + 1; a < daysInMonth && arr[a] === 0; a++) afterX++;
+                  }
+                  if (beforeX + 1 + afterX > max) continue;
+                  lpIdx = idx;
+                  break;
                 }
+
                 if (lpIdx !== -1) {
                   arr[insertPos] = 1;  // X → LP
                   arr[lpIdx] = 0;      // LP → X

@@ -10,6 +10,9 @@ interface Violation {
   deptName: string;   // phòng ban
   day: number;        // ngày vi phạm (0 = không cụ thể)
   detail: string;     // mô tả chi tiết vi phạm
+  dailyBreakdown?: number[];  // [0..31]: số người nghỉ mỗi ngày (chỉ cho lp_balance summary)
+  avgRest?: number;            // TB nghỉ/ngày (chỉ cho lp_balance summary)
+  specialDays?: number[];      // ngày đặc biệt (NL, lễ) cần bỏ qua
 }
 
 interface CheckResult {
@@ -465,6 +468,8 @@ export async function GET(req: NextRequest) {
         check8.violations.push({
           code: '—', name: `📊 ${deptName}`, deptName, day: 0,
           detail: `${memberIds.length} NV — TB ${avg.toFixed(1)} nghỉ/ngày — ${violatingDays.length} ngày vi phạm${specialNote}`,
+          dailyBreakdown: dailyRest.slice(), avgRest: avg,
+          specialDays: specialDays.size > 0 ? [...specialDays] : undefined,
         });
         for (const vd of violatingDays) {
           check8.violations.push({
@@ -476,10 +481,7 @@ export async function GET(req: NextRequest) {
         for (const empId of memberIds) {
           const info = empInfoMap.get(empId);
           if (info) {
-            check8.violations.push({
-              code: info.code, name: info.name, deptName, day: 0,
-              detail: `Phòng ${deptName} vi phạm cân bằng ngày nghỉ (±1)`,
-            });
+            check8.violations.push({ code: info.code, name: info.name, deptName, day: 0 });
           }
         }
       }
