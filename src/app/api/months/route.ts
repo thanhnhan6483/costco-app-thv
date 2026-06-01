@@ -24,7 +24,7 @@ export async function GET() {
       FROM months
       ORDER BY month DESC
     `);
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
     return NextResponse.json(rows);
   } catch (e) {
     console.error('[GET /api/months]', e);
@@ -34,9 +34,11 @@ export async function GET() {
 
 /* ── POST ─────────────────────────────────────── */
 export async function POST(req: NextRequest) {
+  let month = '';
   try {
     const body = await req.json();
-    const { id, label, month, fromDate, toDate, note, createdAt } = body;
+    const { id, label, fromDate, toDate, note, createdAt } = body;
+    month = body.month ?? '';
 
     const conn = await getConn();
     await conn.run(
@@ -44,14 +46,14 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       id, label ?? '', month, fromDate, toDate, note ?? '', createdAt,
     );
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore close error */ }
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('UNIQUE')) {
-      return NextResponse.json({ error: `Tháng đã tồn tại` }, { status: 409 });
+    if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('constraint')) {
+      return NextResponse.json({ error: `Tháng '${month}' đã tồn tại` }, { status: 409 });
     }
     console.error('[POST /api/months]', e);
-    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+    return NextResponse.json({ error: `DB error: ${msg}` }, { status: 500 });
   }
 }

@@ -12,17 +12,20 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let conn;
   try {
     const { id } = await params;
     const { label, fromDate, toDate, note } = await req.json();
-    const conn = await getConn();
+    conn = await getConn();
     await conn.run(
       `UPDATE months SET label=?, from_date=?, to_date=?, note=? WHERE id=?`,
       label ?? '', fromDate, toDate, note ?? '', id,
     );
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
+    conn = undefined;
     return NextResponse.json({ ok: true });
   } catch (e) {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
     console.error('[PUT /api/months]', e);
     return NextResponse.json({ error: 'DB error' }, { status: 500 });
   }
@@ -58,14 +61,14 @@ export async function DELETE(
     // Xóa bản ghi tháng
     await conn.run(`DELETE FROM months WHERE id = ?`, id);
 
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
 
     return NextResponse.json({
       ok: true,
       message: `Đã xóa tháng và toàn bộ cấu hình liên quan`,
     });
   } catch (e) {
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[DELETE /api/months]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });

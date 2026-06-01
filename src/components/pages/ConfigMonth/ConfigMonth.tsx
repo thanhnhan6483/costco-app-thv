@@ -215,6 +215,7 @@ export default function ConfigMonth() {
           id: Date.now().toString(),
           ...form,
           createdAt: new Date().toISOString().slice(0, 10),
+          locked: false,
         };
         const res = await fetch('/api/months', {
           method: 'POST',
@@ -305,6 +306,7 @@ export default function ConfigMonth() {
         toDate: defaultTo(copyTo),
         note: `Sao chép từ ${copyFrom}`,
         createdAt: new Date().toISOString().slice(0, 10),
+        locked: false,
       };
       const createRes = await fetch('/api/months', {
         method: 'POST',
@@ -448,12 +450,14 @@ export default function ConfigMonth() {
                 />
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>Tháng <span className={styles.required}>*</span></label>
-                <select className={styles.select} value={form.month}
-                  onChange={e => handleMonthChange(e.target.value)} required disabled={!!editId}>
-                  <option value="">-- Chọn tháng --</option>
-                  {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                  <label className={styles.label}>Tháng <span className={styles.required}>*</span></label>
+                  <select className={styles.select} value={form.month}
+                    onChange={e => handleMonthChange(e.target.value)} required disabled={!!editId}>
+                    <option value="">-- Chọn tháng --</option>
+                    {monthOptions.filter(m => editId || !entries.some(en => en.month === m)).map(m =>
+                      <option key={m} value={m}>{m}</option>
+                    )}
+                  </select>
                 {editId && <span className={styles.fieldHint}>Không thể thay đổi tháng khi chỉnh sửa</span>}
               </div>
               <div className={styles.row2}>

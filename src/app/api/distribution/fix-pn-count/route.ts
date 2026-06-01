@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
 
     // Load NV có phepNam > 0
     const emps = await conn.all<{ empId: string; phepNam: number }>(
-      `SELECT id AS empId, COALESCE(CAST(phep_nam AS INTEGER), 0) AS phepNam
-       FROM employees WHERE month_id = ? AND active = TRUE AND COALESCE(CAST(phep_nam AS INTEGER), 0) > 0`, monthId
+      `SELECT id AS empId, COALESCE(TRY_CAST(phep_nam AS INTEGER), 0) AS phepNam
+       FROM employees WHERE month_id = ? AND active = TRUE AND COALESCE(TRY_CAST(phep_nam AS INTEGER), 0) > 0`, monthId
     );
 
     // Load distribution_results

@@ -12,10 +12,10 @@ export async function POST(
   const conn = await getConn();
   try {
     await conn.run(`UPDATE months SET locked = ? WHERE id = ?`, locked, id);
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
     return NextResponse.json({ ok: true, locked });
   } catch (e) {
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

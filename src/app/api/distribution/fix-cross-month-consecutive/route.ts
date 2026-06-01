@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       workdays: number; ngayNghiCuoiThangTruoc: string;
     }>(
       `SELECT e.id, e.code, e.name, COALESCE(d.name, '') AS deptName,
-              COALESCE(CAST(e.workdays AS INTEGER), 0) AS workdays,
+              COALESCE(TRY_CAST(e.workdays AS INTEGER), 0) AS workdays,
               COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc
        FROM employees e
        LEFT JOIN departments d ON d.id = e.department_id
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
           run++;
           if (run > max) {
             hadViolation = true;
-            // Vị trí cần LP: đầu run vi phạm trong current month
-            const insertPos = Math.max(0, i - max);
+            // Vị trí cần LP: theo gợi ý từ validate (maxConsecutiveDays - initRun)
+            const insertPos = Math.max(0, max - initRun - 1);
             if (insertPos >= 0 && insertPos <= i && arr[insertPos] === 0) {
               let swapIdx = -1;
               for (let j = i + 1; j < daysInMonth; j++) {

@@ -142,17 +142,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Gộp changes theo (empId, day) — lấy giá trị cuối nếu trùng
-    const changeMap = new Map<string, number>();
-    for (const c of changes) changeMap.set(`${c.empId}_${c.day}`, c.dayType);
+    // Dùng Map lồng để tránh lỗi parse khi empId có chứa dấu gạch dưới
+    const changeMap = new Map<string, Map<number, number>>();
+    for (const c of changes) {
+      if (!changeMap.has(c.empId)) changeMap.set(c.empId, new Map());
+      changeMap.get(c.empId)!.set(c.day, c.dayType);
+    }
 
-    for (const [key, dayType] of changeMap) {
-      const underscoreIdx = key.indexOf('_');
-      const empId = key.slice(0, underscoreIdx);
-      const dayStr = key.slice(underscoreIdx + 1);
-      await conn.run(
-        `UPDATE distribution_results SET day_type = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
-        dayType, monthId, empId, Number(dayStr)
-      );
+    // Ghi vào DB trong 1 transaction
+    await conn.run('BEGIN TRANSACTION');
+    try {
+      for (const [empId, days] of changeMap) {
+        for (const [day, dayType] of days) {
+          await conn.run(
+            `UPDATE distribution_results SET day_type = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            dayType, monthId, empId, day
+          );
+        }
+      }
+      await conn.run('COMMIT');
+    } catch (e) {
+      await conn.run('ROLLBACK');
+      throw e;
     }
 
     // Kiểm tra lại sau khi sửa — NV nào vẫn còn vi phạm

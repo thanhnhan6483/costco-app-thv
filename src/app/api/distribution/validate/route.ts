@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT dr.employee_id AS empId, e.code AS empCode, e.name AS empName,
               e.department_id AS deptId,
-              COALESCE(CAST(e.phep_nam AS INTEGER), 0) AS phepNam,
+              COALESCE(TRY_CAST(e.phep_nam AS INTEGER), 0) AS phepNam,
               COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc,
               dr.day, dr.day_type AS dayType,
               dr.ot_hours AS otHours, dr.late_mins AS lateMins,
@@ -174,9 +174,10 @@ export async function GET(req: NextRequest) {
           if (run === 0) runStart = d;
           run++;
           if (run > params.maxConsecutiveDays) {
+            const suggestedDay = runStart + params.maxConsecutiveDays;
             check1.violations.push({
               code: emp.code, name: emp.name, deptName, day: runStart,
-              detail: `${run} Giới hạn ngày làm liên tục từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays})`,
+              detail: `${run} ngày liên tục từ ngày ${runStart} (vượt giới hạn ${params.maxConsecutiveDays}) — gợi ý: nên đổi X thành LP tại ngày ${suggestedDay}`,
             });
             break;
           }

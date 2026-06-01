@@ -10,7 +10,7 @@ import { getConn } from '@/lib/db';
 export const runtime = 'nodejs';
 
 function newId(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     /* Không copy employees — nhân viên thường được import mới mỗi tháng */
 
     await conn.run('COMMIT');
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
 
     return NextResponse.json({
       ok: true,
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     try { await conn.run('ROLLBACK'); } catch { /* ignore */ }
-    await conn.close();
+    try { await conn.close(); } catch { /* ignore */ }
     console.error('[POST /api/months/copy]', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
