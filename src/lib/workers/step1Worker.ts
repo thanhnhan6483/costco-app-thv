@@ -18,8 +18,8 @@ interface WorkerInput {
   algo: 'backtracking' | 'greedy';
 }
 
-const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, algo } =
-  workerData as WorkerInput;
+const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, algo, symbolMap } =
+  workerData as WorkerInput & { symbolMap?: Record<string, number> };
 
 const accountingSet = new Set(accountingIds);
 const rows: unknown[][] = [];
@@ -29,7 +29,7 @@ for (const emp of emps) {
   const arrangement = step1_generateArrangement(
     empInput, daysInMonth, month, year, params,
     accountingSet.has(emp.departmentId ?? ''),
-    algo,
+    algo, symbolMap,
   );
   for (let d = 0; d < daysInMonth; d++) {
     rows.push([`${emp.id}_${monthId}_d${d + 1}`, monthId, emp.id, d + 1, arrangement[d], now]);

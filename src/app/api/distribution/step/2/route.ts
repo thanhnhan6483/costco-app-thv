@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadParams, loadSpecialDeptIds, markStepDone, loadMonthInfo, DAY_COLS } from '@/lib/stepHelpers';
+import { loadParams, loadSpecialDeptIds, markStepDone, loadMonthInfo, loadSymbolMap, DAY_COLS } from '@/lib/stepHelpers';
 import { EmployeeInput } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 import { Worker } from 'worker_threads';
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     const params = await loadParams(monthId);
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
     const { accountingIds } = await loadSpecialDeptIds(monthId);
+    const symbolMap = await loadSymbolMap(monthId);
     const now = new Date().toISOString().slice(0, 10);
     const t_start = Date.now();
 
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     const workerResults = await Promise.all(chunks.map(chunk =>
       runWorker({ emps: chunk, daysInMonth, month, year, params,
-        accountingIds: [...accountingIds], monthId, now, algo })
+        accountingIds: [...accountingIds], monthId, now, algo, symbolMap })
     ));
     const allRows = workerResults.flat();
     console.log(`[step1] workers done: ${Date.now() - t_start}ms, rows: ${allRows.length}`);

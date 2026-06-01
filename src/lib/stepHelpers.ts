@@ -2,7 +2,7 @@
  * stepHelpers.ts — Shared logic dùng chung cho tất cả step APIs
  */
 import { getConn } from '@/lib/db';
-import { AllocParams, ShiftInfo } from './distributionEngine';
+import { AllocParams, ShiftInfo, DEFAULT_SYMBOL_MAP } from './distributionEngine';
 
 export const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
 
@@ -84,6 +84,38 @@ export function getShiftEntry(
   const defaultEntry = shiftMap.get('DEFAULT') ?? { ca1: null, ca2: null };
   if (!deptId) return defaultEntry;
   return shiftMap.get(deptId) ?? defaultEntry;
+}
+
+/** Load symbol → code map từ leave_types (X=0, LP=1, PN=2 cố định, còn lại tự gán) */
+export async function loadSymbolMap(monthId: string): Promise<Record<string, number>> {
+  const conn = await getConn();
+  const rows = await conn.all<{ code: string; dayType: number }>(
+    `SELECT code, COALESCE(day_type, -1) AS dayType
+     FROM leave_types WHERE month_id = ?`, monthId
+  );
+  await conn.close();
+
+  const map: Record<string, number> = { ...DEFAULT_SYMBOL_MAP };
+
+  const usedCodes = new Set(Object.values(DEFAULT_SYMBOL_MAP));
+  let nextCode = 15;
+
+  for (const row of rows) {
+    const code = row.code.trim().toUpperCase();
+    if (code in map) continue;
+
+    if (row.dayType >= 3 && !usedCodes.has(row.dayType)) {
+      map[code] = row.dayType;
+      usedCodes.add(row.dayType);
+    } else {
+      while (usedCodes.has(nextCode)) nextCode++;
+      map[code] = nextCode;
+      usedCodes.add(nextCode);
+      nextCode++;
+    }
+  }
+
+  return map;
 }
 
 /** Load accounting dept IDs */

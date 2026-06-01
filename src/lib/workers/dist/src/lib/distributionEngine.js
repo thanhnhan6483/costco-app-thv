@@ -56,9 +56,9 @@ function addMins(hhMM, mins) {
     const t = h * 60 + m + Math.round(mins);
     return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
-function encodeDay(s) {
+function encodeDay(s, symbolMap) {
     const v = (s ?? '').trim();
-    return SYMBOL_TO_CODE[v] ?? 0;
+    return (symbolMap ?? SYMBOL_TO_CODE)[v] ?? 0;
 }
 /** Số Giới hạn ngày làm liên tục cuối tháng trước từ ngày nghỉ cuối */
 function calcConsecutiveDays(ngayNghi) {
@@ -95,10 +95,10 @@ function markSundays(inputArray, daysInMonth, month, year) {
     return arr;
 }
 /* ── Bước 1: Encode input ────────────────────────── */
-function encodeInputArray(days) {
+function encodeInputArray(days, symbolMap) {
     const arr = Array(31).fill(0);
     for (let i = 0; i < Math.min(days.length, 31); i++) {
-        arr[i] = encodeDay(days[i]);
+        arr[i] = encodeDay(days[i], symbolMap);
     }
     return arr;
 }

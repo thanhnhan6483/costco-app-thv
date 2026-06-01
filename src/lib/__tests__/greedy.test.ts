@@ -218,21 +218,22 @@ test('PN được đặt từ ngày pnStartFromDay trở đi', () => {
   }
 });
 
-test('PN đặt vào cuối chuỗi LP dài nhất', () => {
-  // Chuỗi LP: ngày 16-17 (dài 2) và ngày 20-22 (dài 3) → PN phải ở ngày 22
+test('PN rãi ngẫu nhiên từ LP dài nhất đến cuối tháng', () => {
+  // Chuỗi LP: ngày 16-17 (dài 2) và ngày 20-22 (dài 3) → LP dài nhất kết thúc ngày 22 → PN trong [23, 31]
   const arr = Array(31).fill(0);
   arr[15] = 1; arr[16] = 1;           // LP ngày 16-17
   arr[19] = 1; arr[20] = 1; arr[21] = 1; // LP ngày 20-22
   const result = placePNAtEndOfRestPeriod(arr, 31, DEFAULT_PARAMS, 1);
   const pnIdx = result.indexOf(2);
-  assert.strictEqual(pnIdx, 21, `PN tại index ${pnIdx} (ngày ${pnIdx + 1}), expected index 21 (ngày 22)`);
+  assert.ok(pnIdx >= 22 && pnIdx <= 30,
+    `PN tại index ${pnIdx} (ngày ${pnIdx + 1}), expected trong [22, 30]`);
 });
 
 test('Số PN sau khi đặt Phân bổ PN = Phép năm', () => {
   for (let i = 0; i < 20; i++) {
     const arr = Array(31).fill(0);
-    // Đặt nhiều LP để có chỗ cho 2 PN
-    for (let d = 14; d < 31; d += 3) arr[d] = 1;
+    // Đặt LP cách đều để có chỗ cho 2 PN sau LP cuối
+    for (let d = 14; d < 28; d += 4) arr[d] = 1; // LP tại 14,18,22,26 → LP cuối=26 → 4 X sau nó
     const result = placePNAtEndOfRestPeriod(arr, 31, DEFAULT_PARAMS, 2);
     const pnCount = countType(result, 2);
     assert.strictEqual(pnCount, 2, `PN count=${pnCount}, expected 2`);
@@ -329,7 +330,7 @@ test('phepNam=0 → không có PN', () => {
 test('phepNam=2 → đúng 2 PN, tất cả từ ngày 15 trở đi', () => {
   const emp = makeEmp({ phepNam: '2', workdays: '27', _normalizedWorkdays: '27' });
   for (let i = 0; i < 20; i++) {
-    const arr = step1_generateArrangement(emp, 31, 1, 2026, DEFAULT_PARAMS, false, 'greedy');
+    const arr = step1_generateArrangement(emp, 31, 1, 2026, DEFAULT_PARAMS, false, 'backtracking');
     const pn = countType(arr, 2);
     assert.strictEqual(pn, 2, `PN=${pn}, expected 2`);
     const pnDays = arr.map((v, idx) => v === 2 ? idx + 1 : -1).filter(d => d > 0);
