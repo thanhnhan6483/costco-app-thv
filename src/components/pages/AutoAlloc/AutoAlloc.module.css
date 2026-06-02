@@ -286,7 +286,7 @@
 .pageEllipsis { font-size: 0.78rem; color: var(--gray-400); padding: 0 2px; line-height: 26px; }
 
 /* ── Validate Panel ── */
-.validateWrap { padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.validateWrap { padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
 .validateHeader {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;

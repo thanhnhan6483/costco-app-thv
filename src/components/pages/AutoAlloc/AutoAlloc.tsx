@@ -1673,7 +1673,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                 <div className={styles.checkCardHeader}>
                   <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                   <span className={styles.checkLabel}>{check.label}</span>
-                  <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { const n = new Set(prev); n.has(check.id) ? n.delete(check.id) : n.add(check.id); return n; }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; if (check.id === 'lp_balance') { const dayCount = check.violations.filter(v => v.code === '—' && v.day > 0).length; return expandedChecks.has(check.id) ? `▴ ${dayCount} ngày vi phạm` : `▾ ${dayCount} ngày vi phạm`; } const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
+                  <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { if (prev.has(check.id)) return new Set(); return new Set([check.id]); }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; if (check.id === 'lp_balance') { const dayCount = check.violations.filter(v => v.code === '—' && v.day > 0).length; return expandedChecks.has(check.id) ? `▴ ${dayCount} ngày vi phạm` : `▾ ${dayCount} ngày vi phạm`; } const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
                   {onFilterChange && (
                     <span style={{ display: 'flex', gap: 2, marginLeft: 4, alignItems: 'center' }}>
                       {activeFilter?.id === check.id && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 10, background: '#1d4ed8', color: '#fff', whiteSpace: 'nowrap' }}>🔍 Đang lọc</span>}
@@ -1723,8 +1723,8 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
                   )}
                 </div>
-                {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
+                {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time', 'workdays_count'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
                         <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
@@ -1735,7 +1735,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'lp_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', maxHeight: '20lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', height: 150, overflowY: 'auto' }}>
                     {check.violations.filter(v => v.name.startsWith('📊') && v.dailyBreakdown).map((summary, i) => {
                       const daysInMonth = Math.min(31, summary.dailyBreakdown!.length - 1);
                       const dayNums = Array.from({ length: daysInMonth }, (_, j) => j + 1);
@@ -1785,7 +1785,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                 )}
                 {/* Violations cho OT checks */}
                 {(['ot_min_per_day', 'ot_between_rest'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
                         <span style={{ fontSize: 11, color: '#64748b', minWidth: 60, fontFamily: 'monospace' }}>{v.code}</span>
@@ -1796,7 +1796,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'ot_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => {
                       const isSummary = v.code === '—' && v.name.startsWith('📊');
                       return (
@@ -1818,7 +1818,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   </div>
                 )}
                 {check.id === 'shift_balance' && check.violations.length > 0 && expandedChecks.has(check.id) && (
-                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '10lh', overflowY: 'auto' }}>
+                  <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => {
                       const isSummary = v.name.startsWith('📊');
                       return (
@@ -2056,12 +2056,12 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
     <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{grid}</div>
   );
   const validateWrapper = (panel: React.ReactNode) => (
-    <div style={{ flexShrink: 0, maxHeight: '40%', overflowY: 'auto', display: validateOpen ? undefined : 'none' }}>{panel}</div>
+    <div style={{ display: validateOpen ? undefined : 'none' }}>{panel}</div>
   );
 
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
-      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 5 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />)}
+      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'workdays_count']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1), số ngày công so với đầu vào" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />)}
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
   );
   if (step === 3) return stepWrapper(
