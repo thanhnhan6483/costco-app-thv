@@ -326,7 +326,7 @@ export async function GET(req: NextRequest) {
     for (const emp of emps) {
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
       for (const d of emp.days) {
-        if (d.dayType === 0 && !d.shiftCode) {
+        if (d.day >= 1 && d.day <= daysInMonth && d.dayType === 0 && !d.shiftCode) {
           checkShift.violations.push({
             code: emp.code, name: emp.name, deptName, day: d.day,
             detail: `Ngày ${d.day}: ngày làm chưa được gán ca`,
@@ -393,7 +393,7 @@ export async function GET(req: NextRequest) {
     for (const emp of emps) {
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
       for (const d of emp.days) {
-        if (d.dayType === 0) {
+        if (d.day >= 1 && d.day <= daysInMonth && d.dayType === 0) {
           if (!d.checkIn || !d.checkOut) {
             checkTime.violations.push({ code: emp.code, name: emp.name, deptName, day: d.day, detail: `Ngày ${d.day}: thiếu giờ vào/ra` });
             break;
@@ -649,7 +649,7 @@ export async function GET(req: NextRequest) {
     for (const emp of emps) {
       if (emp.phepNam === 0) continue;
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const pnCount = emp.days.filter(d => d.dayType === 2).length;
+      const pnCount = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && d.dayType === 2).length;
       if (pnCount !== emp.phepNam) {
         checkPnCount.violations.push({
           code: emp.code, name: emp.name, deptName, day: 0,
@@ -667,14 +667,14 @@ export async function GET(req: NextRequest) {
     const checkWorkdays: CheckResult = {
       id: 'workdays_count',
       label: 'Số ngày công (Phân bổ NC = Ngày công)',
-      description: 'Số ngày X + PN trong tháng phải đúng bằng ngày công đầu vào của NV',
+      description: 'Số ngày X, PN, LL, H trong tháng phải đúng bằng ngày công đầu vào của NV',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     for (const emp of emps) {
       const inputWd = Math.round(emp.inputWorkdays);
       if (inputWd === 0) continue;
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const allocatedWd = emp.days.filter(d => d.dayType === 0 || d.dayType === 2).length;
+      const allocatedWd = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && [0, 2, 11, 13].includes(d.dayType)).length;
       if (allocatedWd !== inputWd) {
         const diff = allocatedWd - inputWd;
         const suggestion = diff > 0

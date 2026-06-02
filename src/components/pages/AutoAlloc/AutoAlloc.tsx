@@ -650,7 +650,7 @@ const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5
 const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 
 /* === ImportGrid (Step 1) === */
-function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean }) {
+function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
@@ -663,10 +663,10 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   const [fOT, setFOT] = useState('');
   const [fLate, setFLate] = useState('');
   const [fPN, setFPN] = useState('');
+  const [fSymCounts, setFSymCounts] = useState<Record<number, string>>({});
   const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
-  const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
 
   // Edit state
   const [edits, setEdits] = useState<Map<string, string>>(new Map()); // key: "code_day", value: symbol
@@ -737,6 +737,15 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
     if (fOT) result = result.filter(r => String(Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')))) === fOT);
     if (fLate) result = result.filter(r => String(Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')))) === fLate);
     if (fPN) result = result.filter(r => String(r.phepNam ?? '') === fPN);
+    for (const [dtStr, val] of Object.entries(fSymCounts)) {
+      if (!val) continue;
+      const dt = Number(dtStr);
+      const sym = DT_SYMBOL[dt] ?? '';
+      result = result.filter((r: any) => {
+        const days: { day: number; symbol: string }[] = r.days ?? [];
+        return String(days.filter(d => getEffectiveSym(r.code, d.day, d.symbol ?? '') === sym).length) === val;
+      });
+    }
     if (!step1Filter) return result;
     return result.filter(r => {
       const days: { day: number; symbol: string }[] = r.days ?? [];
@@ -745,7 +754,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
       if (step1Filter === 'pn_mismatch') { const pnCount = pnDays.length; const colPN = Number(r.phepNam) || 0; return pnCount !== colPN; }
       return true;
     });
-  }, [baseFiltered, fWorkdays, fOT, fLate, fPN, step1Filter]);
+  }, [baseFiltered, fWorkdays, fOT, fLate, fPN, fSymCounts, step1Filter]);
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
     fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: { code: string; name: string; dayType: number }[]) => {
@@ -754,6 +763,48 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   }, [monthId]);
   const [sort, onSort] = useSort();
   const sortedRows = useSortRows(filtered, sort);
+
+  // Dynamic columns from legend (used day types) — compute from current page
+  const usedSymbols = useMemo(() => {
+    const src = rows as any[];
+    const dtSet = new Set<number>();
+    for (const r of src) {
+      for (const d of (r.days ?? []) as { day: number; symbol: string }[]) {
+        const dt = SYM_TO_DT[d.symbol ?? ''] ?? -1;
+        if (dt >= 0) dtSet.add(dt);
+      }
+    }
+    const seen = new Set<number>();
+    const result: { dt: number; sym: string; name: string }[] = [];
+    for (const lt of (Array.isArray(leaveTypes) ? leaveTypes : [])) {
+      const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+      if (dt < 0 || !dtSet.has(dt) || seen.has(dt)) continue;
+      seen.add(dt);
+      result.push({ dt, sym: DT_SYMBOL[dt] ?? lt.code, name: lt.name });
+    }
+    return result;
+  }, [rows, leaveTypes]);
+
+  const symCountsList = useMemo(() => {
+    const src = rows as any[];
+    const result: Record<number, string[]> = {};
+    for (const { dt } of usedSymbols) {
+      const counts = new Set<string>();
+      for (const r of src) {
+        const days: { day: number; symbol: string }[] = r.days ?? [];
+        const cnt = days.filter(d => getEffectiveSym(r.code, d.day, d.symbol ?? '') === (DT_SYMBOL[dt] ?? '')).length;
+        if (cnt > 0) counts.add(String(cnt));
+      }
+      result[dt] = [...counts].sort((a, b) => Number(a) - Number(b));
+    }
+    return result;
+  }, [rows, usedSymbols]);
+
+  const countBySym = (r: any, sym: string) => {
+    const days: { day: number; symbol: string }[] = r.days ?? [];
+    return days.filter(d => getEffectiveSym(r.code, d.day, d.symbol ?? '') === sym).length;
+  };
+
   return (
     <div className={styles.tableOuter}>
       {step1Filter && (
@@ -770,19 +821,21 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
+              <SortTh label="NC ĐV" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 40, color: '#15803d' }} />
+              {usedSymbols.map(({ dt, sym }) => (
+                <th key={dt} style={{ minWidth: 28, color: DT_TEXT[dt] ?? '#64748b', fontWeight: 700, fontSize: '0.68rem' }}>{sym}</th>
+              ))}
               <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
-              <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
-              <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
-              <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
+              <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (P)</th>
             </tr>
-             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
-               <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-               <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-               <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-               <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-              <th />
+             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+              middleChildren={<th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}>
+              {usedSymbols.map(({ dt, sym }) => (
+                <th key={dt}><select className={s.statusFilterSelect} value={fSymCounts[dt] ?? ''} onChange={e => setFSymCounts(p => ({ ...p, [dt]: e.target.value }))} style={{ fontSize: 10, padding: '1px 3px', minWidth: 32 }}><option value="">—</option>{(symCountsList[dt] ?? []).map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              ))}
+              <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
             </InlineFilterRow>
           </thead>
           <tbody>
@@ -795,6 +848,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+                  <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const origSym = d?.symbol ?? '';
@@ -827,11 +881,13 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                       </td>
                     );
                   })}
-                  <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
+                  {usedSymbols.map(({ dt, sym }) => (
+                    <td key={dt} className={styles.statCell} style={{ color: DT_TEXT[dt] ?? '#64748b', background: DT_CELL_BG[dt] ?? 'transparent', textAlign: 'center', fontWeight: 700, fontSize: '0.68rem' }}>
+                      {countBySym(r, sym)}
+                    </td>
+                  ))}
                   <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Math.round(parseFloat(String(r.overtimeHours).replace(',', '.')))}</span> : '—'}</td>
                   <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Math.round(parseFloat(String(r.lateMinutes).replace(',', '.')))}</span> : '—'}</td>
-                  <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r.phepNam || '—'}</td>
-                  <td className={styles.statCell} style={{ color: '#15803d' }}>{r.days?.filter((d: any) => getEffectiveSym(r.code, d.day, d.symbol ?? '') === 'X').length ?? 0}</td>
                 </tr>
               );
             })}
@@ -961,7 +1017,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
   const countX = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length; };
   const countLP = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length; };
   const countPnDay = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length; };
-  const countCnPb = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0 || d === 2).length; };
+  const countCnPb = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => [0, 2, 11, 13].includes(d)).length; };
   const enrichedRows = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
     return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r), _cnPbCnt: countCnPb(r) }; });
@@ -1071,7 +1127,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-              <th style={{ minWidth: 68, color: '#15803d' }}>NCPB (X+PN)</th>
+              <th style={{ minWidth: 68, color: '#15803d' }}>PHÂN BỔ NC</th>
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
@@ -1554,8 +1610,8 @@ interface ViolationItem { code: string; name: string; deptName: string; day: num
 interface CheckResult { id: string; label: string; description: string; status: CheckStatus; violations: ViolationItem[]; violationCount: number; checkedCount: number; }
 interface ValidateResult { monthId: string; totalEmps: number; totalViolations: number; overallStatus: CheckStatus; checkedAt: string; results: CheckResult[]; }
 
-const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (filter: FilterState) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; initialResult?: ValidateResult | null; }>(
-  function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange, initialResult }, ref) {
+const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds?: string[]; title?: string; subtitle?: string; btnId?: string; onFixed?: () => void; autoRun?: boolean; onFilterChange?: (filter: FilterState) => void; onValidated?: () => void; onStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void; initialResult?: ValidateResult | null; version?: number; }>(
+  function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange, initialResult, version }, ref) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ValidateResult | null>(initialResult ?? null);
     const [fixing, setFixing] = useState(false);
@@ -1574,8 +1630,14 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const activeFilterRef = useRef(activeFilter);
     activeFilterRef.current = activeFilter;
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+    const lastFetchVersion = useRef<number | undefined>(undefined);
 
     const run = useCallback(async () => {
+      if (version !== undefined && lastFetchVersion.current === version && result) {
+        onStatusChange?.({ loading: false, result });
+        return;
+      }
+      lastFetchVersion.current = version;
       setLoading(true); setError(null); onStatusChange?.({ loading: true, result: null });
       try {
         const ids = onlyIds?.length ? `&ids=${onlyIds.join(',')}` : '';
@@ -1586,7 +1648,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
         onStatusChange?.({ loading: false, result: data });
         onValidated?.();
       } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
-    }, [monthId, onlyIds?.join(','), onStatusChange, onValidated]);
+    }, [version, result, monthId, onlyIds?.join(','), onStatusChange, onValidated]);
 
     useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
@@ -1981,12 +2043,14 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   const [filterMode, setFilterMode] = useState<FilterMode | null>(null);
   const [allRows, setAllRows] = useState<Record<string, unknown>[] | null>(null);
   const [showDeptSummary, setShowDeptSummary] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
   useEffect(() => { if (!validateOpen) { setFilterCodes(null); setFilterMode(null); setAllRows(null); } }, [validateOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!data) onLoad(); setShowDeptSummary(false); setFilterCodes(null); setFilterMode(null); setAllRows(null); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!allRows) return;
-    fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`).then(r => { if (r.ok) r.json().then(j => setAllRows(j.data ?? [])); }).catch(() => {});
+    fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`).then(r => { if (r.ok) r.json().then(j => { setAllRows(j.data ?? []); setDataVersion(v => v + 1); }); }).catch(() => {});
   }, [recheckKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const handleFilterChange = useCallback(async (filter: FilterState) => {
     if (!filter) {
@@ -1994,7 +2058,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       setFilterMode(null);
       try {
         const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
-        if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+        if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); setDataVersion(v => v + 1); }
       } catch { /* ignore */ }
       return;
     }
@@ -2004,7 +2068,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       if (!allRows) {
         try {
           const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
-          if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+          if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); setDataVersion(v => v + 1); }
         } catch { /* ignore */ }
       }
     } else {
@@ -2014,7 +2078,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       if (!rows) {
         try {
           const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
-          if (r.ok) { const json = await r.json(); rows = json.data ?? []; setAllRows(rows); }
+          if (r.ok) { const json = await r.json(); rows = json.data ?? []; setAllRows(rows); setDataVersion(v => v + 1); }
         } catch { /* ignore */ }
       }
       if (rows) {
@@ -2029,10 +2093,12 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
     if (!allRows) return;
     try {
       const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
-      if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+      if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); setDataVersion(v => v + 1); }
     } catch { /* ignore */ }
   }, [allRows, monthId, step]);
+
   const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+
   const dataEl = !data
     ? <div className={styles.emptyState}>Đang tải...</div>
     : !Array.isArray(data)
@@ -2042,7 +2108,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   if (step === 1) return (
     <>
       <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['pn_start_day_import']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra PN trong file import không được trước ngày quy định" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />
+        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['pn_start_day_import']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra PN trong file import không được trước ngày quy định" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />
       </div>
       {dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} />}
     </>
@@ -2061,19 +2127,19 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
 
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
-      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'workdays_count']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1), số ngày công so với đầu vào" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} />)}
+      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'workdays_count']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1), số ngày công so với đầu vào" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
   );
   if (step === 3) return stepWrapper(
-    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
   );
   if (step === 4) return stepWrapper(
-    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
   );
   if (step === 5) return stepWrapper(
-    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} />)}</>
   );
   if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} />;
