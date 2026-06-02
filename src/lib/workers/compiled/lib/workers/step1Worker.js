@@ -10,9 +10,9 @@ const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, alg
 const accountingSet = new Set(accountingIds);
 const rows = [];
 for (const emp of emps) {
-    const empInput = { ...emp, workdays: emp._normalizedWorkdays };
-    const arrangement = (0, distributionEngine_1.step1_generateArrangement)(empInput, daysInMonth, month, year, params, accountingSet.has(emp.departmentId ?? ''), algo, symbolMap);
-    for (let d = 0; d < daysInMonth; d++) {
+    const arrangement = (0, distributionEngine_1.step1_generateArrangement)(emp, daysInMonth, month, year, params, accountingSet.has(emp.departmentId ?? ''), algo, symbolMap);
+    // Luôn tạo 31 rows (giống Python: 31 ô cho mọi tháng, kể cả tháng ngắn)
+    for (let d = 0; d < 31; d++) {
         rows.push([`${emp.id}_${monthId}_d${d + 1}`, monthId, emp.id, d + 1, arrangement[d], now]);
     }
 }

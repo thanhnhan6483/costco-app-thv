@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     // Load distribution_results gộp theo NV
     const rawRows = await conn.all<{
       empId: string; empCode: string; empName: string; deptId: string;
-      phepNam: number; ngayNghiCuoiThangTruoc: string;
+      phepNam: number; ngayNghiCuoiThangTruoc: string; inputWorkdays: number;
       day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string;
       checkIn: string; checkOut: string;
     }>(
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
               e.department_id AS deptId,
               COALESCE(TRY_CAST(e.phep_nam AS INTEGER), 0) AS phepNam,
               COALESCE(e.ngay_nghi_cuoi_thang_truoc, '') AS ngayNghiCuoiThangTruoc,
+              COALESCE(TRY_CAST(e.workdays AS INTEGER), 0) AS inputWorkdays,
               dr.day, dr.day_type AS dayType,
               dr.ot_hours AS otHours, dr.late_mins AS lateMins,
               COALESCE(dr.shift_code, '') AS shiftCode,
@@ -72,11 +73,11 @@ export async function GET(req: NextRequest) {
 
     // Group by empId
     type DayData = { day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string; checkIn: string; checkOut: string };
-    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; ngayNghiCuoiThangTruoc: string; days: DayData[] };
+    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; inputWorkdays: number; ngayNghiCuoiThangTruoc: string; days: DayData[] };
     const empMap = new Map<string, EmpData>();
     for (const r of rawRows) {
       if (!empMap.has(r.empId)) {
-        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
+        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, inputWorkdays: Number(r.inputWorkdays) || 0, ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
       }
       empMap.get(r.empId)!.days.push({ day: Number(r.day), dayType: Number(r.dayType), otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
     }
@@ -659,6 +660,35 @@ export async function GET(req: NextRequest) {
     checkPnCount.violationCount = checkPnCount.violations.length;
     checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
     results.push(checkPnCount);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Số ngày công phải đúng bằng workdays đầu vào
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkWorkdays: CheckResult = {
+      id: 'workdays_count',
+      label: 'Số ngày công (Phân bổ NC = Ngày công)',
+      description: 'Số ngày X + PN trong tháng phải đúng bằng ngày công đầu vào của NV',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const inputWd = Math.round(emp.inputWorkdays);
+      if (inputWd === 0) continue;
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      const allocatedWd = emp.days.filter(d => d.dayType === 0 || d.dayType === 2).length;
+      if (allocatedWd !== inputWd) {
+        const diff = allocatedWd - inputWd;
+        const suggestion = diff > 0
+          ? `giảm ${diff} ngày công: đổi X → LP hoặc chạy lại Bước 2`
+          : `thiếu ${-diff} ngày công: đổi LP → X hoặc chạy lại Bước 2`;
+        checkWorkdays.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `Phân bổ ${allocatedWd} ngày công, cần ${inputWd} (${suggestion})`,
+        });
+      }
+    }
+    checkWorkdays.violationCount = checkWorkdays.violations.length;
+    checkWorkdays.status = checkWorkdays.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkWorkdays);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary

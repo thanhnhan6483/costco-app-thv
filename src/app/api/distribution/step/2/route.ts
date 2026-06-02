@@ -33,13 +33,6 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString().slice(0, 10);
     const t_start = Date.now();
 
-    // Load map deptId → code để tra cứu skipEqualRestDeptCodes
-    const deptCodeRows = await conn.all<{ id: string; code: string }>(
-      `SELECT id, code FROM departments WHERE month_id = ?`, monthId
-    );
-    const deptIdToCode = new Map(deptCodeRows.map(d => [d.id, d.code.toUpperCase()]));
-    const skipCodes = new Set(params.skipEqualRestDeptCodes);
-
     const emps = await conn.all<Record<string, string>>(
       `SELECT id, code, department_id AS departmentId, special_group AS specialGroup,
               group_code_end_date AS groupCodeEndDate, ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
@@ -47,51 +40,8 @@ export async function POST(req: NextRequest) {
               ${DAY_COLS.join(', ')} FROM employees WHERE month_id = ? AND active = TRUE`, monthId
     );
 
-    // ── Bước chuẩn hóa workdays theo phòng ban ──────────────────────────
-    // Áp dụng cho mọi phòng ban TRỪ Ban Giám Đốc
-    // Mục tiêu: LP count (= daysInMonth - workdays) chênh ≤ ±1 trong cùng phòng
-
-    // 1. Nhóm workdays theo departmentId (bỏ qua BGD)
-    const deptWorkdays = new Map<string, number[]>();
-    for (const emp of emps) {
-      const deptId = emp.departmentId ?? '';
-      const deptCode = deptIdToCode.get(deptId) ?? '';
-      if (!deptId || skipCodes.has(deptCode)) continue; // bỏ phòng trong skipCodes
-      const wd = parseFloat(emp.workdays) || 27;
-      if (!deptWorkdays.has(deptId)) deptWorkdays.set(deptId, []);
-      deptWorkdays.get(deptId)!.push(wd);
-    }
-
-    // 2. Tính target workdays = median mỗi phòng
-    const deptTarget = new Map<string, number>();
-    for (const [deptId, wdList] of deptWorkdays) {
-      const sorted = [...wdList].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const median = sorted.length % 2 === 1
-        ? sorted[mid]
-        : (sorted[mid - 1] + sorted[mid]) / 2;
-      deptTarget.set(deptId, Math.round(median));
-    }
-
-    // 3. Build map empId → clamped workdays (target ± maxDayOffDifference)
-    const clampedWorkdays = new Map<string, number>();
-    const diff = params.maxDayOffDifference;
-    for (const emp of emps) {
-      const deptId = emp.departmentId ?? '';
-      const wd = parseFloat(emp.workdays) || 27;
-      if (deptTarget.has(deptId)) {
-        const target = deptTarget.get(deptId)!;
-        clampedWorkdays.set(emp.id, Math.max(target - diff, Math.min(target + diff, wd)));
-      } else {
-        clampedWorkdays.set(emp.id, wd);
-      }
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
-    // Clear chỉ day_type — giữ các cột khác
     await conn.run(`DELETE FROM distribution_results WHERE month_id = ?`, monthId);
 
-    // Chuẩn bị dữ liệu NV với workdays đã normalize
     const empInputs = emps.map(emp => ({
       id: emp.id, departmentId: emp.departmentId ?? '',
       specialGroup: emp.specialGroup ?? '', groupCodeEndDate: emp.groupCodeEndDate ?? '',
@@ -99,7 +49,6 @@ export async function POST(req: NextRequest) {
       workdays: emp.workdays ?? '27', overtimeHours: emp.overtimeHours ?? '0',
       lateMinutes: emp.lateMinutes ?? '0', phepNam: emp.phepNam ?? '0',
       days: DAY_COLS.map(c => emp[c] ?? ''),
-      _normalizedWorkdays: String(clampedWorkdays.get(emp.id) ?? emp.workdays ?? '27'),
     }));
 
     // Chia NV thành chunks, mỗi chunk chạy trên 1 worker thread

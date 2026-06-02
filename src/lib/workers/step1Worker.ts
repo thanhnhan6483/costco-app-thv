@@ -7,7 +7,7 @@ import { step1_generateArrangement } from '../distributionEngine';
 import type { EmployeeInput, AllocParams } from '../distributionEngine';
 
 interface WorkerInput {
-  emps: (EmployeeInput & { _normalizedWorkdays: string })[];
+  emps: EmployeeInput[];
   daysInMonth: number;
   month: number;
   year: number;
@@ -25,13 +25,13 @@ const accountingSet = new Set(accountingIds);
 const rows: unknown[][] = [];
 
 for (const emp of emps) {
-  const empInput: EmployeeInput = { ...emp, workdays: emp._normalizedWorkdays };
   const arrangement = step1_generateArrangement(
-    empInput, daysInMonth, month, year, params,
+    emp, daysInMonth, month, year, params,
     accountingSet.has(emp.departmentId ?? ''),
     algo, symbolMap,
   );
-  for (let d = 0; d < daysInMonth; d++) {
+  // Luôn tạo 31 rows (giống Python: 31 ô cho mọi tháng, kể cả tháng ngắn)
+  for (let d = 0; d < 31; d++) {
     rows.push([`${emp.id}_${monthId}_d${d + 1}`, monthId, emp.id, d + 1, arrangement[d], now]);
   }
 }

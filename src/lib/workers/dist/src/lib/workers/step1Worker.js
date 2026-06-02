@@ -10,8 +10,7 @@ const { emps, daysInMonth, month, year, params, accountingIds, monthId, now } = 
 const accountingSet = new Set(accountingIds);
 const rows = [];
 for (const emp of emps) {
-    const empInput = { ...emp, workdays: emp._normalizedWorkdays };
-    const arrangement = (0, distributionEngine_ts_1.step1_generateArrangement)(empInput, daysInMonth, month, year, params, accountingSet.has(emp.departmentId ?? ''));
+    const arrangement = (0, distributionEngine_ts_1.step1_generateArrangement)(emp, daysInMonth, month, year, params, accountingSet.has(emp.departmentId ?? ''));
     for (let d = 0; d < daysInMonth; d++) {
         rows.push([`${emp.id}_${monthId}_d${d + 1}`, monthId, emp.id, d + 1, arrangement[d], now]);
     }

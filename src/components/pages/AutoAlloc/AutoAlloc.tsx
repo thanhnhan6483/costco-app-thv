@@ -31,7 +31,7 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
       {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} className={i === 0 ? styles.sc0 : undefined} />)}
       <th className={styles.sc1} style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
       <th className={styles.sc2} style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
-      <th><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
+      <th style={{ maxWidth: 50, width: 50, minWidth: 50, overflow: 'hidden' }}><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
       {groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
       {Array.from({ length: extraMiddle }, (_, i) => <th key={'m' + i} />)}
       {middleChildren}
@@ -651,6 +651,8 @@ const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS:
 
 /* === ImportGrid (Step 1) === */
 function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean }) {
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -766,20 +768,20 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 40, color: '#15803d' }} />
               <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
               <th style={{ minWidth: 50, color: '#c2410c' }}>TRỄ (PH)</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PHÉP NĂM</th>
               <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
-              <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-              <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-              <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-              <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+               <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+               <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+               <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+               <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
               <th />
             </InlineFilterRow>
           </thead>
@@ -793,7 +795,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
-                  {Array.from({ length: 31 }, (_, i) => {
+                  {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const origSym = d?.symbol ?? '';
                     const sym = getEffectiveSym(r.code, i + 1, origSym);
@@ -937,6 +939,8 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
     }).catch(() => { });
   }, [monthId]);
 
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const deptList = useDeptList(rows);
   const [sort, onSort] = useSort();
   const [fWorkdays, setFWorkdays] = useState('');
@@ -945,23 +949,33 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
   const [fNghiCuoi, setFNghiCuoi] = useState('');
   const workdaysList = useStatList(rows, 'workdays');
   const pnList = useStatList(rows, 'phepNam');
-  const nghiTruocList = useMemo(() => [...new Set((rows as any[]).map(r => fmtDate(r.ngayNghiCuoiThangTruoc)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [rows]);
+  const nghiTruocList = useMemo(() => {
+    const vals = [...new Set((rows as any[]).map(r => fmtDate(r.ngayNghiCuoiThangTruoc)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'vi'));
+    if ((rows as any[]).some(r => !fmtDate(r.ngayNghiCuoiThangTruoc))) vals.unshift('(Trống)');
+    return vals;
+  }, [rows]);
   const nghiCuoiList = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
-    return [...new Set((rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : ''; }).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+    return [...new Set((rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : ''; }).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
   }, [rows, monthLabel]);
-  const countX = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: 31 }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length; };
-  const countLP = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: 31 }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length; };
-  const countPnDay = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: 31 }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length; };
-  const countCnPb = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: 31 }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0 || d === 2).length; };
+  const countX = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length; };
+  const countLP = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length; };
+  const countPnDay = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length; };
+  const countCnPb = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0 || d === 2).length; };
   const enrichedRows = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
-    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r), _cnPbCnt: countCnPb(r) }; });
+    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r), _cnPbCnt: countCnPb(r) }; });
   }, [rows, monthLabel]);
   const baseFiltered = useGridFilter(enrichedRows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered;
-    if (fNghiTruoc) r = r.filter((x: any) => (fmtDate(x.ngayNghiCuoiThangTruoc) ?? '') === fNghiTruoc);
+    if (fNghiTruoc) {
+      if (fNghiTruoc === '(Trống)') {
+        r = r.filter((x: any) => !fmtDate(x.ngayNghiCuoiThangTruoc));
+      } else {
+        r = r.filter((x: any) => (fmtDate(x.ngayNghiCuoiThangTruoc) ?? '') === fNghiTruoc);
+      }
+    }
     if (fNghiCuoi) r = r.filter((x: any) => x._nghiCuoi === fNghiCuoi);
     if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
     if (fPN) r = r.filter((x: any) => String(x.phepNam ?? '') === fPN);
@@ -1049,9 +1063,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
@@ -1060,7 +1074,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th style={{ minWidth: 68, color: '#15803d' }}>NCPB (X+PN)</th>
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
@@ -1079,7 +1093,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
                   const dt = getEffectiveDT(r.code, i + 1, origDT);
@@ -1116,7 +1130,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#15803d', fontWeight: 700 }}>{r._cnPbCnt ?? 0}</td>
                 {(() => {
-                  const lastRestDay = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+                  const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                   const [mm, yyyy] = monthLabel.split('/');
                   const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
                   return <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400, whiteSpace: 'nowrap' }}>{val || <span style={{ color: '#d1d5db' }}>—</span>}</td>;
@@ -1180,6 +1194,8 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
 
 /* === ShiftGrid (Step 3) === */
 function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null }) {
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const CA1_BG = '#eff6ff', CA1_CLR = '#1d4ed8';
   const CA2_BG = '#fff7ed', CA2_CLR = '#c2410c';
   const CAC_BG = '#f0fdf4', CAC_CLR = '#15803d';
@@ -1199,13 +1215,13 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>
               <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>
               <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
@@ -1218,7 +1234,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
                   const sc = d?.shiftCode ?? '';
@@ -1252,6 +1268,8 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
 
 /* === OtLateGrid (Step 4) === */
 function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null }) {
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const OT_BG = '#eff6ff', OT_CLR = '#1d4ed8';
   const LATE_BG = '#fff7ed', LATE_CLR = '#c2410c';
   const [fCode, setFCode] = useState('');
@@ -1280,12 +1298,12 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
               <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
               <StatFilterTh list={otList} value={fOT} onChange={setFOT} />
               <StatFilterTh list={lateList} value={fLate} onChange={setFLate} />
             </InlineFilterRow>
@@ -1298,7 +1316,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
                   const ot = Number(d?.otH) || 0;
@@ -1328,6 +1346,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
 
 /* === TimeGrid (Step 5) === */
 function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean; filterCodes?: Set<string> | null }) {
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const IN_BG = '#f0fdf4', IN_CLR = '#15803d';
   const OUT_BG = '#eff6ff', OUT_CLR = '#1d4ed8';
   const [fCode, setFCode] = useState('');
@@ -1354,10 +1374,10 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#0369a1' }} />
               <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fEndDate} onChange={e => setFEndDate(e.target.value)}><option value="">Tất cả</option>{endDateList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
@@ -1373,7 +1393,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
                   const ci = d?.checkIn ?? '';
@@ -1398,6 +1418,8 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
 
 /* === FinalGrid (Step 6) === */
 function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
+  const [mm_, yyyy_] = monthLabel.split('/');
+  const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -1415,7 +1437,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     const [mm, yyyy] = monthLabel.split('/');
     return [...new Set((rows as any[]).map(r => {
       const days: { day: number; dayType: number }[] = r.days ?? [];
-      const d = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+      const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
       return d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '';
     }).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
   }, [rows, monthLabel]);
@@ -1423,11 +1445,15 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     const [mm, yyyy] = monthLabel.split('/');
     return (rows as any[]).map(r => {
       const days: { day: number; dayType: number }[] = r.days ?? [];
-      const d = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+      const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
       return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '' };
     });
   }, [rows, monthLabel]);
-  const nghiTruocList = useMemo(() => [...new Set((rows as any[]).map(r => fmtDate(r.ngayNghiCuoiThangTruoc)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [rows]);
+  const nghiTruocList = useMemo(() => {
+    const vals = [...new Set((rows as any[]).map(r => fmtDate(r.ngayNghiCuoiThangTruoc)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'vi'));
+    if ((rows as any[]).some(r => !fmtDate(r.ngayNghiCuoiThangTruoc))) vals.unshift('(Trống)');
+    return vals;
+  }, [rows]);
   const workdaysList2 = useStatList(rows, 'workdays');
   const lpList2 = useStatList(rows, 'lpCount');
   const pnList2 = useStatList(rows, 'pnCount');
@@ -1437,7 +1463,13 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [sort, onSort] = useSort();
   const filtered = useMemo(() => {
     let r = baseFiltered2 as any[];
-    if (fNghiTruoc) r = r.filter((x: any) => (fmtDate(x.ngayNghiCuoiThangTruoc) ?? '') === fNghiTruoc);
+    if (fNghiTruoc) {
+      if (fNghiTruoc === '(Trống)') {
+        r = r.filter((x: any) => !fmtDate(x.ngayNghiCuoiThangTruoc));
+      } else {
+        r = r.filter((x: any) => (fmtDate(x.ngayNghiCuoiThangTruoc) ?? '') === fNghiTruoc);
+      }
+    }
     if (fNghiCuoi) r = r.filter((x: any) => x._nghiCuoi === fNghiCuoi);
     if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
     if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
@@ -1455,10 +1487,10 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70 }} />
+              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#92400e' }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
               <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
@@ -1466,7 +1498,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#c2410c' }} />
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
@@ -1485,7 +1517,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
-              {Array.from({ length: 31 }, (_, i) => {
+              {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
                 const dt = Number(d.dayType);
@@ -1501,7 +1533,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Math.round(Number(r.totalLate))}</span> : 0}</td>
               {(() => {
                 const days: { day: number; dayType: number }[] = r.days ?? [];
-                const lastRestDay = Array.from({ length: 31 }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
+                const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                 const [mm, yyyy] = monthLabel.split('/');
                 const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
                 return <td style={{ textAlign: 'center', color: '#0369a1', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>{val || '—'}</td>;
@@ -1539,6 +1571,8 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const [error, setError] = useState<string | null>(null);
     const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
     const [activeFilter, setActiveFilter] = useState<{ id: string; mode: FilterMode } | null>(null);
+    const activeFilterRef = useRef(activeFilter);
+    activeFilterRef.current = activeFilter;
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
 
     const run = useCallback(async () => {
@@ -1555,6 +1589,15 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     }, [monthId, onlyIds?.join(','), onStatusChange, onValidated]);
 
     useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+      if (!result) return;
+      const filter = activeFilterRef.current;
+      if (!filter) return;
+      const check = result.results.find(c => c.id === filter.id);
+      if (!check || check.violationCount === 0) { setActiveFilter(null); onFilterChange?.(null); return; }
+      const violatorCodes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code));
+      onFilterChange?.({ mode: filter.mode, codes: violatorCodes });
+    }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
     useImperativeHandle(ref, () => ({ run }), [run]);
 
     const doFix = async (
@@ -1940,13 +1983,19 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   const [showDeptSummary, setShowDeptSummary] = useState(false);
   useEffect(() => { if (!validateOpen) { setFilterCodes(null); setFilterMode(null); setAllRows(null); } }, [validateOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!data) onLoad(); setShowDeptSummary(false); setFilterCodes(null); setFilterMode(null); setAllRows(null); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setFilterCodes(null); setFilterMode(null); setAllRows(null); }, [recheckKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!allRows) return;
+    fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`).then(r => { if (r.ok) r.json().then(j => setAllRows(j.data ?? [])); }).catch(() => {});
+  }, [recheckKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFilterChange = useCallback(async (filter: FilterState) => {
     if (!filter) {
       setFilterCodes(null);
       setFilterMode(null);
-      setAllRows(null);
+      try {
+        const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
+        if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); }
+      } catch { /* ignore */ }
       return;
     }
     if (filter.mode === 'violation') {
@@ -2027,7 +2076,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} />)}
       {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} />)}</>
   );
-  if (step === 6) return dataEl ?? <FinalGrid rows={rows} monthLabel={monthLabel} />;
+  if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} />;
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }
