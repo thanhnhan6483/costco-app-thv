@@ -134,7 +134,7 @@ function generateOneArrangement(pos, ones, zeros, twoRemaining, lastZeros, fixed
     const options = [];
     if (ones > 0 && pos < daysInMonth)
         options.push([ones - 1, zeros, twoRemaining, 0, 1]); // LP
-    if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
+    if (zeros > 0 && (lastZeros < params.maxConsecutiveDays || pos >= daysInMonth))
         options.push([ones, zeros - 1, twoRemaining, lastZeros + 1, 0]); // X
     if (twoRemaining > 0 && pos >= pnMinPos && pos < daysInMonth && hasLP)
         options.push([ones, zeros, twoRemaining - 1, 0, 2]); // PN
