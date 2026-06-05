@@ -438,7 +438,7 @@ export default function AutoAlloc() {
           {!curStep?.viewOnly && (
             <button
               className={`${styles.btnRunStep} ${(running === activeStep || algoRunning !== null) ? styles.btnRunning : ''}`}
-              onClick={() => activeStep === 2 ? runStep2WithAlgo('greedy') : runStep(activeStep)}
+              onClick={() => activeStep === 2 ? runStep2WithAlgo('backtracking') : runStep(activeStep)}
               disabled={isRunning || locked || (activeStep > 1 && !status[STEPS.find(s => s.num === activeStep - 1)?.key ?? ''])}
               id={`btn-run-step-${activeStep}`}
             >
@@ -447,20 +447,6 @@ export default function AutoAlloc() {
                 : curStep?.apiNum === 1 ? <><IconCheck /> Xác nhận</>
                   : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
             </button>
-          )}
-          {activeStep === 2 && !curStep?.viewOnly && (
-            <>
-              <div className={styles.dividerV} />
-              <button
-                className={`${styles.btnRunStep} ${algoRunning === 'backtracking' ? styles.btnRunning : ''}`}
-                onClick={() => runStep2WithAlgo('backtracking')}
-                disabled={isRunning || locked || !status['step1Done']}
-                id="btn-run-backtracking"
-                style={{ background: algoRunning === 'backtracking' ? undefined : '#f5f3ff', color: algoRunning === 'backtracking' ? undefined : '#6d28d9', borderColor: '#c4b5fd' }}
-              >
-                {algoRunning === 'backtracking' ? <><span className={styles.spinnerSm} /> {elapsed}s</> : <><IconPlay /> Backtracking</>}
-              </button>
-            </>
           )}
           <div className={styles.dividerV} />
           {!locked && (
@@ -1017,10 +1003,9 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
   const countX = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length; };
   const countLP = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length; };
   const countPnDay = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length; };
-  const countCnPb = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: 31 }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => [0, 2, 11, 13].includes(d)).length; };
   const enrichedRows = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
-    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r), _cnPbCnt: countCnPb(r) }; });
+    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r) }; });
   }, [rows, monthLabel]);
   const baseFiltered = useGridFilter(enrichedRows, fCode, fName, fDept);
   const filtered = useMemo(() => {
@@ -1121,22 +1106,20 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
-              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-              <th style={{ minWidth: 68, color: '#15803d' }}>PHÂN BỔ NC</th>
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={31} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
               <th /><th /><th />
-              <th />
               <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
             </InlineFilterRow>
           </thead>
@@ -1149,7 +1132,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                {Array.from({ length: 31 }, (_, i) => {
+                {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
                   const dt = getEffectiveDT(r.code, i + 1, origDT);
@@ -1184,7 +1167,6 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={styles.statCell}>{r._lpCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>
-                <td className={styles.statCell} style={{ color: '#15803d', fontWeight: 700 }}>{r._cnPbCnt ?? 0}</td>
                 {(() => {
                   const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                   const [mm, yyyy] = monthLabel.split('/');
@@ -1614,15 +1596,11 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
   function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange, initialResult, version }, ref) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ValidateResult | null>(initialResult ?? null);
-    const [fixing, setFixing] = useState(false);
     const [fixingLp, setFixingLp] = useState(false);
     const [fixingLpAfterPn, setFixingLpAfterPn] = useState(false);
-    const [fixingConsec, setFixingConsec] = useState(false);
-    const [fixingCrossMonth, setFixingCrossMonth] = useState(false);
     const [fixingShift, setFixingShift] = useState(false);
     const [fixingShiftAssigned, setFixingShiftAssigned] = useState(false);
     const [fixingOtLate, setFixingOtLate] = useState(false);
-    const [fixingPnCount, setFixingPnCount] = useState(false);
   const [fixingTime, setFixingTime] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
@@ -1677,22 +1655,10 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
       } catch (e) { setError(String(e)); } finally { setLoading(false); }
     };
 
-    const fixPn = () => doFix('Sửa vị trí PN', '/api/distribution/fix-pn', { monthId }, setFixing, d => ({ fixed: d.fixed, total: d.total }));
-    const fixConsec = () => {
-      const consecCheck = result?.results?.find(c => c.id === 'consecutive_days');
-      const empCodes = consecCheck?.violations?.filter(v => v.code !== '—').map(v => v.code) ?? [];
-      doFix('Sửa ngày liên tiếp', '/api/distribution/fix-consecutive', { monthId, empCodes }, setFixingConsec, d => ({ fixed: d.fixed, total: d.total }));
-    }
-    const fixCrossMonth = () => {
-      const crossCheck = result?.results?.find(c => c.id === 'cross_month_consecutive');
-      const empCodes = crossCheck?.violations?.filter(v => v.code !== '—').map(v => v.code) ?? [];
-      doFix('Sửa ngày liên tháng', '/api/distribution/fix-cross-month-consecutive', { monthId, empCodes }, setFixingCrossMonth, d => ({ fixed: d.fixed, total: d.total }));
-    }
     const fixLp = () => doFix('Cân bằng LP', '/api/distribution/fix-rest-balance', { monthId }, setFixingLp, d => ({ fixed: d.fixed }));
     const fixShift = () => doFix('Cân bằng ca', '/api/distribution/fix-shift-balance', { monthId }, setFixingShift, d => ({ fixed: d.fixed }));
     const fixShiftAssigned = () => doFix('Chia ca lại', '/api/distribution/step/4', { monthId }, setFixingShiftAssigned, d => ({ fixed: d.fixed ?? 0 }));
     const fixOtLate = () => doFix('Phân bổ lại OT/Trễ', '/api/distribution/step/5', { monthId }, setFixingOtLate, d => ({ fixed: d.fixed ?? 0 }));
-    const fixPnCount = () => doFix('Sửa số ngày PN', '/api/distribution/fix-pn-count', { monthId }, setFixingPnCount, d => ({ fixed: d.fixed, total: d.total }));
     const fixTime = () => doFix('Sửa giờ vào/ra', '/api/distribution/step/5', { monthId }, setFixingTime, d => ({ fixed: d.fixed ?? 0 }));
     const fixLpAfterPn = () => doFix('Cập nhật LP sau PN', '/api/distribution/fix-lp-after-pn', { monthId }, setFixingLpAfterPn, d => ({ fixed: d.fixed }));
 
@@ -1751,18 +1717,6 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                       >✅ Đạt</span>
                     </span>
                   )}
-                  {check.id === 'consecutive_days' && check.violationCount > 0 && (
-                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixConsec(); }} disabled={fixingConsec || loading} type="button">{fixingConsec ? '...' : '🔧 Sửa liên tiếp'}</button>
-                  )}
-                  {check.id === 'cross_month_consecutive' && check.violationCount > 0 && (
-                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixCrossMonth(); }} disabled={fixingCrossMonth || loading} type="button">{fixingCrossMonth ? '...' : '🔧 Sửa liên tháng'}</button>
-                  )}
-                  {check.id === 'pn_start_day' && check.violationCount > 0 && (
-                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPn(); }} disabled={fixing || loading} type="button">{fixing ? '...' : '🔧 Sửa vị trí PN'}</button>
-                  )}
-                  {check.id === 'pn_count' && check.violationCount > 0 && (
-                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixPnCount(); }} disabled={fixingPnCount || loading} type="button">{fixingPnCount ? '...' : '🔧 Sửa số ngày PN'}</button>
-                  )}
                   {check.id === 'pn_end_of_rest' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLpAfterPn(); }} disabled={fixingLpAfterPn || loading} type="button">{fixingLpAfterPn ? '...' : '🔄 Cập nhật'}</button>
                   )}
@@ -1785,7 +1739,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
                   )}
                 </div>
-                {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time', 'workdays_count'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
                   <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
@@ -2127,7 +2081,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
 
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
-      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'workdays_count']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, cân bằng ngày nghỉ trong phòng (±1), số ngày công so với đầu vào" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
+      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
   );
   if (step === 3) return stepWrapper(

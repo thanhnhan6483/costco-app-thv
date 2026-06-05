@@ -132,6 +132,46 @@ export function encodeInputArray(days: string[], symbolMap?: Record<string, numb
 }
 
 /**
+ * Khôi phục số X nếu backtracking fallback làm thiếu workdays
+ * Do retry loop tăng ONES giảm ZEROS → mất 1 X so với expected
+ * Tìm LP có thể đổi thành X mà không vi phạm maxConsecutiveDays
+ */
+function recoverMissingWorkdays(
+  arr: number[],
+  daysInMonth: number,
+  workdaysVal: number,
+  phepNam: number,
+  maxConsecutive: number,
+  initialLastZeros: number,
+): number[] {
+  const expectedX = workdaysVal - phepNam;
+  let actualX = (() => { let c = 0; for (let i = 0; i < daysInMonth; i++) if (arr[i] === 0) c++; return c; })();
+  let shortfall = expectedX - actualX;
+  if (shortfall <= 0) return arr;
+
+  for (let attempt = 0; attempt < shortfall; attempt++) {
+    const lpPositions: number[] = [];
+    for (let i = 0; i < daysInMonth; i++) {
+      if (arr[i] === 1) lpPositions.push(i);
+    }
+    let fixed = false;
+    for (const pos of lpPositions) {
+      let runBefore = initialLastZeros;
+      for (let i = pos - 1; i >= 0 && arr[i] === 0; i--) runBefore++;
+      let runAfter = 0;
+      for (let i = pos + 1; i < daysInMonth && arr[i] === 0; i++) runAfter++;
+      if (runBefore + 1 + runAfter <= maxConsecutive) {
+        arr[pos] = 0;
+        fixed = true;
+        break;
+      }
+    }
+    if (!fixed) break;
+  }
+  return arr;
+}
+
+/**
  * Tính ones (số ngày nghỉ LP) và zeros (số ngày làm X) cần đặt vào ô FREE
  *
  * Python: ones=4, zeros=26 cho workdays=27 (31-day month)
@@ -345,6 +385,19 @@ export function placePNAtEndOfRestPeriod(
   for (let i = daysInMonth - 1; i >= 0; i--) {
     if (arr[i] === 1) { lastLP = i; break; }
   }
+
+  // Nếu LP ở ngày cuối tháng → swap với X gần cuối để tạo chỗ đặt PN
+  if (lastLP >= 0 && lastLP === daysInMonth - 1) {
+    for (let i = lastLP - 1; i >= 0; i--) {
+      if (arr[i] === 0) {
+        arr[lastLP] = 0;
+        arr[i] = 1;
+        lastLP = i;
+        break;
+      }
+    }
+  }
+
   const afterBoundary = lastLP + 1;
 
   // Pool 1: sau LP + sau pnStartFromDay (ưu tiên nhất)
@@ -376,6 +429,17 @@ export function placePNAtEndOfRestPeriod(
     } else if (anyX.length > 0) {
       const pick = Math.floor(Math.random() * anyX.length);
       idx = anyX.splice(pick, 1)[0];
+    } else if (lastLP >= 0) {
+      // Pool 4: không có X sau LP → swap LP cuối với X gần nhất trước nó
+      for (let i = lastLP - 1; i >= 0; i--) {
+        if (arr[i] === 0) {
+          arr[lastLP] = 0;
+          arr[i] = 1;
+          idx = lastLP;
+          break;
+        }
+      }
+      if (idx < 0) break;
     } else {
       break;
     }
@@ -407,23 +471,6 @@ export function generateCalendarArray(
     }
   }
 
-  // 2 tuần cuối → chọn 1 tuần, đặt PN vào cuối tuần đối diện
-  const lastTwoWeeks: number[] = [];
-  for (let d = daysInMonth - 13; d <= daysInMonth; d++) {
-    if (d >= 1) lastTwoWeeks.push(d);
-  }
-  const chosenWeek = Math.random() < 0.5
-    ? lastTwoWeeks.slice(0, 7)
-    : lastTwoWeeks.slice(7);
-  const oppWeekday = isSaturday ? 0 : 6; // CN nếu chọn T7, ngược lại
-  const oppDays = chosenWeek.filter(d => {
-    const wd = new Date(year, month - 1, d).getDay();
-    return wd === oppWeekday;
-  });
-  if (oppDays.length > 0) {
-    const chosen = oppDays[randInt(0, oppDays.length - 1)];
-    if (arr[chosen - 1] === 0) arr[chosen - 1] = 2;
-  }
   return arr;
 }
 
@@ -539,7 +586,13 @@ export function step1_generateArrangement(
   // Python: luôn dùng 31 ô, pad 0 nếu tháng ngắn hơn
   const inputArray = encodeInputArray(emp.days, symbolMap); // length 31
 
-  if (isAccountingDept) return generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
+  const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
+
+  if (isAccountingDept) {
+    let arrangement = generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
+    if (phepNam > 0) arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+    return arrangement;
+  }
 
   // Trường hợp workdays = 0: NV nghỉ toàn bộ tháng → giữ nguyên inputArray (NL, Ô, TS...), phần còn lại là LP
   if (workdays === 0) {
@@ -549,8 +602,6 @@ export function step1_generateArrangement(
     }
     return arr;
   }
-
-  const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
 
   // Số Giới hạn ngày làm liên tục cuối tháng trước (để tránh vi phạm consecutive xuyên tháng)
   const initialLastZeros = calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc);
@@ -590,12 +641,20 @@ export function step1_generateArrangement(
     let ZEROS = Math.max(0, workdaysVal + paddedCount);
     let ONES = Math.max(0, freeSlots - ZEROS);
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+    // Retry original params nhiều lần (random hóa đường đi) trước khi fallback
+    arrangement = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+      if (arrangement) break;
+    }
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = freeSlots - ONES;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+        if (arrangement) break;
+      }
     }
     if (!arrangement) arrangement = fixedArray;
 
@@ -603,6 +662,9 @@ export function step1_generateArrangement(
     if (phepNam > 0) {
       arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
     }
+
+    // Phase 3: Khôi phục số X nếu backtracking fallback làm thiếu workdays
+    arrangement = recoverMissingWorkdays(arrangement, daysInMonth, workdaysVal, phepNam, params.maxConsecutiveDays, initialLastZeros);
   }
 
   return arrangement;
@@ -775,6 +837,7 @@ export function processEmployee(
   let arrangement: number[];
   if (isAccountingDept) {
     arrangement = generateCalendarArray(month, year, inputArray, params);
+    if (phepNam > 0) arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
   } else {
     const freeSlots = fixedArray.filter(v => v === 0).length;
     const workdaysVal = Math.round(workdays);
@@ -782,18 +845,26 @@ export function processEmployee(
     let ZEROS = Math.max(0, workdaysVal + paddedCount);
     let ONES = Math.max(0, freeSlots - ZEROS);
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+    arrangement = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+      if (arrangement) break;
+    }
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = freeSlots - ONES;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+        if (arrangement) break;
+      }
     }
     if (!arrangement) arrangement = fixedArray;
 
     if (phepNam > 0) {
       arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
     }
+    arrangement = recoverMissingWorkdays(arrangement, daysInMonth, workdaysVal, phepNam, params.maxConsecutiveDays, initialLastZeros);
   }
   const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
   const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);

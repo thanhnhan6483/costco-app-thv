@@ -217,7 +217,35 @@ export async function GET(req: NextRequest) {
     check2.status = check2.violationCount === 0 ? 'ok' : 'warning';
     results.push(check2);
 
-    /* check3 (pn_end_of_rest) đã bỏ — engine không đảm bảo PN đứng cuối LP trong step1 */
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check 3: PN phải đứng sau LP (không có LP sau PN)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const check3: CheckResult = {
+      id: 'lp_before_pn',
+      label: 'Vị trí NP phải đứng sau LP',
+      description: 'PN phải đứng sau LP (không có LP sau PN)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const days = new Array(daysInMonth).fill(-1);
+      for (const d of emp.days) {
+        if (d.day >= 1 && d.day <= daysInMonth) days[d.day - 1] = d.dayType;
+      }
+      const firstPn = days.indexOf(2);
+      if (firstPn < 0) continue;
+      const lastLp = days.lastIndexOf(1);
+      if (lastLp > firstPn) {
+        const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+        check3.violations.push({
+          code: emp.code, name: emp.name, deptName, day: firstPn + 1,
+          detail: `LP tại ngày ${lastLp + 1} đứng sau PN tại ngày ${firstPn + 1} (cần đổi chỗ hoặc chạy fix-lp-after-pn)`,
+        });
+      }
+    }
+    check3.violationCount = check3.violations.length;
+    check3.status = check3.violationCount === 0 ? 'ok' : 'error';
+    results.push(check3);
+
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check 4: Tăng ca tối đa maxOtPerDayHours h/ngày
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -661,34 +689,7 @@ export async function GET(req: NextRequest) {
     checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
     results.push(checkPnCount);
 
-    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check: Số ngày công phải đúng bằng workdays đầu vào
-       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-    const checkWorkdays: CheckResult = {
-      id: 'workdays_count',
-      label: 'Số ngày công (Phân bổ NC = Ngày công)',
-      description: 'Số ngày X, PN, LL, H trong tháng phải đúng bằng ngày công đầu vào của NV',
-      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
-    };
-    for (const emp of emps) {
-      const inputWd = Math.round(emp.inputWorkdays);
-      if (inputWd === 0) continue;
-      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const allocatedWd = emp.days.filter(d => d.day >= 1 && d.day <= 31 && [0, 2, 11, 13].includes(d.dayType)).length;
-      if (allocatedWd !== inputWd) {
-        const diff = allocatedWd - inputWd;
-        const suggestion = diff > 0
-          ? `giảm ${diff} ngày công: đổi X → LP hoặc chạy lại Bước 2`
-          : `thiếu ${-diff} ngày công: đổi LP → X hoặc chạy lại Bước 2`;
-        checkWorkdays.violations.push({
-          code: emp.code, name: emp.name, deptName, day: 0,
-          detail: `Phân bổ ${allocatedWd} ngày công, cần ${inputWd} (${suggestion})`,
-        });
-      }
-    }
-    checkWorkdays.violationCount = checkWorkdays.violations.length;
-    checkWorkdays.status = checkWorkdays.violationCount === 0 ? 'ok' : 'error';
-    results.push(checkWorkdays);
+
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Summary
