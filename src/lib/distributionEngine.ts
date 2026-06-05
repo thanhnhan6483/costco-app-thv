@@ -168,44 +168,35 @@ export function generateOneArrangement(
   pos: number,
   ones: number,
   zeros: number,
-  twoRemaining: number,
   lastZeros: number,
   fixedArray: number[],
   current: number[],
   params: AllocParams,
   daysInMonth: number,
-  pnMinPos: number,
-  hasLP: boolean,
 ): number[] | null {
   const total = fixedArray.length;
-  if (pos === total) {
-    return twoRemaining === 0 ? current : null;
-  }
+  if (pos === total) return current;
 
   const fixed = fixedArray[pos];
   if (fixed !== 0) {
-    const nextHasLP = hasLP || fixed === 1;
     return generateOneArrangement(
-      pos + 1, ones, zeros, twoRemaining, 0,
-      fixedArray, [...current, fixed], params, daysInMonth, pnMinPos, nextHasLP,
+      pos + 1, ones, zeros, 0,
+      fixedArray, [...current, fixed], params, daysInMonth,
     );
   }
 
-  type Option = [number, number, number, number, number];
+  type Option = [number, number, number, number];
   const options: Option[] = [];
 
   if (ones > 0 && pos < daysInMonth)
-    options.push([ones - 1, zeros, twoRemaining, 0, 1]);   // LP
+    options.push([ones - 1, zeros, 0, 1]);   // LP
   if (zeros > 0 && (lastZeros < params.maxConsecutiveDays || pos >= daysInMonth))
-    options.push([ones, zeros - 1, twoRemaining, lastZeros + 1, 0]); // X
-  if (twoRemaining > 0 && pos >= pnMinPos && pos < daysInMonth && hasLP)
-    options.push([ones, zeros, twoRemaining - 1, 0, 2]);   // PN
+    options.push([ones, zeros - 1, lastZeros + 1, 0]); // X
 
   if (options.length > 1 && Math.random() < 0.5) options.reverse();
 
-  for (const [no, nz, ntr, nlz, val] of options) {
-    const nextHasLP = hasLP || val === 1;
-    const result = generateOneArrangement(pos + 1, no, nz, ntr, nlz, fixedArray, [...current, val], params, daysInMonth, pnMinPos, nextHasLP);
+  for (const [no, nz, nlz, val] of options) {
+    const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth);
     if (result) return result;
   }
   return null;
@@ -592,37 +583,26 @@ export function step1_generateArrangement(
     if (phepNam > 0)
       arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
   } else {
-    // Backtracking — PN đặt inline (giống Python gốc generate_random_arrangement)
+    // Phase 1: LP + X (không PN)
     const workdaysVal = Math.round(normalizedWd);
-    const pnCount = Math.min(Math.max(0, phepNam), freeSlots);
-    let ZEROS = Math.max(0, workdaysVal - pnCount);        // X = workdays - PN
-    let ONES = freeSlots - ZEROS - pnCount;                // LP = freeSlots - X - PN
+    const paddedCount = Math.max(0, 31 - daysInMonth);
+    // ZEROS gồm X cho workdays + X cho padded
+    let ZEROS = Math.max(0, workdaysVal + paddedCount);
+    let ONES = Math.max(0, freeSlots - ZEROS);
 
-    // Phase 1: PN sau pnStartFromDay, phải đặt sau LP
-    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, params.pnStartFromDay - 1, false);
-    // Phase 2: backoff dần — PN gần ngày 15 nhất, vẫn sau LP
-    if (!arrangement) {
-      for (let backoff = 1; backoff <= params.pnStartFromDay - 1; backoff++) {
-        const pnMinPos = params.pnStartFromDay - 1 - backoff;
-        arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, pnMinPos, false);
-        if (arrangement) break;
-      }
-    }
+    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
-      ZEROS = freeSlots - ONES - pnCount;
+      ZEROS = freeSlots - ONES;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, params.pnStartFromDay - 1, false);
-      if (!arrangement) {
-        for (let backoff = 1; backoff <= params.pnStartFromDay - 1; backoff++) {
-          const pnMinPos = params.pnStartFromDay - 1 - backoff;
-          arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, pnMinPos, false);
-          if (arrangement) break;
-        }
-      }
+      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
     }
     if (!arrangement) arrangement = fixedArray;
-    // PN đã được đặt trong backtracking — không cần placePNAtEndOfRestPeriod
+
+    // Phase 2: Đặt PN vào X (dùng placePNAtEndOfRestPeriod đã kiểm chứng)
+    if (phepNam > 0) {
+      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+    }
   }
 
   return arrangement;
@@ -798,33 +778,22 @@ export function processEmployee(
   } else {
     const freeSlots = fixedArray.filter(v => v === 0).length;
     const workdaysVal = Math.round(workdays);
-    const pnCount = Math.min(Math.max(0, phepNam), freeSlots);
-    let ZEROS = Math.max(0, workdaysVal - pnCount);
-    let ONES = freeSlots - ZEROS - pnCount;
+    const paddedCount = Math.max(0, 31 - daysInMonth);
+    let ZEROS = Math.max(0, workdaysVal + paddedCount);
+    let ONES = Math.max(0, freeSlots - ZEROS);
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, params.pnStartFromDay - 1, false);
-    if (!arrangement) {
-      for (let backoff = 1; backoff <= params.pnStartFromDay - 1; backoff++) {
-        const pnMinPos = params.pnStartFromDay - 1 - backoff;
-        arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, pnMinPos, false);
-        if (arrangement) break;
-      }
-    }
+    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
-      ZEROS = freeSlots - ONES - pnCount;
+      ZEROS = freeSlots - ONES;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, params.pnStartFromDay - 1, false);
-      if (!arrangement) {
-        for (let backoff = 1; backoff <= params.pnStartFromDay - 1; backoff++) {
-          const pnMinPos = params.pnStartFromDay - 1 - backoff;
-          arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, pnMinPos, false);
-          if (arrangement) break;
-        }
-      }
+      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
     }
     if (!arrangement) arrangement = fixedArray;
-    // PN đã được đặt trong backtracking
+
+    if (phepNam > 0) {
+      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+    }
   }
   const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
   const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
