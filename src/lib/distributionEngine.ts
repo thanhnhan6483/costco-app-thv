@@ -213,6 +213,8 @@ export function generateOneArrangement(
   current: number[],
   params: AllocParams,
   daysInMonth: number,
+  dailyRest?: number[],
+  targetRest?: number,
 ): number[] | null {
   const total = fixedArray.length;
   if (pos === total) return current;
@@ -222,6 +224,7 @@ export function generateOneArrangement(
     return generateOneArrangement(
       pos + 1, ones, zeros, 0,
       fixedArray, [...current, fixed], params, daysInMonth,
+      dailyRest, targetRest,
     );
   }
 
@@ -233,10 +236,17 @@ export function generateOneArrangement(
   if (zeros > 0 && (lastZeros < params.maxConsecutiveDays || pos >= daysInMonth))
     options.push([ones, zeros - 1, lastZeros + 1, 0]); // X
 
-  if (options.length > 1 && Math.random() < 0.5) options.reverse();
+  if (options.length > 1) {
+    if (dailyRest && targetRest !== undefined) {
+      const lpFirst = dailyRest[pos] < targetRest;
+      if (!lpFirst && Math.random() < 0.7) options.reverse();
+    } else if (Math.random() < 0.5) {
+      options.reverse();
+    }
+  }
 
   for (const [no, nz, nlz, val] of options) {
-    const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth);
+    const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
     if (result) return result;
   }
   return null;
@@ -455,6 +465,8 @@ export function step1_generateArrangement(
   params: AllocParams,
   isAccountingDept: boolean,
   symbolMap?: Record<string, number>,
+  dailyRest?: number[],
+  targetRest?: number,
 ): number[] {
   const workdays = emp.workdays !== '' && emp.workdays !== null && emp.workdays !== undefined
     ? (parseFloat(String(emp.workdays)) || 0)
@@ -512,7 +524,7 @@ export function step1_generateArrangement(
   // Retry original params nhiều lần (random hóa đường đi) trước khi fallback
   arrangement = null;
   for (let attempt = 0; attempt < 5; attempt++) {
-    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+    arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
     if (arrangement) break;
   }
   for (let extra = 1; !arrangement && extra <= 5; extra++) {
@@ -520,7 +532,7 @@ export function step1_generateArrangement(
     ZEROS = freeSlots - ONES;
     if (ZEROS < 0) break;
     for (let attempt = 0; attempt < 3; attempt++) {
-      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+      arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
       if (arrangement) break;
     }
   }

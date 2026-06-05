@@ -158,25 +158,33 @@ threshold = 27) {
  * giúp constraint maxConsecutiveDays luôn được thỏa mãn ngay từ đầu.
  * Không cần placePNAtEndOfRestPeriod sau backtracking.
  */
-function generateOneArrangement(pos, ones, zeros, lastZeros, fixedArray, current, params, daysInMonth) {
+function generateOneArrangement(pos, ones, zeros, lastZeros, fixedArray, current, params, daysInMonth, dailyRest, targetRest) {
     const total = fixedArray.length;
     if (pos === total)
         return current;
     const fixed = fixedArray[pos];
     if (fixed !== 0) {
-        return generateOneArrangement(pos + 1, ones, zeros, 0, fixedArray, [...current, fixed], params, daysInMonth);
+        return generateOneArrangement(pos + 1, ones, zeros, 0, fixedArray, [...current, fixed], params, daysInMonth, dailyRest, targetRest);
     }
     const options = [];
     if (ones > 0 && pos < daysInMonth)
         options.push([ones - 1, zeros, 0, 1]); // LP
     if (zeros > 0 && (lastZeros < params.maxConsecutiveDays || pos >= daysInMonth))
         options.push([ones, zeros - 1, lastZeros + 1, 0]); // X
-    if (options.length > 1 && Math.random() < 0.5)
-        options.reverse();
+    if (options.length > 1) {
+        if (dailyRest && targetRest !== undefined) {
+            if (!(dailyRest[pos] < targetRest) && Math.random() < 0.7)
+                options.reverse();
+        }
+        else if (Math.random() < 0.5) {
+            options.reverse();
+        }
+    }
     for (const [no, nz, nlz, val] of options) {
-        const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth);
-    if (result)
-        return result;
+        const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
+        if (result)
+            return result;
+    }
     return null;
 }
 /**
@@ -367,7 +375,7 @@ function distributeLate(arrangement, totalMinutes, params) {
  *  - PN đặt ngẫu nhiên trong backtracking (pos >= pnStartFromDay)
  *  - Kế toán: dùng generateCalendarArray
  */
-function step1_generateArrangement(emp, daysInMonth, month, year, params, isAccountingDept, symbolMap) {
+function step1_generateArrangement(emp, daysInMonth, month, year, params, isAccountingDept, symbolMap, dailyRest, targetRest) {
     const workdays = emp.workdays !== '' && emp.workdays !== null && emp.workdays !== undefined
         ? (parseFloat(String(emp.workdays)) || 0)
         : 27;
@@ -417,7 +425,7 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
     // Retry original params nhiều lần (random hóa đường đi) trước khi fallback
     arrangement = null;
     for (let attempt = 0; attempt < 5; attempt++) {
-        arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+        arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
         if (arrangement)
             break;
     }
@@ -427,7 +435,7 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
         if (ZEROS < 0)
             break;
         for (let attempt = 0; attempt < 3; attempt++) {
-            arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth);
+            arrangement = generateOneArrangement(0, ONES, ZEROS, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
             if (arrangement)
                 break;
         }

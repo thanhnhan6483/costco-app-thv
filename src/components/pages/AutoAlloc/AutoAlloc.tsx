@@ -387,15 +387,15 @@ export default function AutoAlloc() {
   const [algoRunning, setAlgoRunning] = useState<boolean>(false);
 
   const runStep2WithAlgo = useCallback(async () => {
-    setAlgoRunning(algo);
+    setAlgoRunning(true);
     setValidateOpen(false);
     setValidate2Status({ loading: false, result: null });
     const t0 = Date.now();
     const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
     try {
-      await fetch('/api/distribution/step/2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, algo }) });
+      await fetch('/api/distribution/step/2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId }) });
       const elapsedSec = Math.round((Date.now() - t0) / 1000);
-      clearInterval(timer); setAlgoRunning(null); setElapsed(0);
+      clearInterval(timer); setAlgoRunning(false); setElapsed(0);
       await fetch('/api/distribution/invalidate-after', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId, afterDisplayStep: 2 }) });
       const laterSteps = STEPS.filter(s => s.num > 2 && !s.viewOnly).map(s => s.num);
       setStepCache(prev => { const n = { ...prev }; laterSteps.forEach(num => delete n[num]); delete n[2]; return n; });
@@ -408,7 +408,7 @@ export default function AutoAlloc() {
           await loadStepData(2, 1, undefined, true);
         },
       });
-    } catch (e) { clearInterval(timer); setAlgoRunning(null); setElapsed(0); throw e; }
+    } catch (e) { clearInterval(timer); setAlgoRunning(false); setElapsed(0); throw e; }
   }, [activeMonthId, refreshStatus, loadStepData]);
   const isRunning = running !== null || algoRunning;
   const curStep = STEPS.find(s => s.num === activeStep);
