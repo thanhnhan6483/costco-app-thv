@@ -525,22 +525,41 @@ export function distributeLate(
 /**
  * Đảm bảo LP (1) và PN (2) chỉ nằm trong daysInMonth ô đầu.
  * Nếu có LP/PN ở padded positions (>= daysInMonth), swap với X (0) trong tháng.
+ * LP swap vào X bất kỳ, PN swap vào X sau LP cuối (giữ đúng rule PN sau ngày nghỉ).
  * Mục đích: tháng < 31 ngày không bị mất LP breaker, X tràn ra padded day thì vô hại.
  */
 function ensureLPPNWithinMonth(arr: number[], daysInMonth: number): number[] {
   if (daysInMonth >= 31) return arr;
   const result = [...arr];
+
+  // Step 1: swap LP (1) từ padded vào X bất kỳ trong tháng
   for (let i = daysInMonth; i < 31; i++) {
-    if (result[i] === 1 || result[i] === 2) {
+    if (result[i] !== 1) continue;
+    for (let j = 0; j < daysInMonth; j++) {
+      if (result[j] === 0) { result[j] = 1; result[i] = 0; break; }
+    }
+  }
+
+  // Step 2: tìm LP cuối trong tháng (sau step 1)
+  let lastLP = -1;
+  for (let i = daysInMonth - 1; i >= 0; i--) {
+    if (result[i] === 1) { lastLP = i; break; }
+  }
+
+  // Step 3: swap PN (2) từ padded vào X sau LP cuối
+  for (let i = daysInMonth; i < 31; i++) {
+    if (result[i] !== 2) continue;
+    let swapped = false;
+    for (let j = Math.max(0, lastLP + 1); j < daysInMonth; j++) {
+      if (result[j] === 0) { result[j] = 2; result[i] = 0; swapped = true; break; }
+    }
+    if (!swapped) {
       for (let j = 0; j < daysInMonth; j++) {
-        if (result[j] === 0) {
-          result[j] = result[i];
-          result[i] = 0;
-          break;
-        }
+        if (result[j] === 0) { result[j] = 2; result[i] = 0; break; }
       }
     }
   }
+
   return result;
 }
 
