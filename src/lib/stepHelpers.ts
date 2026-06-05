@@ -180,6 +180,7 @@ export async function loadMonthInfo(monthId: string) {
   );
   await conn.close();
   if (!rows.length) throw new Error('Không tìm thấy tháng: ' + monthId);
+  if (!rows[0].fromDate) throw new Error('Tháng ' + monthId + ' (Master Data) không có from_date, không thể xác định daysInMonth');
   const [, mStr, yStr] = rows[0].fromDate.split('/');
   const month = parseInt(mStr), year = parseInt(yStr);
   return { month, year, daysInMonth: new Date(year, month, 0).getDate() };

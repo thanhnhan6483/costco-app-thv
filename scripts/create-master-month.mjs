@@ -27,7 +27,7 @@ await conn.run('BEGIN TRANSACTION');
 await conn.run(
   `INSERT INTO months (id, label, month, from_date, to_date, note, locked, created_at)
    VALUES (?, ?, ?, ?, ?, ?, TRUE, ?)`,
-  TO, 'Tháng 01/2026 (Master)', '01/2026', '01/01/2026', '31/01/2026',
+  TO, 'Master Data', '', '', '',
   'Dữ liệu master – không xóa được', now
 );
 

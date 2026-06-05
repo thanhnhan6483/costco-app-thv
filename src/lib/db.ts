@@ -489,7 +489,7 @@ async function seedIfEmpty(conn: Connection): Promise<void> {
   /* ── months ─────────────────────────── */
   await conn.run(`
     INSERT INTO months (id, label, month, from_date, to_date, note, created_at) VALUES
-      ('${MID}', 'Master Data', '01/2026', '01/01/2026', '30/01/2026', 'Tháng mặc định – dữ liệu ban đầu', '${now}')
+      ('${MID}', 'Master Data', '', '', '', 'Tháng mặc định – dữ liệu ban đầu', '${now}')
   `);
 
   /* ── departments (35) ──────────────── */
