@@ -522,6 +522,28 @@ export function distributeLate(
    Step functions — mỗi bước có thể gọi độc lập
    ══════════════════════════════════════════════════════ */
 
+/**
+ * Đảm bảo LP (1) và PN (2) chỉ nằm trong daysInMonth ô đầu.
+ * Nếu có LP/PN ở padded positions (>= daysInMonth), swap với X (0) trong tháng.
+ * Mục đích: tháng < 31 ngày không bị mất LP breaker, X tràn ra padded day thì vô hại.
+ */
+function ensureLPPNWithinMonth(arr: number[], daysInMonth: number): number[] {
+  if (daysInMonth >= 31) return arr;
+  const result = [...arr];
+  for (let i = daysInMonth; i < 31; i++) {
+    if (result[i] === 1 || result[i] === 2) {
+      for (let j = 0; j < daysInMonth; j++) {
+        if (result[j] === 0) {
+          result[j] = result[i];
+          result[i] = 0;
+          break;
+        }
+      }
+    }
+  }
+  return result;
+}
+
 /** Step 1 — Sinh arrangement (day_type)
  *  Thiết kế theo Python gốc generate_random_arrangement:
  *  - workdays >= threshold: ones=4, zeros=26 cứng, fixedArray toàn 0
@@ -607,6 +629,7 @@ export function step1_generateArrangement(
     // PN đã được đặt trong backtracking — không cần placePNAtEndOfRestPeriod
   }
 
+  if (arrangement) arrangement = ensureLPPNWithinMonth(arrangement, daysInMonth);
   return arrangement;
 }
 
@@ -794,6 +817,7 @@ export function processEmployee(
     if (!arrangement) arrangement = fixedArray;
     // PN đã được đặt trong backtracking
   }
+  arrangement = ensureLPPNWithinMonth(arrangement, daysInMonth);
   const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
   const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
   return generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1, shift2, groupWorkHours, params);
