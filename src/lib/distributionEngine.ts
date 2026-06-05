@@ -174,6 +174,7 @@ export function generateOneArrangement(
   current: number[],
   params: AllocParams,
   daysInMonth: number,
+  strictPn = true,
 ): number[] | null {
   const total = fixedArray.length;
   if (pos === total) {
@@ -187,7 +188,7 @@ export function generateOneArrangement(
   if (fixed !== 0) {
     return generateOneArrangement(
       pos + 1, ones, zeros, twoRemaining, 0,
-      fixedArray, [...current, fixed], params, daysInMonth,
+      fixedArray, [...current, fixed], params, daysInMonth, strictPn,
     );
   }
 
@@ -199,13 +200,13 @@ export function generateOneArrangement(
     options.push([ones - 1, zeros, twoRemaining, 0, 1]);   // LP
   if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
     options.push([ones, zeros - 1, twoRemaining, lastZeros + 1, 0]); // X
-  if (twoRemaining > 0 && pos >= params.pnStartFromDay - 1 && pos < daysInMonth)
+  if (twoRemaining > 0 && pos < daysInMonth && (!strictPn || pos >= params.pnStartFromDay - 1))
     options.push([ones, zeros, twoRemaining - 1, 0, 2]);   // PN
 
   if (options.length > 1 && Math.random() < 0.5) options.reverse();
 
   for (const [no, nz, ntr, nlz, val] of options) {
-    const result = generateOneArrangement(pos + 1, no, nz, ntr, nlz, fixedArray, [...current, val], params, daysInMonth);
+    const result = generateOneArrangement(pos + 1, no, nz, ntr, nlz, fixedArray, [...current, val], params, daysInMonth, strictPn);
     if (result) return result;
   }
   return null;
@@ -597,12 +598,20 @@ export function step1_generateArrangement(
     let ZEROS = Math.max(0, workdaysVal - pnCount);        // X = workdays - PN
     let ONES = freeSlots - ZEROS - pnCount;                // LP = freeSlots - X - PN
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth);
+    // Phase 1: ưu tiên PN sau pnStartFromDay (strict)
+    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, true);
+    // Phase 2: nếu bất khả thi, cho phép PN trước pnStartFromDay (vẫn trong daysInMonth)
+    if (!arrangement) {
+      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, false);
+    }
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = freeSlots - ONES - pnCount;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth);
+      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, true);
+      if (!arrangement) {
+        arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, false);
+      }
     }
     if (!arrangement) arrangement = fixedArray;
     // PN đã được đặt trong backtracking — không cần placePNAtEndOfRestPeriod
@@ -785,12 +794,18 @@ export function processEmployee(
     let ZEROS = Math.max(0, workdaysVal - pnCount);
     let ONES = freeSlots - ZEROS - pnCount;
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth);
+    arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, true);
+    if (!arrangement) {
+      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, false);
+    }
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = freeSlots - ONES - pnCount;
       if (ZEROS < 0) break;
-      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth);
+      arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, true);
+      if (!arrangement) {
+        arrangement = generateOneArrangement(0, ONES, ZEROS, pnCount, initialLastZeros, fixedArray, [], params, daysInMonth, false);
+      }
     }
     if (!arrangement) arrangement = fixedArray;
     // PN đã được đặt trong backtracking
