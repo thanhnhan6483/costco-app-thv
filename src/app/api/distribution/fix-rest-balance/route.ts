@@ -74,6 +74,16 @@ export async function POST(req: NextRequest) {
       empDays.get(r.empId)?.set(r.day, r.dayType);
     }
 
+    // Build map: empId → first PN day (để kiểm tra lp_before_pn)
+    const empFirstPn = new Map<string, number>();
+    for (const [empId, dayMap] of empDays) {
+      let firstPn = 0;
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (dayMap.get(d) === 2) { firstPn = d; break; }
+      }
+      if (firstPn > 0) empFirstPn.set(empId, firstPn);
+    }
+
     // Group by dept
     const deptGroups = new Map<string, { empId: string; code: string }[]>();
     for (const e of empRows) {
@@ -104,6 +114,15 @@ export async function POST(req: NextRequest) {
       // Nếu run bắt đầu từ ngày 1, cộng thêm initRun từ tháng trước
       const initRun = runStartDay === 1 ? (empInitRun.get(empId) ?? 0) : 0;
       return (initRun + totalInMonth) <= maxConsec;
+    };
+
+    // Helper: Kiểm tra nếu đặt LP (X→LP) tại ngày này có vi phạm lp_before_pn không
+    const canSwapToRest = (empId: string, day: number): boolean => {
+      const firstPn = empFirstPn.get(empId);
+      // Nếu NV không có PN, luôn an toàn
+      if (!firstPn) return true;
+      // LP chỉ được đặt trước PN
+      return day < firstPn;
     };
 
     const changes: { empId: string; day: number; dayType: number }[] = [];
@@ -166,7 +185,8 @@ export async function POST(req: NextRequest) {
           const emp = members.find(m => {
             const dm = empDays.get(m.empId);
             return dm && dm.get(overDay) === 1 && dm.get(bestUnder) === 0
-              && canSwapToWork(m.empId, overDay);
+              && canSwapToWork(m.empId, overDay)
+              && canSwapToRest(m.empId, bestUnder);
           });
           if (!emp) continue;
 
@@ -231,6 +251,7 @@ export async function POST(req: NextRequest) {
             for (let d = 1; d <= daysInMonth; d++) {
               if (visitedDays.has(d)) continue;
               if (dayMap.get(d) !== 0) continue;
+              if (!canSwapToRest(empId, d)) continue;
               const dayKey = `d:${d}`;
               if (underDaySet.has(d)) {
                 // Tìm thấy! Reconstruct path
