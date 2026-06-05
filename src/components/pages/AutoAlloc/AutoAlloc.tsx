@@ -1121,7 +1121,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
-              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
+              {Array.from({ length: 31 }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
@@ -1130,7 +1130,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th style={{ minWidth: 68, color: '#15803d' }}>PHÂN BỔ NC</th>
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={31} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
@@ -1149,7 +1149,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                 <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                {Array.from({ length: daysInMonth }, (_, i) => {
+                {Array.from({ length: 31 }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
                   const dt = getEffectiveDT(r.code, i + 1, origDT);
