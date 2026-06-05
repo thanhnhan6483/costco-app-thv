@@ -15,10 +15,9 @@ interface WorkerInput {
   accountingIds: string[];
   monthId: string;
   now: string;
-  algo: 'backtracking' | 'greedy';
 }
 
-const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, algo, symbolMap } =
+const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap } =
   workerData as WorkerInput & { symbolMap?: Record<string, number> };
 
 const accountingSet = new Set(accountingIds);
@@ -28,7 +27,7 @@ for (const emp of emps) {
   const arrangement = step1_generateArrangement(
     emp, daysInMonth, month, year, params,
     accountingSet.has(emp.departmentId ?? ''),
-    algo, symbolMap,
+    symbolMap,
   );
   // Luôn tạo 31 rows (giống Python: 31 ô cho mọi tháng, kể cả tháng ngắn)
   for (let d = 0; d < 31; d++) {

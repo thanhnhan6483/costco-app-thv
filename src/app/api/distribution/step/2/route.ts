@@ -22,7 +22,7 @@ function runWorker(workerData: unknown): Promise<unknown[][]> {
 }
 
 export async function POST(req: NextRequest) {
-  const { monthId, algo = 'backtracking' } = await req.json();
+  const { monthId } = await req.json();
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
   const conn = await getConn();
   try {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const workerResults = await Promise.all(chunks.map(chunk =>
       runWorker({ emps: chunk, daysInMonth, month, year, params,
-        accountingIds: [...accountingIds], monthId, now, algo, symbolMap })
+        accountingIds: [...accountingIds], monthId, now, symbolMap })
     ));
     const allRows = workerResults.flat();
     console.log(`[step1] workers done: ${Date.now() - t_start}ms, rows: ${allRows.length}`);

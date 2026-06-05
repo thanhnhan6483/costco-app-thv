@@ -384,9 +384,9 @@ export default function AutoAlloc() {
     } catch (e) { clearInterval(timer); setRunning(null); setElapsed(0); throw e; }
   }, [activeMonthId, refreshStatus, loadStepData, activeStep]);
 
-  const [algoRunning, setAlgoRunning] = useState<'backtracking' | 'greedy' | null>(null);
+  const [algoRunning, setAlgoRunning] = useState<boolean>(false);
 
-  const runStep2WithAlgo = useCallback(async (algo: 'backtracking' | 'greedy') => {
+  const runStep2WithAlgo = useCallback(async () => {
     setAlgoRunning(algo);
     setValidateOpen(false);
     setValidate2Status({ loading: false, result: null });
@@ -410,7 +410,7 @@ export default function AutoAlloc() {
       });
     } catch (e) { clearInterval(timer); setAlgoRunning(null); setElapsed(0); throw e; }
   }, [activeMonthId, refreshStatus, loadStepData]);
-  const isRunning = running !== null || algoRunning !== null;
+  const isRunning = running !== null || algoRunning;
   const curStep = STEPS.find(s => s.num === activeStep);
 
   return (
@@ -437,12 +437,12 @@ export default function AutoAlloc() {
         <div className={styles.stepperRunWrap}>
           {!curStep?.viewOnly && (
             <button
-              className={`${styles.btnRunStep} ${(running === activeStep || algoRunning !== null) ? styles.btnRunning : ''}`}
-              onClick={() => activeStep === 2 ? runStep2WithAlgo('backtracking') : runStep(activeStep)}
+              className={`${styles.btnRunStep} ${(running === activeStep || algoRunning) ? styles.btnRunning : ''}`}
+              onClick={() => activeStep === 2 ? runStep2WithAlgo() : runStep(activeStep)}
               disabled={isRunning || locked || (activeStep > 1 && !status[STEPS.find(s => s.num === activeStep - 1)?.key ?? ''])}
               id={`btn-run-step-${activeStep}`}
             >
-              {(running === activeStep || (activeStep === 2 && algoRunning !== null))
+              {(running === activeStep || (activeStep === 2 && algoRunning))
                 ? <><span className={styles.spinnerSm} /> {elapsed}s</>
                 : curStep?.apiNum === 1 ? <><IconCheck /> Xác nhận</>
                   : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
