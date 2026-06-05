@@ -674,7 +674,7 @@ export async function GET(req: NextRequest) {
       const inputWd = Math.round(emp.inputWorkdays);
       if (inputWd === 0) continue;
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const allocatedWd = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && [0, 2, 11, 13].includes(d.dayType)).length;
+      const allocatedWd = emp.days.filter(d => d.day >= 1 && d.day <= 31 && [0, 2, 11, 13].includes(d.dayType)).length;
       if (allocatedWd !== inputWd) {
         const diff = allocatedWd - inputWd;
         const suggestion = diff > 0
