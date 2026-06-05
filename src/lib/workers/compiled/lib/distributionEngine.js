@@ -132,7 +132,7 @@ function generateOneArrangement(pos, ones, zeros, twoRemaining, lastZeros, fixed
         return generateOneArrangement(pos + 1, ones, zeros, twoRemaining, 0, fixedArray, [...current, fixed], params, daysInMonth, pnMinPos, nextHasLP);
     }
     const options = [];
-    if (ones > 0)
+    if (ones > 0 && pos < daysInMonth)
         options.push([ones - 1, zeros, twoRemaining, 0, 1]); // LP
     if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
         options.push([ones, zeros - 1, twoRemaining, lastZeros + 1, 0]); // X
@@ -167,8 +167,8 @@ function generateOneArrangement(pos, ones, zeros, twoRemaining, lastZeros, fixed
  * @param targetLP         số LP cần đặt (= freeSlots - workdays - phepNam)
  * @param initialLastZeros số Giới hạn ngày làm liên tục cuối tháng trước (mặc định 0)
  */
-function generateOneArrangementGreedy(fixedArray, params, targetLP, initialLastZeros = 0) {
-    const total = fixedArray.length;
+function generateOneArrangementGreedy(fixedArray, params, targetLP, daysInMonth, initialLastZeros = 0) {
+    const total = daysInMonth;
     const arr = [...fixedArray];
     const max = params.maxConsecutiveDays;
     // Collect free slots (chỉ ô = 0)
@@ -457,8 +457,8 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
     if (workdays === 0) {
         const arr = inputArray.slice(0, 31);
         for (let i = 0; i < 31; i++) {
-            if (arr[i] === 0)
-                arr[i] = 1; // X → LP, giữ nguyên NL/Ô/TS/PN...
+            if (arr[i] === 0 && i < daysInMonth)
+                arr[i] = 1; // X → LP trong tháng, padded giữ X
         }
         return arr;
     }
@@ -486,7 +486,7 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
         // Greedy: dùng targetLP riêng (không đặt PN trong backtracking)
         // PN thay thế X sau LP cuối, không cần +phepNam (không đặt PN từ LP như cũ)
         const targetLP = Math.max(0, freeSlots - Math.round(normalizedWd));
-        arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, initialLastZeros);
+        arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, daysInMonth, initialLastZeros);
         if (!arrangement)
             arrangement = fixedArray;
         if (phepNam > 0)

@@ -194,7 +194,7 @@ export function generateOneArrangement(
   type Option = [number, number, number, number, number];
   const options: Option[] = [];
 
-  if (ones > 0)
+  if (ones > 0 && pos < daysInMonth)
     options.push([ones - 1, zeros, twoRemaining, 0, 1]);   // LP
   if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
     options.push([ones, zeros - 1, twoRemaining, lastZeros + 1, 0]); // X
@@ -234,9 +234,10 @@ export function generateOneArrangementGreedy(
   fixedArray: number[],
   params: AllocParams,
   targetLP: number,
+  daysInMonth: number,
   initialLastZeros = 0,
 ): number[] {
-  const total = fixedArray.length;
+  const total = daysInMonth;
   const arr = [...fixedArray];
   const max = params.maxConsecutiveDays;
 
@@ -553,7 +554,7 @@ export function step1_generateArrangement(
   if (workdays === 0) {
     const arr = inputArray.slice(0, 31);
     for (let i = 0; i < 31; i++) {
-      if (arr[i] === 0) arr[i] = 1; // X → LP, giữ nguyên NL/Ô/TS/PN...
+      if (arr[i] === 0 && i < daysInMonth) arr[i] = 1; // X → LP trong tháng, padded giữ X
     }
     return arr;
   }
@@ -586,7 +587,7 @@ export function step1_generateArrangement(
     // Greedy: dùng targetLP riêng (không đặt PN trong backtracking)
     // PN thay thế X sau LP cuối, không cần +phepNam (không đặt PN từ LP như cũ)
     const targetLP = Math.max(0, freeSlots - Math.round(normalizedWd));
-    arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, initialLastZeros);
+    arrangement = generateOneArrangementGreedy(fixedArray, params, targetLP, daysInMonth, initialLastZeros);
     if (!arrangement) arrangement = fixedArray;
     if (phepNam > 0)
       arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
