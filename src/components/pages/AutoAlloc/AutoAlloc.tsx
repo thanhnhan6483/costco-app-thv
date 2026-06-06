@@ -1497,9 +1497,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
-                    label = <><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late.toFixed(0)}</span></>;
+                    label = <><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late.toFixed(0)}ph</span></>;
                   } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot.toFixed(2)}h</>; }
-                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(0)}</>; }
+                  else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(0)}ph</>; }
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
@@ -1523,9 +1523,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                   );
                 })}
                 <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}</span> : ''}</td>
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
                 <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
-                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
+                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
             );
           })}</tbody>
