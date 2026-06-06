@@ -1542,26 +1542,28 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         <>
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
-            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 160 : cellPicker.x),
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 190 : cellPicker.x),
             top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 150 : cellPicker.y),
-            padding: 8, display: 'block', minWidth: 0, width: 150,
+            padding: 8, display: 'block', minWidth: 0, width: 180,
           }}>
-            <div style={{ fontSize: '0.7rem', color: '#374151', marginBottom: 4 }}>
-              <div>OT (h):</div>
-              <input type="number" step="0.01" min="0" max="24" value={pickOtVal}
-                style={{ width: '100%', padding: '2px 4px', fontSize: '0.75rem', border: '1px solid #d1d5db', borderRadius: 3, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
-                onChange={(e) => setPickOtVal(e.target.value)}
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') (document.getElementById('pick-late-input') as HTMLInputElement)?.focus(); }}
-              />
-            </div>
-            <div style={{ fontSize: '0.7rem', color: '#374151', marginBottom: 6 }}>
-              <div>Trễ (ph):</div>
-              <input id="pick-late-input" type="number" step="1" min="0" max="60" value={pickLateVal}
-                style={{ width: '100%', padding: '2px 4px', fontSize: '0.75rem', border: '1px solid #d1d5db', borderRadius: 3, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
-                onChange={(e) => setPickLateVal(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') savePick(); }}
-              />
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <div style={{ flex: 1, fontSize: '0.7rem', color: '#374151' }}>
+                <div>OT (h):</div>
+                <input type="number" step="0.01" min="0" max="24" value={pickOtVal}
+                  style={{ width: '100%', padding: '2px 4px', fontSize: '0.75rem', border: '1px solid #d1d5db', borderRadius: 3, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
+                  onChange={(e) => setPickOtVal(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') (document.getElementById('pick-late-input') as HTMLInputElement)?.focus(); }}
+                />
+              </div>
+              <div style={{ flex: 1, fontSize: '0.7rem', color: '#374151' }}>
+                <div>Trễ (ph):</div>
+                <input id="pick-late-input" type="number" step="1" min="0" max="60" value={pickLateVal}
+                  style={{ width: '100%', padding: '2px 4px', fontSize: '0.75rem', border: '1px solid #d1d5db', borderRadius: 3, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
+                  onChange={(e) => setPickLateVal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') savePick(); }}
+                />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-start' }}>
               <button type="button" onClick={() => setCellPicker(null)}
