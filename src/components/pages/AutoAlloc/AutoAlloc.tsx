@@ -85,10 +85,10 @@ function SortTh({ label, sortKey, sort, onSort, style, className }: { label: Rea
     </th>
   );
 }
-function DiffCell({ value, source, unit, decimals, cls, cls2, clr }: { value: unknown; source: unknown; unit: string; decimals: number; cls: string; cls2: string; clr: string }) {
+function DiffCell({ value, source, unit, decimals, tolerance = 0.01, cls, cls2, clr }: { value: unknown; source: unknown; unit: string; decimals: number; tolerance?: number; cls: string; cls2: string; clr: string }) {
   const num = Number(value) || 0;
   const src = Number(source) || 0;
-  const match = Math.abs(num - src) < 0.01;
+  const match = Math.abs(num - src) < tolerance;
   const bg = num > 0 && !match ? '#fef2f2' : 'transparent';
   return <td className={cls} style={{ color: clr, background: bg }}>{num > 0 ? <span className={cls2}>{num.toFixed(decimals)}{unit}</span> : ''}</td>;
 }
@@ -1390,7 +1390,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                 })}
                 <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
                 <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}</span> : ''}</td>
-                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
+                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
                 <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
             );
