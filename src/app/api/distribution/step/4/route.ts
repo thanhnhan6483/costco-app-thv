@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
 
     const rows: string[] = [];
     for (const emp of emps) {
-      const days = daysByEmp.get(emp.id) ?? [];
+      let days = daysByEmp.get(emp.id) ?? [];
+      days = days.filter(d => d.day >= 1 && d.day <= daysInMonth);
       if (days.length === 0) continue;
       const arrangement = days.map(d => d.dayType);
       const otH  = parseFloat(emp.overtimeHours) || 0;
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
         rows.push(`('${emp.id}',${days[i].day},${dist[i].otH},${dist[i].lateM})`);
       }
     }
+
+    // Xoá OT/trễ ở ngày ngoài daysInMonth (dữ liệu cũ từ step 1 tạo 31 dòng)
+    await conn.run(
+      `UPDATE distribution_results SET ot_hours = 0, late_mins = 0 WHERE month_id = ? AND (day < 1 OR day > ?)`,
+      monthId, daysInMonth
+    );
 
     if (rows.length > 0) {
       const chunkSize = 500;
@@ -190,6 +197,7 @@ export async function GET(req: NextRequest) {
   const { page, limit, offset } = parsePage(url);
   const conn = await getConn();
   try {
+    const { daysInMonth } = await loadMonthInfo(monthId);
     const [{ total }] = await conn.all<{ total: number }>(
       `SELECT COUNT(DISTINCT e.id) AS total FROM employees e WHERE e.month_id = ? AND e.active = TRUE`, monthId
     );
@@ -211,8 +219,8 @@ export async function GET(req: NextRequest) {
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
-       WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders})
-       ORDER BY e.code, dr.day`, monthId, ...ids
+       WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders}) AND dr.day BETWEEN 1 AND ?
+       ORDER BY e.code, dr.day`, monthId, ...ids, daysInMonth
     );
     await conn.close();
     const map = new Map<string, any>();
