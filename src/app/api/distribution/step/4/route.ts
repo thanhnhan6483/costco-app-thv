@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
       if (Math.abs(diff) < 0.01) continue;
       const workDays = curRows.filter(r => r.dayType === 0);
       if (diff > 0) {
+        const minOtH = params.minOtPerDayMinutes / 60;
         for (const r of workDays) {
           if (diff <= 0) break;
           const cur = Number(r.otH) || 0;
@@ -124,14 +125,32 @@ export async function POST(req: NextRequest) {
           const add = Math.min(maxOtH - cur, diff);
           const amt = Math.round(add * 100) / 100;
           if (amt <= 0) continue;
+          if (cur === 0 && amt < minOtH) continue;
           await conn.run(
             `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
             amt, monthId, emp.id, r.day
           );
           diff = Math.round((diff - amt) * 100) / 100;
         }
+        // Gom phần dư nhỏ (< minOtH) vào ngày có OT sẵn
+        if (diff > 0 && diff < minOtH) {
+          for (const r of workDays) {
+            if (diff <= 0) break;
+            const cur = Number(r.otH) || 0;
+            if (cur <= 0 || cur >= maxOtH) continue;
+            const add = Math.min(maxOtH - cur, diff);
+            const amt = Math.round(add * 100) / 100;
+            if (amt <= 0) continue;
+            await conn.run(
+              `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
+              amt, monthId, emp.id, r.day
+            );
+            diff = Math.round((diff - amt) * 100) / 100;
+          }
+        }
       } else {
         diff = -diff;
+        const minOtH = params.minOtPerDayMinutes / 60;
         for (const r of workDays) {
           if (diff <= 0) break;
           const cur = Number(r.otH) || 0;
@@ -139,11 +158,14 @@ export async function POST(req: NextRequest) {
           const sub = Math.min(cur, diff);
           const amt = Math.round(sub * 100) / 100;
           if (amt <= 0) continue;
+          const remain = Math.round((cur - amt) * 100) / 100;
+          // Nếu sau trừ còn OT mà < minOtH → xóa hẳn ngày đó (vi phạm QT7)
+          const actualSub = remain > 0 && remain < minOtH ? cur : amt;
           await conn.run(
             `UPDATE distribution_results SET ot_hours = ROUND(ot_hours - ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            amt, monthId, emp.id, r.day
+            actualSub, monthId, emp.id, r.day
           );
-          diff = Math.round((diff - amt) * 100) / 100;
+          diff = Math.round((diff - actualSub) * 100) / 100;
         }
       }
     }

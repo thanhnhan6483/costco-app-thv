@@ -414,12 +414,25 @@ export function distributeOT(
   if (remaining > 0) {
     idx = params.otStartFromDay - 1;
     while (remaining > 0 && idx < result.length) {
-      if (result[idx] === 0) {
-        const add = Math.min(params.maxOtPerDayHours, remaining);
-        result[idx] = (result[idx] > 0 ? result[idx] : 0) + add;
+      if (result[idx] >= 0) {
+        const cur = result[idx] > 0 ? result[idx] : 0;
+        const add = Math.min(params.maxOtPerDayHours - cur, remaining);
+        if (add <= 0) { idx++; continue; }
+        if (cur === 0 && add < minOtH) { idx++; continue; }
+        result[idx] = cur + add;
         remaining -= add;
       }
       idx++;
+    }
+    // Nếu còn dư rất nhỏ, tìm ngày có OT sẵn để gom vào
+    if (remaining > 0 && remaining < minOtH) {
+      for (let i = params.otStartFromDay - 1; i < result.length && remaining > 0; i++) {
+        if (result[i] > 0 && result[i] < params.maxOtPerDayHours) {
+          const add = Math.min(params.maxOtPerDayHours - result[i], remaining);
+          result[i] += add;
+          remaining -= add;
+        }
+      }
     }
   }
 
