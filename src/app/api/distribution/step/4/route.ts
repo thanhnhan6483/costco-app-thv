@@ -102,6 +102,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Điều chỉnh OT sau QT8: đảm bảo tổng mỗi NV khớp với overtimeHours gốc
+    const maxOtH = params.maxOtPerDayHours;
+    for (const emp of emps) {
+      const srcOt = parseFloat(emp.overtimeHours) || 0;
+      if (srcOt <= 0) continue;
+      const curRows = await conn.all<{ day: number; dayType: number; otH: number }>(
+        `SELECT day, day_type AS dayType, ot_hours AS otH
+         FROM distribution_results WHERE month_id = ? AND employee_id = ? ORDER BY day`,
+        monthId, emp.id
+      );
+      let curTotal = curRows.reduce((s, r) => s + (Number(r.otH) || 0), 0);
+      let diff = Math.round((srcOt - curTotal) * 100) / 100;
+      if (Math.abs(diff) < 0.01) continue;
+      const workDays = curRows.filter(r => r.dayType === 0);
+      if (diff > 0) {
+        for (const r of workDays) {
+          if (diff <= 0) break;
+          const cur = Number(r.otH) || 0;
+          if (cur >= maxOtH) continue;
+          const add = Math.min(maxOtH - cur, diff);
+          const ra = Math.round(add * 4) / 4;
+          if (ra <= 0) continue;
+          await conn.run(
+            `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            ra, monthId, emp.id, r.day
+          );
+          diff = Math.round((diff - ra) * 100) / 100;
+        }
+      } else {
+        diff = -diff;
+        for (const r of workDays) {
+          if (diff <= 0) break;
+          const cur = Number(r.otH) || 0;
+          if (cur <= 0) continue;
+          const sub = Math.min(cur, diff);
+          const remain = Math.round((cur - sub) * 4) / 4;
+          const final = (remain > 0 && remain < 1) ? 0 : remain;
+          const removed = cur - final;
+          if (removed <= 0) continue;
+          await conn.run(
+            `UPDATE distribution_results SET ot_hours = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            Math.round(final * 100) / 100, monthId, emp.id, r.day
+          );
+          diff = Math.round((diff - removed) * 100) / 100;
+        }
+      }
+    }
+
     await conn.close();
     return NextResponse.json({ ok: true, step: 4, processed: emps.length, otBalanceFixes: otUpdates.length });
   } catch (e) {
