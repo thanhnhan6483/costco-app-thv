@@ -92,7 +92,7 @@ function SortTh({ label, sortKey, current, onSort, className }: {
   const icon = active ? (current!.dir === 'asc' ? '▲' : '▼') : '⇅';
   return (
     <th className={className} onClick={() => onSort(sortKey)}
-      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+      style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
       title={active ? (current!.dir === 'asc' ? 'Nhấn để đảo thứ tự' : 'Nhấn để bỏ sort') : 'Nhấn để sắp xếp'}
     >
       {label}
