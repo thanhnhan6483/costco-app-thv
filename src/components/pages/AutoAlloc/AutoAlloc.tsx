@@ -1350,13 +1350,15 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
+              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="TG GỐC (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
               <SortTh label="TRỄ GỐC (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
-              {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
               <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} extraMiddle={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} middleChildren={<><StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} /><StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} /></>}>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+              <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
+              <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />
               <StatFilterTh list={otList} value={fOT} onChange={setFOT} />
               <StatFilterTh list={lateList} value={fLate} onChange={setFLate} />
             </InlineFilterRow>
@@ -1369,8 +1371,6 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span>{r.overtimeHours}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span>{r.lateMinutes}</span> : '—'}</td>
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
@@ -1388,6 +1388,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span>{r.overtimeHours}h</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span>{r.lateMinutes}</span> : '—'}</td>
                 <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
                 <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
