@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const params = await loadParams(monthId);
     const shiftMap = await loadShiftMap(monthId);
+    const { month, year, daysInMonth } = await loadMonthInfo(monthId);
 
     const rawGroups = await conn.all<{ code: string; workHours: number }>(
       `SELECT code, work_hours AS workHours FROM special_groups WHERE month_id=?`, monthId
@@ -26,15 +27,13 @@ export async function POST(req: NextRequest) {
       `SELECT employee_id AS empId, day, day_type AS dayType,
               COALESCE(shift_code,'') AS shiftCode,
               COALESCE(ot_hours,0) AS otHours, COALESCE(late_mins,0) AS lateMins
-       FROM distribution_results WHERE month_id=? ORDER BY employee_id, day`, monthId
+       FROM distribution_results WHERE month_id=? AND day BETWEEN 1 AND ? ORDER BY employee_id, day`, monthId, daysInMonth
     );
     const daysByEmp = new Map<string, typeof allDays>();
     for (const d of allDays) {
       if (!daysByEmp.has(d.empId)) daysByEmp.set(d.empId, []);
       daysByEmp.get(d.empId)!.push(d);
     }
-
-    const { month, year } = await loadMonthInfo(monthId);
 
     const rows: string[] = [];
     for (const emp of emps) {
@@ -87,6 +86,13 @@ export async function POST(req: NextRequest) {
 
     await markStepDone(monthId, 5);
     await markStepDone(monthId, 6);
+
+    // Cleanup: xoá check_in/check_out ở ngày ngoài daysInMonth
+    await conn.run(
+      `UPDATE distribution_results SET check_in = '', check_out = '' WHERE month_id = ? AND (day < 1 OR day > ?)`,
+      monthId, daysInMonth
+    );
+
     await conn.close();
     return NextResponse.json({ ok: true, step: 5, processed: emps.length });
   } catch (e) {
@@ -100,6 +106,7 @@ export async function GET(req: NextRequest) {
   const { page, limit, offset } = parsePage(url);
   const conn = await getConn();
   try {
+    const { daysInMonth } = await loadMonthInfo(monthId);
     const [{ total }] = await conn.all<{ total: number }>(
       `SELECT COUNT(DISTINCT employee_id) AS total FROM distribution_results WHERE month_id = ?`, monthId
     );
@@ -125,8 +132,8 @@ export async function GET(req: NextRequest) {
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
-       WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders})
-       ORDER BY e.code, dr.day`, monthId, ...ids
+       WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders}) AND dr.day BETWEEN 1 AND ?
+       ORDER BY e.code, dr.day`, monthId, ...ids, daysInMonth
     );
     await conn.close();
     const map = new Map<string, any>();
