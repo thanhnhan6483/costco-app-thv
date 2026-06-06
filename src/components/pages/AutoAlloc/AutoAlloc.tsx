@@ -1497,7 +1497,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
-                    label = <><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span><span style={{ color: '#9ca3af', margin: '0 1px' }}>/</span><span style={{ color: LATE_CLR }}>{late.toFixed(0)}ph</span></>;
+                    label = <><div style={{ lineHeight: 1.2 }}><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span></div><div style={{ lineHeight: 1.2 }}><span style={{ color: LATE_CLR }}>{late.toFixed(0)}ph</span></div></>;
                   } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot.toFixed(2)}h</>; }
                   else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(0)}ph</>; }
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
