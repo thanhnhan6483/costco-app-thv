@@ -165,50 +165,6 @@ export default function ImportEmployees() {
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-  // ── Column Mapping ──────────────────────────────
-  const SYSTEM_FIELDS: { key: string; label: string; required: boolean }[] = [
-    { key: 'employee_code', label: 'Mã NV', required: true },
-    { key: 'employee_name', label: 'Tên nhân viên', required: true },
-    { key: 'department_code', label: 'Mã phòng ban', required: false },
-    { key: 'group_code', label: 'Nhóm đặc thù', required: false },
-    { key: 'group_code_end_date', label: 'Ngày KT nhóm', required: false },
-    { key: 'workdays', label: 'Ngày công', required: false },
-    { key: 'overtime_hours', label: 'Tăng ca (giờ)', required: false },
-    { key: 'late_minutes', label: 'Trễ (phút)', required: false },
-    { key: 'phep_nam', label: 'Phép năm', required: false },
-    { key: 'ngay_nghi_thang_truoc', label: 'Nghỉ tháng trước', required: false },
-  ];
-  const [showMapping, setShowMapping] = useState(false);
-  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
-  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
-  const [pendingSheetName, setPendingSheetName] = useState<string>('');
-
-  function autoDetectMapping(headers: string[]): Record<string, string> {
-    const map: Record<string, string> = {};
-    const patterns: Record<string, string[]> = {
-      employee_code: ['employee_code', 'employee code', 'mã nv', 'ma nv', 'mã nhân viên', 'ma nhan vien', 'code', 'mã', 'ma', 'mã số', 'ma so'],
-      employee_name: ['employee_name', 'employee name', 'tên nhân viên', 'ten nhan vien', 'họ và tên', 'ho va ten', 'họ tên', 'ho ten', 'name', 'tên', 'ten', 'họ đệm tên', 'ho dem ten'],
-      department_code: ['department_code', 'department code', 'department', 'department_name', 'department name', 'mã pb', 'ma pb', 'mã phòng ban', 'ma phong ban', 'phòng ban', 'phong ban', 'dept', 'dept code', 'pb'],
-      group_code: ['group_code', 'group code', 'group', 'nhóm', 'nhom', 'mã nhóm', 'ma nhom', 'special group', 'special_group', 'mã nhóm đặc thù', 'ma nhom dac thu'],
-      group_code_end_date: ['group_code_end_date', 'group code end date', 'ngày kết thúc', 'ngay ket thuc', 'end date', 'ngày kt', 'ngay kt', 'ngày hết hạn', 'ngay het han'],
-      workdays: ['workdays', 'work days', 'ngày công', 'ngay cong', 'số ngày', 'so ngay', 'công', 'cong', 'workday', 'số công', 'so cong'],
-      overtime_hours: ['overtime_hours', 'overtime hours', 'tăng ca', 'tang ca', 'ot hours', 'ot', 'overtime', 'giờ tăng ca', 'gio tang ca', 'ot (giờ)'],
-      late_minutes: ['late_minutes', 'late minutes', 'trễ', 'tre', 'đi trễ', 'di tre', 'late', 'số phút trễ', 'so phut tre', 'đi muộn', 'di muon'],
-      phep_nam: ['phep_nam', 'phep nam', 'phép năm', 'phep nam', 'annual leave', 'p.năm', 'p nam', 'số phép', 'so phep'],
-      ngay_nghi_thang_truoc: ['ngay_nghi_thang_truoc', 'ngay nghi thang truoc', 'nghỉ tháng trước', 'nghi thang truoc', 'ngày nghỉ', 'ngay nghi', 'nghỉ trước', 'nghi truoc'],
-    };
-    const lowerHeaders = headers.map(h => h.toLowerCase().trim());
-    for (const [field, aliases] of Object.entries(patterns)) {
-      for (const alias of aliases) {
-        const al = alias.toLowerCase().trim();
-        const idx = lowerHeaders.findIndex(h => h === al || h.includes(al) || al.includes(h));
-        if (idx !== -1) { map[field] = headers[idx]; break; }
-      }
-    }
-    return map;
-  }
-
   // ── Selection & Bulk edit ──────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -493,11 +449,10 @@ export default function ImportEmployees() {
     } catch (err) { alert('Lỗi: ' + (err instanceof Error ? err.message : String(err))); }
     finally { setSyncing(false); }
   };
-  const doImport = async (file: File, sheetName: string, mapping?: Record<string, string>) => {
+  const doImport = async (file: File, sheetName: string) => {
     setImporting(true);
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('monthId', activeMonthId); fd.append('sheetName', sheetName);
-      if (mapping) fd.append('columnMapping', JSON.stringify(mapping));
       const res = await fetch('/api/employees/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) {
@@ -511,27 +466,6 @@ export default function ImportEmployees() {
       setImporting(false);
       setShowSheetSelector(false);
       setPendingFile(null);
-      setShowMapping(false);
-      setPendingImportFile(null);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
-
-  const openMapping = async (file: File, sheetName: string) => {
-    try {
-      const XLSX = await import('xlsx');
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const ws = workbook.Sheets[sheetName];
-      const rowsData = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' });
-      const headers = (rowsData[0] ?? []).map(h => String(h).trim()).filter(Boolean);
-      setFileHeaders(headers);
-      setColumnMapping(autoDetectMapping(headers));
-      setPendingImportFile(file);
-      setPendingSheetName(sheetName);
-      setShowMapping(true);
-    } catch (err) {
-      setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: ['Lỗi đọc file: ' + (err instanceof Error ? err.message : String(err))], unmappedDept: [] });
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -548,7 +482,7 @@ export default function ImportEmployees() {
         setPendingFile(file);
         setShowSheetSelector(true);
       } else {
-        await openMapping(file, workbook.SheetNames[0]);
+        await doImport(file, workbook.SheetNames[0]);
       }
     } catch (err) {
       setImportResult({ inserted: 0, skipped: 0, skippedCodes: [], errors: ['Lỗi đọc file: ' + (err instanceof Error ? err.message : String(err))], unmappedDept: [] });
@@ -558,7 +492,7 @@ export default function ImportEmployees() {
 
   const handleSheetConfirm = () => {
     if (pendingFile && selectedSheet) {
-      openMapping(pendingFile, selectedSheet);
+      doImport(pendingFile, selectedSheet);
     }
   };
 
@@ -569,23 +503,6 @@ export default function ImportEmployees() {
     setSelectedSheet('');
     if (fileRef.current) fileRef.current.value = '';
   };
-
-  const handleMappingConfirm = () => {
-    if (pendingImportFile && pendingSheetName) {
-      doImport(pendingImportFile, pendingSheetName, columnMapping);
-    }
-  };
-
-  const handleMappingCancel = () => {
-    setShowMapping(false);
-    setPendingImportFile(null);
-    setFileHeaders([]);
-    setColumnMapping({});
-    if (fileRef.current) fileRef.current.value = '';
-  };
-
-  const setMapping = (field: string, header: string) =>
-    setColumnMapping(prev => ({ ...prev, [field]: header }));
 
   return (
     <div className={styles.page}>
@@ -882,72 +799,6 @@ export default function ImportEmployees() {
             </div>
             <div className={s.confirmActions}>
               <button className={s.btnPrimary} onClick={() => setSyncResult(null)}>Đóng</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Column mapping modal */}
-      {showMapping && (
-        <div className={s.formOverlay}>
-          <div className={s.confirmModal} style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-            <div className={s.confirmIcon} style={{ background: '#eff6ff', color: '#1d4ed8' }}>🔗</div>
-            <h3 className={s.confirmTitle}>Tô phối tên cột</h3>
-            <p className={s.confirmDesc} style={{ marginBottom: 12, fontSize: 12, color: 'var(--gray-500)' }}>
-              File: <strong>{pendingImportFile?.name}</strong>
-              {pendingSheetName && <> &middot; Sheet: <strong>{pendingSheetName}</strong></>}
-            </p>
-            {fileHeaders.length > 0 && (
-              <p style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 16, padding: '6px 10px', background: '#f8fafc', borderRadius: 6, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                Dòng đầu: {fileHeaders.join(' | ')}
-              </p>
-            )}
-            <div style={{ maxHeight: 380, overflowY: 'auto', marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid var(--gray-200)' }}>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--gray-600)', width: '40%' }}>Trường hệ thống</th>
-                    <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--gray-600)' }}>Cột trong file</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {SYSTEM_FIELDS.map(field => {
-                    const val = columnMapping[field.key] ?? '';
-                    return (
-                      <tr key={field.key} style={{ borderBottom: '1px solid var(--gray-100)' }}>
-                        <td style={{ padding: '6px 10px', fontWeight: field.required ? 700 : 400, color: field.required ? 'var(--gray-800)' : 'var(--gray-600)' }}>
-                          {field.required && <span style={{ color: 'var(--danger)', marginRight: 3 }}>*</span>}
-                          {field.label}
-                        </td>
-                        <td style={{ padding: '6px 10px' }}>
-                          <select
-                            className={s.input}
-                            value={val}
-                            onChange={e => setMapping(field.key, e.target.value)}
-                            style={{ width: '100%', padding: '6px 8px', fontSize: 12 }}
-                          >
-                            <option value="">(Bỏ qua)</option>
-                            {fileHeaders.map(h => (
-                              <option key={h} value={h}>{h}</option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 12 }}>
-              Cột ngày (Day 1–31) sẽ được tự động nhận diện qua tên cột.
-            </p>
-            <div className={s.confirmActions}>
-              <button className={s.btnPrimary} onClick={handleMappingConfirm} disabled={importing}>
-                {importing ? '⏳ Đang import…' : '✅ Import'}
-              </button>
-              <button className={s.btnSecondary} onClick={handleMappingCancel} disabled={importing}>
-                Hủy
-              </button>
             </div>
           </div>
         </div>

@@ -28,30 +28,6 @@ export async function GET() {
   });
 }
 
-/** Phát hiện cột ngày trong danh sách headers dạng "Day N", "Ngày N", "N" */
-function detectDayHeaders(headers: string[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  const dayRe = /^(?:day|ngày|ngay)?\s*(\d{1,2})$/i;
-  for (const h of headers) {
-    const m = h.trim().match(dayRe);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (n >= 1 && n <= 31) map[`day_${n}`] = h;
-    }
-  }
-  return map;
-}
-
-function getHeader(
-  row: Record<string, string | number>,
-  mapping: Record<string, string>,
-  field: string,
-  fallback: string,
-): string {
-  const header = mapping[field] || fallback;
-  return String(row[header] ?? '').trim();
-}
-
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -60,56 +36,34 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: 'Không có file' }, { status: 400 });
 
     const sheetName = (form.get('sheetName') as string) || undefined;
-    const columnMappingRaw = form.get('columnMapping') as string | null;
-    const columnMapping: Record<string, string> = columnMappingRaw
-      ? JSON.parse(columnMappingRaw) : {};
 
     const XLSX = await import('xlsx-js-style');
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const targetSheet = sheetName && wb.SheetNames.includes(sheetName) ? sheetName : wb.SheetNames[0];
     const ws = wb.Sheets[targetSheet];
-
-    // Lấy headers thực tế từ dòng đầu tiên
-    const ref = ws['!ref'];
-    const rawHeaders: string[] = ref
-      ? XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' })[0] ?? []
-      : [];
-    const fileHeaders = rawHeaders.map(h => String(h).trim());
-
-    // Merge day column mapping auto-detect
-    const dayMapping = detectDayHeaders(fileHeaders);
-    const unifiedMapping: Record<string, string> = { ...dayMapping, ...columnMapping };
-
-    // Map system field → header thật
-    function rh(field: string, fallback: string): string {
-      return unifiedMapping[field] || fallback;
-    }
-
-    // Kiểm tra file có ít nhất 1 dòng dữ liệu
     const rows = XLSX.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' });
+
+    // ── Validate file ──────────────────────────────────────────────
     if (rows.length === 0) {
       return NextResponse.json({ error: 'File Excel trống, không có dữ liệu.' }, { status: 400 });
     }
 
-    // Kiểm tra cột bắt buộc (dùng mapping hoặc fallback)
-    const codeHeader = rh('employee_code', 'employee_code');
-    const nameHeader = rh('employee_name', 'employee_name');
-    const validRows = rows.filter(r => String(r[codeHeader] ?? '').trim());
-    let missingCols: string[] = [];
-    const firstAllKeys = Object.keys(rows[0] ?? {});
-    if (!firstAllKeys.includes(codeHeader)) missingCols.push('employee_code');
-    if (!firstAllKeys.includes(nameHeader)) missingCols.push('employee_name');
+    const REQUIRED_COLS = ['employee_code', 'employee_name'];
+    const firstRow = rows[0];
+    const missingCols = REQUIRED_COLS.filter(c => !(c in firstRow));
     if (missingCols.length > 0) {
       return NextResponse.json({
         error: `File thiếu cột bắt buộc: ${missingCols.join(', ')}.\n` +
-          'Vui lòng kiểm tra lại tên cột hoặc tô phối lại.',
+          `Vui lòng tải lại file mẫu (nút "Tải Mẫu") và điền đúng tên cột.`,
       }, { status: 400 });
     }
 
+    // Kiểm tra có ít nhất 1 dòng có mã NV
+    const validRows = rows.filter(r => String(r['employee_code'] ?? '').trim());
     if (validRows.length === 0) {
       return NextResponse.json({
-        error: 'Không tìm thấy dòng nào có Mã NV. Vui lòng kiểm tra lại dữ liệu.',
+        error: 'Không tìm thấy dòng nào có Mã NV (cột employee_code). Vui lòng kiểm tra lại dữ liệu.',
       }, { status: 400 });
     }
 
@@ -166,24 +120,22 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString().slice(0, 10);
 
     for (const row of rows) {
-      const code = getHeader(row, unifiedMapping, 'employee_code', 'employee_code');
-      const name = getHeader(row, unifiedMapping, 'employee_name', 'employee_name');
+      const code = String(row['employee_code'] ?? '').trim();
+      const name = String(row['employee_name'] ?? '').trim();
       if (!code || !name) continue;
 
       if (existingCodes.has(code)) { skipped++; skippedCodes.push(code); continue; }
 
-      const maPbRaw = getHeader(row, unifiedMapping, 'department_code', 'department_code') ||
-        getHeader(row, unifiedMapping, 'department_name', 'department_name') ||
-        getHeader(row, unifiedMapping, 'ma_pb', 'Mã PB');
+      const maPbRaw      = String(row['department_code'] ?? row['department_name'] ?? row['Mã PB'] ?? '').trim();
       const departmentId = resolveDept(maPbRaw);
-      const specialGroup = getHeader(row, unifiedMapping, 'group_code', 'group_code');
-      const groupCodeEndDate = getHeader(row, unifiedMapping, 'group_code_end_date', 'group_code_end_date');
-      const workdays = getHeader(row, unifiedMapping, 'workdays', 'workdays');
-      const overtimeHours = getHeader(row, unifiedMapping, 'overtime_hours', 'overtime_hours');
-      const lateMinutes = getHeader(row, unifiedMapping, 'late_minutes', 'late_minutes');
-      const phepNam = getHeader(row, unifiedMapping, 'phep_nam', 'phep_nam');
-      const ngayNghiCuoiThangTruoc = getHeader(row, unifiedMapping, 'ngay_nghi_thang_truoc', 'ngay_nghi_thang_truoc');
-      const dayVals = Array.from({ length: 31 }, (_, i) => getHeader(row, unifiedMapping, `day_${i + 1}`, `Day ${i + 1}`));
+      const specialGroup = String(row['group_code'] ?? '').trim();
+      const groupCodeEndDate = String(row['group_code_end_date'] ?? '').trim();
+      const workdays = String(row['workdays'] ?? '').trim();
+      const overtimeHours = String(row['overtime_hours'] ?? '').trim();
+      const lateMinutes = String(row['late_minutes'] ?? '').trim();
+      const phepNam = String(row['phep_nam'] ?? '').trim();
+      const ngayNghiCuoiThangTruoc = String(row['ngay_nghi_thang_truoc'] ?? '').trim();
+      const dayVals = Array.from({ length: 31 }, (_, i) => String(row[`Day ${i + 1}`] ?? '').trim());
 
       if (maPbRaw && !departmentId) {
         unmappedDept.push({ code, name, deptCode: maPbRaw });
