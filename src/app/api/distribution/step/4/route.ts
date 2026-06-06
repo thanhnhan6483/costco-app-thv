@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Điều chỉnh OT sau QT8: đảm bảo tổng mỗi NV khớp với overtimeHours gốc
+    // Điều chỉnh OT sau QT8: bù chính xác (không round 0.25h)
     const maxOtH = params.maxOtPerDayHours;
     for (const emp of emps) {
       const srcOt = parseFloat(emp.overtimeHours) || 0;
@@ -122,13 +122,13 @@ export async function POST(req: NextRequest) {
           const cur = Number(r.otH) || 0;
           if (cur >= maxOtH) continue;
           const add = Math.min(maxOtH - cur, diff);
-          const ra = Math.round(add * 4) / 4;
-          if (ra <= 0) continue;
+          const amt = Math.round(add * 100) / 100;
+          if (amt <= 0) continue;
           await conn.run(
             `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            ra, monthId, emp.id, r.day
+            amt, monthId, emp.id, r.day
           );
-          diff = Math.round((diff - ra) * 100) / 100;
+          diff = Math.round((diff - amt) * 100) / 100;
         }
       } else {
         diff = -diff;
@@ -137,15 +137,13 @@ export async function POST(req: NextRequest) {
           const cur = Number(r.otH) || 0;
           if (cur <= 0) continue;
           const sub = Math.min(cur, diff);
-          const remain = Math.round((cur - sub) * 4) / 4;
-          const final = (remain > 0 && remain < 1) ? 0 : remain;
-          const removed = cur - final;
-          if (removed <= 0) continue;
+          const amt = Math.round(sub * 100) / 100;
+          if (amt <= 0) continue;
           await conn.run(
-            `UPDATE distribution_results SET ot_hours = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            Math.round(final * 100) / 100, monthId, emp.id, r.day
+            `UPDATE distribution_results SET ot_hours = ROUND(ot_hours - ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            amt, monthId, emp.id, r.day
           );
-          diff = Math.round((diff - removed) * 100) / 100;
+          diff = Math.round((diff - amt) * 100) / 100;
         }
       }
     }
