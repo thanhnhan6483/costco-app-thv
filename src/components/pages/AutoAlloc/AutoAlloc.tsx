@@ -1563,7 +1563,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                 onKeyDown={(e) => { if (e.key === 'Enter') savePick(); }}
               />
             </div>
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-start' }}>
               <button type="button" onClick={() => setCellPicker(null)}
                 style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: 3, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', lineHeight: 1.4 }}>Huỷ</button>
               <button type="button" onClick={savePick}
