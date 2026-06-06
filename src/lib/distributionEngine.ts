@@ -389,25 +389,31 @@ export function distributeOT(
   }
   const periodOT = new Map<number, number>(); // pid → tổng OT đã phân bổ (giờ)
 
-  let idx = params.otStartFromDay - 1;
-  while (remaining > 0 && idx < result.length) {
-    if (result[idx] === 0) {
-      const pid2 = periodId[idx];
-      const usedInPeriod = periodOT.get(pid2) ?? 0;
-      const canAddInPeriod = Math.max(0, maxBetweenH - usedInPeriod);
-      if (canAddInPeriod <= 0) { idx++; continue; }
+  // Rải đều: shuffle thay vì tuần tự
+  const eligible: number[] = [];
+  for (let i = params.otStartFromDay - 1; i < result.length; i++) {
+    if (result[i] === 0) eligible.push(i);
+  }
+  for (let i = eligible.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+  }
+  for (const idx of eligible) {
+    if (remaining <= 0) break;
+    const pid2 = periodId[idx];
+    const usedInPeriod = periodOT.get(pid2) ?? 0;
+    const canAddInPeriod = Math.max(0, maxBetweenH - usedInPeriod);
+    if (canAddInPeriod <= 0) continue;
 
-      const lo = minOtH > 0 ? Math.min(minOtH, remaining, params.maxOtPerDayHours) : 1;
-      const hi = Math.min(params.maxOtPerDayHours, remaining, canAddInPeriod);
-      if (lo > hi) { idx++; continue; }
+    const lo = minOtH > 0 ? Math.min(minOtH, remaining, params.maxOtPerDayHours) : 1;
+    const hi = Math.min(params.maxOtPerDayHours, remaining, canAddInPeriod);
+    if (lo > hi) continue;
 
-      const amount = lo + Math.random() * (hi - lo);
-      const rounded = Math.round(amount * 4) / 4;
-      result[idx] = rounded;
-      remaining -= rounded;
-      periodOT.set(pid2, usedInPeriod + rounded);
-    }
-    idx++;
+    const amount = lo + Math.random() * (hi - lo);
+    const rounded = Math.round(amount * 4) / 4;
+    result[idx] = rounded;
+    remaining -= rounded;
+    periodOT.set(pid2, usedInPeriod + rounded);
   }
 
   // Fallback: nếu còn remaining (tất cả period đã đầy QT9), phân bổ tiếp bỏ qua giới hạn period
@@ -447,14 +453,20 @@ export function distributeLate(
 ): number[] {
   const result: number[] = arrangement.map(v => (v !== 0 ? -1 : 0));
   let remaining = totalMinutes;
-  let idx = params.lateStartFromDay - 1;
-  while (remaining > 0 && idx < result.length) {
-    if (result[idx] === 0) {
-      const amount = Math.min(randInt(1, params.maxLatePerDayMinutes), remaining);
-      result[idx] = amount;
-      remaining -= amount;
-    }
-    idx++;
+  // Rải đều: shuffle thay vì tuần tự
+  const eligible: number[] = [];
+  for (let i = params.lateStartFromDay - 1; i < result.length; i++) {
+    if (result[i] === 0) eligible.push(i);
+  }
+  for (let i = eligible.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+  }
+  for (const idx of eligible) {
+    if (remaining <= 0) break;
+    const amount = Math.min(randInt(1, params.maxLatePerDayMinutes), remaining);
+    result[idx] = amount;
+    remaining -= amount;
   }
   return result;
 }
