@@ -1341,16 +1341,23 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     return r;
   }, [baseFiltered, fOT, fLate, fSourceOT, fSourceLate, filterCodes]);
 
-  /* ── Kéo-thả OT (edit state, không auto-save) ── */
+  /* ── Kéo-thả OT + chỉnh sửa giá trị ── */
   const [dragOtSrc, setDragOtSrc] = useState<{ code: string; day: number } | null>(null);
   const [dragOtOver, setDragOtOver] = useState<{ code: string; day: number } | null>(null);
   const [otEdits, setOtEdits] = useState<Map<string, number>>(new Map());
+  const [lateEdits, setLateEdits] = useState<Map<string, number>>(new Map());
   const [savingOt, setSavingOt] = useState(false);
+  const [cellPicker, setCellPicker] = useState<{ code: string; day: number; origOt: number; origLate: number; x: number; y: number } | null>(null);
 
   const getEffectiveOt = useCallback((code: string, day: number, origOt: number) => {
     const v = otEdits.get(`${code}_${day}`);
     return v !== undefined ? v : origOt;
   }, [otEdits]);
+
+  const getEffectiveLate = useCallback((code: string, day: number, origLate: number) => {
+    const v = lateEdits.get(`${code}_${day}`);
+    return v !== undefined ? v : origLate;
+  }, [lateEdits]);
 
   const handleOtDrop = useCallback((toCode: string, toDay: number) => {
     if (!dragOtSrc || dragOtSrc.code !== toCode || dragOtSrc.day === toDay) { setDragOtSrc(null); setDragOtOver(null); return; }
@@ -1372,23 +1379,67 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     setDragOtSrc(null); setDragOtOver(null);
   }, [dragOtSrc, filtered, getEffectiveOt]);
 
+  const handleCellContextMenu = useCallback((code: string, day: number, dt: number, origOt: number, origLate: number, e: React.MouseEvent) => {
+    if (dt !== 0) return;
+    e.preventDefault();
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setCellPicker({ code, day, origOt, origLate, x: rect.left, y: rect.bottom + 4 });
+  }, []);
+
+  const handlePickCellValue = useCallback((code: string, day: number, field: 'otH' | 'lateM', value: number, origOt: number, origLate: number) => {
+    if (field === 'otH') {
+      setOtEdits(prev => {
+        const next = new Map(prev);
+        const key = `${code}_${day}`;
+        if (value === origOt) next.delete(key);
+        else next.set(key, Math.round(value * 100) / 100);
+        return next;
+      });
+    } else {
+      setLateEdits(prev => {
+        const next = new Map(prev);
+        const key = `${code}_${day}`;
+        if (value === origLate) next.delete(key);
+        else next.set(key, Math.round(value));
+        return next;
+      });
+    }
+    setCellPicker(null);
+  }, []);
+
+  const undoAll = useCallback(() => { setOtEdits(new Map()); setLateEdits(new Map()); }, []);
+
   const handleOtSave = useCallback(async () => {
-    if (otEdits.size === 0 || !monthId) return;
+    const totalEdits = otEdits.size + lateEdits.size;
+    if (totalEdits === 0 || !monthId) return;
     setSavingOt(true);
     try {
-      const changes = Array.from(otEdits.entries()).map(([key, otH]) => {
+      const changes: { code: string; day: number; otH?: number; lateM?: number }[] = [];
+      const seen = new Map<string, number>();
+      for (const [key, otH] of otEdits) {
         const lastDash = key.lastIndexOf('_');
-        return { code: key.slice(0, lastDash), day: Number(key.slice(lastDash + 1)), otH };
-      });
+        const code = key.slice(0, lastDash);
+        const day = Number(key.slice(lastDash + 1));
+        seen.set(`${code}_${day}`, changes.length);
+        changes.push({ code, day, otH });
+      }
+      for (const [key, lateM] of lateEdits) {
+        const lastDash = key.lastIndexOf('_');
+        const code = key.slice(0, lastDash);
+        const day = Number(key.slice(lastDash + 1));
+        const idx = seen.get(`${code}_${day}`);
+        if (idx !== undefined) changes[idx].lateM = lateM;
+        else changes.push({ code, day, lateM });
+      }
       const r = await fetch('/api/distribution/step/4/edit-ot', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ monthId, changes }),
       });
-      if (!r.ok) { const err = await r.json(); alert(err.error || 'Lỗi lưu thay đổi OT'); }
-      else { setOtEdits(new Map()); onSaved?.(); }
+      if (!r.ok) { const err = await r.json(); alert(err.error || 'Lỗi lưu thay đổi'); }
+      else { setOtEdits(new Map()); setLateEdits(new Map()); onSaved?.(); }
     } catch (e) { alert('Lỗi kết nối: ' + String(e)); }
     finally { setSavingOt(false); }
-  }, [otEdits, monthId, onSaved]);
+  }, [otEdits, lateEdits, monthId, onSaved]);
 
   return (
     <div className={styles.tableOuter}>
@@ -1425,8 +1476,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
                   const origOt = Number(d?.otH) || 0;
+                  const origLate = Number(d?.lateM) || 0;
                   const ot = getEffectiveOt(r.code, i + 1, origOt);
-                  const late = Number(d?.lateM) || 0;
+                  const late = getEffectiveLate(r.code, i + 1, origLate);
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
@@ -1451,6 +1503,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                       onDragLeave={() => setDragOtOver(null)}
                       onDrop={() => handleOtDrop(r.code, i + 1)}
                       onDragEnd={() => { setDragOtSrc(null); setDragOtOver(null); }}
+                      onContextMenu={(e) => handleCellContextMenu(r.code, i + 1, dt, origOt, origLate, e)}
                     >{label}</td>
                   );
                 })}
@@ -1463,12 +1516,48 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
           })}</tbody>
         </table>
       </ScrollTable>
-      {otEdits.size > 0 && (
+      {(otEdits.size > 0 || lateEdits.size > 0) && (
         <div className={styles.editBar}>
-          <span className={styles.editBarInfo}>✏️ <span className={styles.editBarCount}>{otEdits.size}</span> thay đổi</span>
-          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={() => setOtEdits(new Map())} type="button">↩ Hoàn tác</button>
+          <span className={styles.editBarInfo}>✏️ <span className={styles.editBarCount}>{otEdits.size + lateEdits.size}</span> thay đổi</span>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={undoAll} type="button">↩ Hoàn tác</button>
           <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleOtSave} disabled={savingOt} type="button">{savingOt ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}</button>
         </div>
+      )}
+      {cellPicker && (
+        <>
+          <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
+          <div className={styles.dayPicker} style={{
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 230 : cellPicker.x),
+            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 200 : cellPicker.y),
+          }}>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Giờ OT (h):</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+              {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0].map(v => (
+                <button key={v} type="button"
+                  className={`${styles.dayPickerBtn} ${Math.abs(v - (otEdits.get(`${cellPicker.code}_${cellPicker.day}`) ?? cellPicker.origOt)) < 0.01 ? styles.dayPickerBtnActive : ''}`}
+                  style={{ color: '#1d4ed8', background: '#eff6ff', fontSize: '0.72rem', padding: '2px 8px' }}
+                  onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', v, cellPicker.origOt, cellPicker.origLate)}
+                >{v.toFixed(2)}</button>
+              ))}
+              <button type="button" className={styles.dayPickerBtn} style={{ color: '#dc2626', fontSize: '0.72rem', padding: '2px 8px' }}
+                onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', 0, cellPicker.origOt, cellPicker.origLate)}
+              >Xóa OT</button>
+            </div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Trễ (ph):</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(v => (
+                <button key={v} type="button"
+                  className={`${styles.dayPickerBtn} ${(lateEdits.get(`${cellPicker.code}_${cellPicker.day}`) ?? cellPicker.origLate) === v ? styles.dayPickerBtnActive : ''}`}
+                  style={{ color: '#c2410c', background: '#fff7ed', fontSize: '0.72rem', padding: '2px 8px' }}
+                  onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', v, cellPicker.origOt, cellPicker.origLate)}
+                >{v}</button>
+              ))}
+              <button type="button" className={styles.dayPickerBtn} style={{ color: '#dc2626', fontSize: '0.72rem', padding: '2px 8px' }}
+                onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', 0, cellPicker.origOt, cellPicker.origLate)}
+              >Xóa Trễ</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export async function PATCH(req: NextRequest) {
   const { monthId, changes } = await req.json() as {
     monthId: string;
-    changes: { code: string; day: number; otH: number }[];
+    changes: { code: string; day: number; otH?: number; lateM?: number }[];
   };
 
   if (!monthId || !changes?.length) {
@@ -32,10 +32,16 @@ export async function PATCH(req: NextRequest) {
         monthId, empId, c.day,
       );
       if (existing.length > 0) {
-        await conn.run(
-          `UPDATE distribution_results SET ot_hours = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
-          c.otH, monthId, empId, c.day,
-        );
+        const sets: string[] = [];
+        const params: (string | number)[] = [];
+        if (c.otH !== undefined) { sets.push('ot_hours = ?'); params.push(c.otH); }
+        if (c.lateM !== undefined) { sets.push('late_mins = ?'); params.push(c.lateM); }
+        if (sets.length > 0) {
+          await conn.run(
+            `UPDATE distribution_results SET ${sets.join(', ')} WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            ...params, monthId, empId, c.day,
+          );
+        }
       }
       updated++;
     }
