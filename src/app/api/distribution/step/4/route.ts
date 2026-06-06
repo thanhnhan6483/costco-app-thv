@@ -168,6 +168,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // QT7 cleanup: xóa mọi OT < ngưỡng tối thiểu (QT8 có thể tạo ra giá trị 0.75h)
+    const minOtH = params.minOtPerDayMinutes > 0 ? params.minOtPerDayMinutes / 60 : 0;
+    if (minOtH > 0) {
+      await conn.run(
+        `UPDATE distribution_results SET ot_hours = 0 WHERE month_id = ? AND ot_hours > 0 AND ot_hours < ?`,
+        monthId, minOtH
+      );
+    }
+
     await conn.close();
     return NextResponse.json({ ok: true, step: 4, processed: emps.length, otBalanceFixes: otUpdates.length });
   } catch (e) {
