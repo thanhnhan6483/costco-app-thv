@@ -131,6 +131,7 @@ export async function GET(req: NextRequest) {
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName, e.workdays,
+              e.overtime_hours AS overtimeHours, e.late_minutes AS lateMinutes,
               dr.day, dr.day_type AS dayType, dr.ot_hours AS otH, dr.late_mins AS lateM
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
@@ -143,6 +144,7 @@ export async function GET(req: NextRequest) {
     for (const r of rows as any[]) {
       if (!map.has(r.code)) map.set(r.code, {
         code: r.code, name: r.empName, deptName: r.deptName ?? '', workdays: r.workdays ?? '',
+        overtimeHours: r.overtimeHours ?? '', lateMinutes: r.lateMinutes ?? '',
         totalOT: 0, totalLate: 0, days: [],
       });
       const emp = map.get(r.code);

@@ -264,7 +264,7 @@ export async function GET(req: NextRequest) {
     // ── STEP 4 ──────────────────────────────────────────────────────────────
     if (step === 4) {
       const rows4 = await conn.all(
-        `SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.ot_hours, dr.late_mins
+        `SELECT e.code, e.name, d.name AS deptName, e.overtime_hours, e.late_minutes, dr.day, dr.day_type, dr.ot_hours, dr.late_mins
          FROM distribution_results dr
          JOIN employees e ON dr.employee_id = e.id
          LEFT JOIN departments d ON e.department_id = d.id
@@ -274,7 +274,7 @@ export async function GET(req: NextRequest) {
       const empMap = new Map<string, Record<string, unknown>>();
       for (const r of rows4) {
         const k = String(r.code);
-        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', totalOt: 0, totalLate: 0 });
+        if (!empMap.has(k)) empMap.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', overtimeHours: r.overtime_hours ?? '', lateMinutes: r.late_minutes ?? '', totalOt: 0, totalLate: 0 });
         const dt = Number(r.day_type);
         const ot = Number(r.ot_hours) || 0;
         const late = Number(r.late_mins) || 0;
@@ -285,9 +285,9 @@ export async function GET(req: NextRequest) {
         empMap.get(k)!.totalLate = Number(empMap.get(k)!.totalLate) + late;
       }
       const empArr = Array.from(empMap.values());
-      const FIXED = 4;
-      const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng ban', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ (PH)'];
-      const dowRow4 = ['', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', ''];
+      const FIXED = 6;
+      const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng ban', 'TG GỐC (H)', 'TRỄ GỐC (PH)', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ (PH)'];
+      const dowRow4 = ['', '', '', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', ''];
       const data4 = empArr.map((r, idx) => {
         const vals = days.map(d => {
           const dt = Number(r[`dt${d}`] ?? -1);
@@ -305,7 +305,7 @@ export async function GET(req: NextRequest) {
         });
         const totalOt = Math.round(Number(r.totalOt));
         const totalLate = Math.round(Number(r.totalLate));
-        return [idx + 1, r.code, r.name, r.deptName, ...vals, totalOt > 0 ? totalOt : '', totalLate > 0 ? totalLate : ''];
+        return [idx + 1, r.code, r.name, r.deptName, r.overtimeHours || '', r.lateMinutes || '', ...vals, totalOt > 0 ? totalOt : '', totalLate > 0 ? totalLate : ''];
       });
 
       const ws4 = XLSX.utils.aoa_to_sheet([header4, dowRow4, ...data4]);
@@ -326,7 +326,7 @@ export async function GET(req: NextRequest) {
           (ws4 as any)[addr].s = { ...(ws4 as any)[addr].s, font: { bold: true, sz: 9, color: { rgb: clr } }, fill: { fgColor: { rgb: bg } } };
         }
       }
-      ws4['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 8 }];
+      ws4['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 6 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 8 }];
       ws4['!rows'] = [{ hpt: 28 }, { hpt: 14 }];
       ws4['!freeze'] = { xSplit: FIXED, ySplit: 1 };
       XLSX.utils.book_append_sheet(wb, ws4, 'OT_DiTre');
