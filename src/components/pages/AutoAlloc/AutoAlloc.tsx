@@ -1527,35 +1527,27 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         <>
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
-            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 230 : cellPicker.x),
-            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 200 : cellPicker.y),
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 200 : cellPicker.x),
+            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 140 : cellPicker.y),
+            padding: 10,
           }}>
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Giờ OT (h):</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
-              {[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0].map(v => (
-                <button key={v} type="button"
-                  className={`${styles.dayPickerBtn} ${Math.abs(v - (otEdits.get(`${cellPicker.code}_${cellPicker.day}`) ?? cellPicker.origOt)) < 0.01 ? styles.dayPickerBtnActive : ''}`}
-                  style={{ color: '#1d4ed8', background: '#eff6ff', fontSize: '0.72rem', padding: '2px 8px' }}
-                  onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', v, cellPicker.origOt, cellPicker.origLate)}
-                >{v.toFixed(2)}</button>
-              ))}
-              <button type="button" className={styles.dayPickerBtn} style={{ color: '#dc2626', fontSize: '0.72rem', padding: '2px 8px' }}
-                onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', 0, cellPicker.origOt, cellPicker.origLate)}
-              >Xóa OT</button>
-            </div>
-            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Trễ (ph):</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(v => (
-                <button key={v} type="button"
-                  className={`${styles.dayPickerBtn} ${(lateEdits.get(`${cellPicker.code}_${cellPicker.day}`) ?? cellPicker.origLate) === v ? styles.dayPickerBtnActive : ''}`}
-                  style={{ color: '#c2410c', background: '#fff7ed', fontSize: '0.72rem', padding: '2px 8px' }}
-                  onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', v, cellPicker.origOt, cellPicker.origLate)}
-                >{v}</button>
-              ))}
-              <button type="button" className={styles.dayPickerBtn} style={{ color: '#dc2626', fontSize: '0.72rem', padding: '2px 8px' }}
-                onClick={() => handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', 0, cellPicker.origOt, cellPicker.origLate)}
-              >Xóa Trễ</button>
-            </div>
+            <label style={{ fontSize: 11, color: '#374151', display: 'block', marginBottom: 6 }}>
+              Giờ OT (h):
+              <input type="number" step="0.01" min="0" max="24" defaultValue={cellPicker.origOt}
+                style={{ width: '100%', marginTop: 2, padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+                autoFocus
+                onBlur={(e) => { const v = Math.round((parseFloat(e.target.value) || 0) * 100) / 100; handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', v, cellPicker.origOt, cellPicker.origLate); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              />
+            </label>
+            <label style={{ fontSize: 11, color: '#374151', display: 'block' }}>
+              Trễ (ph):
+              <input type="number" step="1" min="0" max="60" defaultValue={cellPicker.origLate}
+                style={{ width: '100%', marginTop: 2, padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+                onBlur={(e) => { const v = Math.round(parseInt(e.target.value) || 0); handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', v, cellPicker.origOt, cellPicker.origLate); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              />
+            </label>
           </div>
         </>
       )}
