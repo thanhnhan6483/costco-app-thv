@@ -1312,7 +1312,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
 }
 
 /* === OtLateGrid (Step 4) === */
-function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null }) {
+function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const OT_BG = '#eff6ff', OT_CLR = '#1d4ed8';
@@ -1340,6 +1340,31 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
     if (filterCodes) r = r.filter((x: any) => filterCodes.has(x.code));
     return r;
   }, [baseFiltered, fOT, fLate, fSourceOT, fSourceLate, filterCodes]);
+
+  /* ── Kéo-thả OT ── */
+  const [dragOtSrc, setDragOtSrc] = useState<{ code: string; day: number } | null>(null);
+  const [dragOtOver, setDragOtOver] = useState<{ code: string; day: number } | null>(null);
+  const [savingOt, setSavingOt] = useState(false);
+
+  const handleOtDrop = useCallback(async (toCode: string, toDay: number) => {
+    if (!dragOtSrc || dragOtSrc.code !== toCode || dragOtSrc.day === toDay || savingOt || !monthId) return;
+    setSavingOt(true);
+    try {
+      const r = await fetch('/api/distribution/step/4/edit-ot', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId, code: dragOtSrc.code, fromDay: dragOtSrc.day, toDay }),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        alert(err.error || 'Lỗi di chuyển OT');
+      } else {
+        onSaved?.();
+      }
+    } catch (e) { alert('Lỗi kết nối: ' + String(e)); }
+    finally { setSavingOt(false); setDragOtSrc(null); setDragOtOver(null); }
+  }, [dragOtSrc, monthId, onSaved, savingOt]);
+
   return (
     <div className={styles.tableOuter}>
       <ScrollTable className={styles.tableWrap}>
@@ -1385,7 +1410,22 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
-                    <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
+                    <td key={i}
+                      style={{
+                        background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem',
+                        textAlign: 'center', padding: '3px 2px', minWidth: 28,
+                        borderRight: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
+                        borderBottom: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
+                        opacity: dragOtSrc?.code === r.code && dragOtSrc?.day === i + 1 ? 0.35 : 1,
+                        cursor: dt === 0 ? 'grab' : 'default',
+                      }}
+                      draggable={dt === 0 && ot > 0 && !savingOt}
+                      onDragStart={() => { if (dt === 0 && ot > 0) setDragOtSrc({ code: r.code, day: i + 1 }); }}
+                      onDragOver={(e) => { if (dt !== 0) return; e.preventDefault(); setDragOtOver({ code: r.code, day: i + 1 }); }}
+                      onDragLeave={() => setDragOtOver(null)}
+                      onDrop={() => handleOtDrop(r.code, i + 1)}
+                      onDragEnd={() => { setDragOtSrc(null); setDragOtOver(null); }}
+                    >{label}</td>
                   );
                 })}
                 <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
@@ -2109,7 +2149,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
