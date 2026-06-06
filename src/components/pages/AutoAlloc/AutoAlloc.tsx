@@ -1381,8 +1381,16 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: OT_CLR }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Math.round(Number(r.totalOT))}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: LATE_CLR }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Math.round(Number(r.totalLate))}</span> : '—'}</td>
+                (() => {
+                  const srcOT = Number(r.overtimeHours) || 0;
+                  const allocOT = Number(r.totalOT) || 0;
+                  const srcLate = Number(r.lateMinutes) || 0;
+                  const allocLate = Number(r.totalLate) || 0;
+                  const otMatch = Math.abs(allocOT - srcOT) < 0.01;
+                  const lateMatch = Math.abs(allocLate - srcLate) < 0.01;
+                  return <><td className={styles.statCell} style={{ color: OT_CLR, background: allocOT > 0 && !otMatch ? '#fef2f2' : 'transparent' }}>{allocOT > 0 ? <span className={styles.otTag}>{Math.round(allocOT)}h</span> : '—'}</td>
+                  <td className={styles.statCell} style={{ color: LATE_CLR, background: allocLate > 0 && !lateMatch ? '#fef2f2' : 'transparent' }}>{allocLate > 0 ? <span className={styles.lateTag}>{Math.round(allocLate)}</span> : '—'}</td></>;
+                })()
               </tr>
             );
           })}</tbody>
