@@ -587,35 +587,6 @@ export default function ImportEmployees() {
   const setMapping = (field: string, header: string) =>
     setColumnMapping(prev => ({ ...prev, [field]: header }));
 
-  // ── Paste support ────────────────────────────────
-  const [showPaste, setShowPaste] = useState(false);
-  const [pasteText, setPasteText] = useState('');
-  const pasteRef = useRef<HTMLTextAreaElement>(null);
-
-  const handlePasteImport = async () => {
-    const text = pasteText.trim();
-    if (!text) return alert('Chưa có dữ liệu. Hãy copy (Ctrl+C) từ Excel rồi dán vào (Ctrl+V).');
-    try {
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      const sep = text.includes('\t') ? '\t' : ',';
-      const data = lines.map(l => l.split(sep).map(c => c.trim()));
-      if (data.length < 2) return alert('Cần ít nhất 1 dòng tiêu đề + 1 dòng dữ liệu.');
-
-      const XLSX = await import('xlsx');
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-      const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-      const file = new File([buf], 'paste_data.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-      setShowPaste(false);
-      setPasteText('');
-      await openMapping(file, 'Sheet1');
-    } catch (err) {
-      alert('Lỗi xử lý dữ liệu dán: ' + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
   return (
     <div className={styles.page}>
       {/* Action bar */}
@@ -632,9 +603,6 @@ export default function ImportEmployees() {
           <button className={`${s.btnAction} ${s.btnActionGreen}`} onClick={() => fileRef.current?.click()} disabled={importing || activeMonthLocked}>
             {importing ? <span className={s.spinning}><IconUpload /></span> : <IconUpload />}
             <span>{importing ? 'Đang import…' : 'Import Excel'}</span>
-          </button>
-          <button className={s.btnAction} onClick={() => { setShowPaste(true); setTimeout(() => pasteRef.current?.focus(), 100); }} disabled={importing || activeMonthLocked} title="Copy (Ctrl+C) từ Excel rồi dán (Ctrl+V) vào đây">
-            📋 <span>Dán (Ctrl+V)</span>
           </button>
           {/* Xuất Excel: nếu có chọn thì xuất chọn lọc, ngược lại xuất tất cả */}
           {selectedIds.size > 0 ? (
@@ -919,36 +887,6 @@ export default function ImportEmployees() {
         </div>
       )}
 
-      {/* Paste dialog */}
-      {showPaste && (
-        <div className={s.formOverlay} onClick={e => { if (e.target === e.currentTarget) { setShowPaste(false); setPasteText(''); }}}>
-          <div className={s.confirmModal} style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
-            <div className={s.confirmIcon} style={{ background: '#f0fdf4', color: '#16a34a' }}>📋</div>
-            <h3 className={s.confirmTitle}>Dán dữ liệu từ Excel</h3>
-            <p className={s.confirmDesc} style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 14 }}>
-              Copy (Ctrl+C) dữ liệu từ Excel / Google Sheets rồi dán (Ctrl+V) vào ô bên dưới.
-              <br />Dòng đầu tiên phải là tiêu đề cột. Hỗ trợ tab-separated và comma-separated.
-            </p>
-            <textarea
-              ref={pasteRef}
-              className={s.input}
-              value={pasteText}
-              onChange={e => setPasteText(e.target.value)}
-              placeholder={'Ví dụ:\nMã NV\tHọ Tên\tMã PB\tNgày Công\nNV001\tNguyễn Văn A\tKD\t26\nNV002\tTrần Thị B\tHCNS\t25'}
-              style={{ width: '100%', minHeight: 240, padding: 12, fontSize: 13, fontFamily: 'monospace', resize: 'vertical', lineHeight: 1.6, whiteSpace: 'pre' }}
-            />
-            <div className={s.confirmActions} style={{ marginTop: 16 }}>
-              <button className={s.btnPrimary} onClick={handlePasteImport} disabled={importing || !pasteText.trim()}>
-                {importing ? '⏳ Đang xử lý…' : '✅ Tiếp tục'}
-              </button>
-              <button className={s.btnSecondary} onClick={() => { setShowPaste(false); setPasteText(''); }}>
-                Hủy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Column mapping modal */}
       {showMapping && (
         <div className={s.formOverlay}>
@@ -1149,8 +1087,8 @@ export default function ImportEmployees() {
                   {Array.from({ length: DAY_COUNT }, (_, i) => (
                     <th key={i} className={`${styles.th} ${styles.thDay}`}>{i + 1}</th>
                   ))}
-                  <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
-                  <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="TĂNG CA(H)" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="TRỄ (ph)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="PHÉP NĂM" sortKey="phepNam" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <th className={`${styles.th} ${styles.thAction}`}>THAO TÁC</th>
