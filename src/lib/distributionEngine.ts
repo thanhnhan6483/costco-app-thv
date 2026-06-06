@@ -418,7 +418,7 @@ export function distributeOT(
 
   // Fallback: nếu còn remaining (tất cả period đã đầy QT9), phân bổ tiếp bỏ qua giới hạn period
   if (remaining > 0) {
-    idx = params.otStartFromDay - 1;
+    let idx = params.otStartFromDay - 1;
     while (remaining > 0 && idx < result.length) {
       if (result[idx] >= 0) {
         const cur = result[idx] > 0 ? result[idx] : 0;
