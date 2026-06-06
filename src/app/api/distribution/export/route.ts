@@ -286,7 +286,7 @@ export async function GET(req: NextRequest) {
       }
       const empArr = Array.from(empMap.values());
       const FIXED = 6;
-      const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng ban', 'TG GỐC (H)', 'TRỄ GỐC (PH)', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ (PH)'];
+      const header4 = ['STT', 'Mã NV', 'HỌ VÀ TÊN', 'PHÒNG BAN', 'TĂNG CA (H)', 'GIỜ TRỄ (PH)', ...days.map(d => String(d)), 'PHÂN BỔ TC (H)', 'PHÂN BỔ GT (PH)'];
       const dowRow4 = ['', '', '', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', ''];
       const data4 = empArr.map((r, idx) => {
         const vals = days.map(d => {

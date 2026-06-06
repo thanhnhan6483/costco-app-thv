@@ -814,13 +814,13 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
-              <SortTh label="NC ĐV" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
+              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt} style={{ minWidth: 28, color: DT_TEXT[dt] ?? '#64748b', fontWeight: 700, fontSize: '0.68rem' }}>{sym}</th>
               ))}
               <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
-              <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (P)</th>
+              <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>
             </tr>
              <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}>
@@ -879,8 +879,8 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                       {countBySym(r, sym)}
                     </td>
                   ))}
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Math.round(parseFloat(String(r.overtimeHours).replace(',', '.')))}</span> : '—'}</td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Math.round(parseFloat(String(r.lateMinutes).replace(',', '.')))}</span> : '—'}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Number(String(r.overtimeHours).replace(',', '.')).toFixed(2)}h</span> : ''}</td>
+                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Number(String(r.lateMinutes).replace(',', '.')).toFixed(0)}ph</span> : ''}</td>
                 </tr>
               );
             })}
@@ -1483,10 +1483,10 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <SortTh label="TG GỐC (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
-              <SortTh label="TRỄ GỐC (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
-              <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
-              <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
+              <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
+              <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
+              <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
+              <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
               <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
