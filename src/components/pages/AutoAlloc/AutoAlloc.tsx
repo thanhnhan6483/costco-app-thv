@@ -85,6 +85,13 @@ function SortTh({ label, sortKey, sort, onSort, style, className }: { label: Rea
     </th>
   );
 }
+function DiffCell({ value, source, unit, cls, cls2, clr }: { value: unknown; source: unknown; unit: string; cls: string; cls2: string; clr: string }) {
+  const num = Number(value) || 0;
+  const src = Number(source) || 0;
+  const match = Math.abs(num - src) < 0.01;
+  const bg = num > 0 && !match ? '#fef2f2' : 'transparent';
+  return <td className={cls} style={{ color: clr, background: bg }}>{num > 0 ? <span className={cls2}>{Math.round(num)}{unit}</span> : '—'}</td>;
+}
 function useSortRows(rows: any[], sort: SortState) {
   return useMemo(() => {
     if (!sort) return rows;
@@ -1381,16 +1388,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                (() => {
-                  const srcOT = Number(r.overtimeHours) || 0;
-                  const allocOT = Number(r.totalOT) || 0;
-                  const srcLate = Number(r.lateMinutes) || 0;
-                  const allocLate = Number(r.totalLate) || 0;
-                  const otMatch = Math.abs(allocOT - srcOT) < 0.01;
-                  const lateMatch = Math.abs(allocLate - srcLate) < 0.01;
-                  return <><td className={styles.statCell} style={{ color: OT_CLR, background: allocOT > 0 && !otMatch ? '#fef2f2' : 'transparent' }}>{allocOT > 0 ? <span className={styles.otTag}>{Math.round(allocOT)}h</span> : '—'}</td>
-                  <td className={styles.statCell} style={{ color: LATE_CLR, background: allocLate > 0 && !lateMatch ? '#fef2f2' : 'transparent' }}>{allocLate > 0 ? <span className={styles.lateTag}>{Math.round(allocLate)}</span> : '—'}</td></>;
-                })()
+                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
+                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
             );
           })}</tbody>
