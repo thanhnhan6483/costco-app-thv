@@ -1341,9 +1341,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     return r;
   }, [baseFiltered, fOT, fLate, fSourceOT, fSourceLate, filterCodes]);
 
-  /* ── Kéo-thả OT + chỉnh sửa giá trị ── */
-  const [dragOtSrc, setDragOtSrc] = useState<{ code: string; day: number } | null>(null);
-  const [dragOtOver, setDragOtOver] = useState<{ code: string; day: number } | null>(null);
+  /* ── Kéo-thả OT/Late ── */
+  const [dragSrc, setDragSrc] = useState<{ code: string; day: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ code: string; day: number } | null>(null);
   const [pickOtVal, setPickOtVal] = useState('');
   const [pickLateVal, setPickLateVal] = useState('');
   const [otEdits, setOtEdits] = useState<Map<string, number>>(new Map());
@@ -1361,25 +1361,40 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     return v !== undefined ? v : origLate;
   }, [lateEdits]);
 
-  const handleOtDrop = useCallback((toCode: string, toDay: number) => {
-    if (!dragOtSrc || dragOtSrc.code !== toCode || dragOtSrc.day === toDay) { setDragOtSrc(null); setDragOtOver(null); return; }
+  const handleDrop = useCallback((toCode: string, toDay: number) => {
+    if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) { setDragSrc(null); setDragOver(null); return; }
     const rowsList = filtered as any[];
-    const origFrom = rowsList.find((r: any) => r.code === dragOtSrc.code)?.days?.find((d: any) => d.day === dragOtSrc.day)?.otH ?? 0;
-    const origTo   = rowsList.find((r: any) => r.code === toCode)?.days?.find((d: any) => d.day === toDay)?.otH ?? 0;
-    const fromOt = getEffectiveOt(dragOtSrc.code, dragOtSrc.day, origFrom);
-    const toOt   = getEffectiveOt(toCode, toDay, origTo);
-    if (fromOt <= 0) { setDragOtSrc(null); setDragOtOver(null); return; }
+    const findDay = (code: string, day: number) => rowsList.find((r: any) => r.code === code)?.days?.find((d: any) => d.day === day);
+    const origFrom = findDay(dragSrc.code, dragSrc.day);
+    const origTo   = findDay(toCode, toDay);
+    if (!origFrom || !origTo) { setDragSrc(null); setDragOver(null); return; }
+    const fromOt = getEffectiveOt(dragSrc.code, dragSrc.day, Number(origFrom.otH) || 0);
+    const fromLate = getEffectiveLate(dragSrc.code, dragSrc.day, Number(origFrom.lateM) || 0);
+    const toOt = getEffectiveOt(toCode, toDay, Number(origTo.otH) || 0);
+    const toLate = getEffectiveLate(toCode, toDay, Number(origTo.lateM) || 0);
+    if (fromOt <= 0 && fromLate <= 0) { setDragSrc(null); setDragOver(null); return; }
     setOtEdits(prev => {
       const next = new Map(prev);
-      const kFrom = `${dragOtSrc.code}_${dragOtSrc.day}`;
+      const kFrom = `${dragSrc.code}_${dragSrc.day}`;
       const kTo   = `${toCode}_${toDay}`;
+      if (toOt > 0) next.set(kTo, Math.round((toOt + fromOt) * 100) / 100);
+      else next.delete(kTo);
       if (fromOt !== 0) next.set(kFrom, 0);
       else next.delete(kFrom);
-      next.set(kTo, Math.round((toOt + fromOt) * 100) / 100);
       return next;
     });
-    setDragOtSrc(null); setDragOtOver(null);
-  }, [dragOtSrc, filtered, getEffectiveOt]);
+    setLateEdits(prev => {
+      const next = new Map(prev);
+      const kFrom = `${dragSrc.code}_${dragSrc.day}`;
+      const kTo   = `${toCode}_${toDay}`;
+      if (toLate > 0) next.set(kTo, toLate + fromLate);
+      else next.set(kTo, fromLate);
+      if (fromLate !== 0) next.set(kFrom, 0);
+      else next.delete(kFrom);
+      return next;
+    });
+    setDragSrc(null); setDragOver(null);
+  }, [dragSrc, filtered, getEffectiveOt, getEffectiveLate]);
 
   const handleCellContextMenu = useCallback((code: string, day: number, dt: number, origOt: number, origLate: number, e: React.MouseEvent) => {
     if (dt !== 0) return;
@@ -1502,22 +1517,23 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                   else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(0)}ph</>; }
                   else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
+                  const hasVal = ot > 0 || late > 0;
                   return (
                     <td key={i}
                       style={{
                         background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem',
                         textAlign: 'center', padding: '3px 2px', minWidth: 28,
-                        borderRight: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
-                        borderBottom: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
-                        opacity: dragOtSrc?.code === r.code && dragOtSrc?.day === i + 1 ? 0.35 : 1,
-                        cursor: dt === 0 && ot > 0 ? 'grab' : 'default',
+                        borderRight: dragOver?.code === r.code && dragOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
+                        borderBottom: dragOver?.code === r.code && dragOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
+                        opacity: dragSrc?.code === r.code && dragSrc?.day === i + 1 ? 0.35 : 1,
+                        cursor: dt === 0 && hasVal ? 'grab' : 'default',
                       }}
-                      draggable={dt === 0 && ot > 0 && !savingOt}
-                      onDragStart={() => { if (dt === 0 && ot > 0) setDragOtSrc({ code: r.code, day: i + 1 }); }}
-                      onDragOver={(e) => { if (dt !== 0) return; e.preventDefault(); setDragOtOver({ code: r.code, day: i + 1 }); }}
-                      onDragLeave={() => setDragOtOver(null)}
-                      onDrop={() => handleOtDrop(r.code, i + 1)}
-                      onDragEnd={() => { setDragOtSrc(null); setDragOtOver(null); }}
+                      draggable={dt === 0 && hasVal && !savingOt}
+                      onDragStart={() => { if (dt === 0 && hasVal) setDragSrc({ code: r.code, day: i + 1 }); }}
+                      onDragOver={(e) => { if (dt !== 0) return; e.preventDefault(); setDragOver({ code: r.code, day: i + 1 }); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={() => handleDrop(r.code, i + 1)}
+                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
                       onContextMenu={(e) => handleCellContextMenu(r.code, i + 1, dt, origOt, origLate, e)}
                     >{label}</td>
                   );
