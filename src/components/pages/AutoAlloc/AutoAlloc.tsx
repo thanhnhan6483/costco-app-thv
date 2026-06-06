@@ -1542,11 +1542,11 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         <>
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
-            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 190 : cellPicker.x),
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 220 : cellPicker.x),
             top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 150 : cellPicker.y),
-            padding: 8, display: 'block', minWidth: 0, width: 180,
+            padding: 10, display: 'block', minWidth: 0, width: 210,
           }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 1, fontSize: '0.7rem', color: '#374151' }}>
                 <div>OT (h):</div>
                 <input type="number" step="0.01" min="0" max="24" value={pickOtVal}
@@ -1565,11 +1565,11 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                 />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-start' }}>
               <button type="button" onClick={() => setCellPicker(null)}
-                style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: 3, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', lineHeight: 1.4 }}>Huỷ</button>
+                style={{ padding: '3px 10px', fontSize: '0.72rem', borderRadius: 3, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', lineHeight: 1.4 }}>Huỷ</button>
               <button type="button" onClick={savePick}
-                style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: 3, border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', lineHeight: 1.4 }}>Lưu</button>
+                style={{ padding: '3px 10px', fontSize: '0.72rem', borderRadius: 3, border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', lineHeight: 1.4 }}>Lưu</button>
             </div>
           </div>
         </>
