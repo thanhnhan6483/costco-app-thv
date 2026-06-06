@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
 
       const maPbRaw      = String(row['department_code'] ?? row['department_name'] ?? row['Mã PB'] ?? '').trim();
       const departmentId = resolveDept(maPbRaw);
-      const specialGroup = String(row['group_code'] ?? '').trim();
+      const specialGroup = String(row['group_code'] ?? row['group_name'] ?? row['Mã nhóm'] ?? row['Nhóm'] ?? row['special_group'] ?? '').trim();
       const groupCodeEndDate = String(row['group_code_end_date'] ?? '').trim();
       const workdays = String(row['workdays'] ?? '').trim();
       const overtimeHours = String(row['overtime_hours'] ?? '').trim();
