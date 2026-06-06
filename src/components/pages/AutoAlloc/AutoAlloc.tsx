@@ -1344,6 +1344,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
   /* ── Kéo-thả OT + chỉnh sửa giá trị ── */
   const [dragOtSrc, setDragOtSrc] = useState<{ code: string; day: number } | null>(null);
   const [dragOtOver, setDragOtOver] = useState<{ code: string; day: number } | null>(null);
+  const [pickOtVal, setPickOtVal] = useState('');
+  const [pickLateVal, setPickLateVal] = useState('');
   const [otEdits, setOtEdits] = useState<Map<string, number>>(new Map());
   const [lateEdits, setLateEdits] = useState<Map<string, number>>(new Map());
   const [savingOt, setSavingOt] = useState(false);
@@ -1383,8 +1385,10 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     if (dt !== 0) return;
     e.preventDefault();
     const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPickOtVal(String(otEdits.get(`${code}_${day}`) ?? origOt));
+    setPickLateVal(String(lateEdits.get(`${code}_${day}`) ?? origLate));
     setCellPicker({ code, day, origOt, origLate, x: rect.left, y: rect.bottom + 4 });
-  }, []);
+  }, [otEdits, lateEdits]);
 
   const handlePickCellValue = useCallback((code: string, day: number, field: 'otH' | 'lateM', value: number, origOt: number, origLate: number) => {
     if (field === 'otH') {
@@ -1404,8 +1408,19 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         return next;
       });
     }
-    setCellPicker(null);
   }, []);
+
+  const savePick = useCallback(() => {
+    if (!cellPicker) return;
+    const { code, day, origOt, origLate } = cellPicker;
+    const otV = Math.round((parseFloat(pickOtVal) || 0) * 100) / 100;
+    const lateV = Math.round(parseInt(pickLateVal) || 0);
+    if (otV !== origOt || lateV !== origLate) {
+      if (otV !== origOt) handlePickCellValue(code, day, 'otH', otV, origOt, origLate);
+      if (lateV !== origLate) handlePickCellValue(code, day, 'lateM', lateV, origOt, origLate);
+    }
+    setCellPicker(null);
+  }, [cellPicker, pickOtVal, pickLateVal, handlePickCellValue]);
 
   const undoAll = useCallback(() => { setOtEdits(new Map()); setLateEdits(new Map()); }, []);
 
@@ -1528,26 +1543,32 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
             left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 200 : cellPicker.x),
-            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 140 : cellPicker.y),
+            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 180 : cellPicker.y),
             padding: 10,
           }}>
-            <label style={{ fontSize: 11, color: '#374151', display: 'block', marginBottom: 6 }}>
-              Giờ OT (h):
-              <input type="number" step="0.01" min="0" max="24" defaultValue={cellPicker.origOt}
-                style={{ width: '100%', marginTop: 2, padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+            <div style={{ fontSize: 11, color: '#374151', marginBottom: 6 }}>
+              <div style={{ marginBottom: 2 }}>Giờ OT (h):</div>
+              <input type="number" step="0.01" min="0" max="24" value={pickOtVal}
+                style={{ width: '100%', padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+                onChange={(e) => setPickOtVal(e.target.value)}
                 autoFocus
-                onBlur={(e) => { const v = Math.round((parseFloat(e.target.value) || 0) * 100) / 100; handlePickCellValue(cellPicker.code, cellPicker.day, 'otH', v, cellPicker.origOt, cellPicker.origLate); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && e.target === document.activeElement) { (document.getElementById('pick-late-input') as HTMLInputElement)?.focus(); } }}
               />
-            </label>
-            <label style={{ fontSize: 11, color: '#374151', display: 'block' }}>
-              Trễ (ph):
-              <input type="number" step="1" min="0" max="60" defaultValue={cellPicker.origLate}
-                style={{ width: '100%', marginTop: 2, padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
-                onBlur={(e) => { const v = Math.round(parseInt(e.target.value) || 0); handlePickCellValue(cellPicker.code, cellPicker.day, 'lateM', v, cellPicker.origOt, cellPicker.origLate); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            </div>
+            <div style={{ fontSize: 11, color: '#374151', marginBottom: 10 }}>
+              <div style={{ marginBottom: 2 }}>Trễ (ph):</div>
+              <input id="pick-late-input" type="number" step="1" min="0" max="60" value={pickLateVal}
+                style={{ width: '100%', padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+                onChange={(e) => setPickLateVal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') savePick(); }}
               />
-            </label>
+            </div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setCellPicker(null)}
+                style={{ padding: '4px 14px', fontSize: '0.78rem', borderRadius: 4, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>Huỷ</button>
+              <button type="button" onClick={savePick}
+                style={{ padding: '4px 14px', fontSize: '0.78rem', borderRadius: 4, border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer' }}>Lưu</button>
+            </div>
           </div>
         </>
       )}
