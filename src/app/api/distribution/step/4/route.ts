@@ -118,35 +118,33 @@ export async function POST(req: NextRequest) {
       const workDays = curRows.filter(r => r.dayType === 0);
       if (diff > 0) {
         const minOtH = params.minOtPerDayMinutes / 60;
+        // Ưu tiên thêm vào ngày có OT sẵn (không giới hạn số lượng nhỏ)
         for (const r of workDays) {
           if (diff <= 0) break;
           const cur = Number(r.otH) || 0;
-          if (cur >= maxOtH) continue;
+          if (cur <= 0 || cur >= maxOtH) continue;
           const add = Math.min(maxOtH - cur, diff);
           const amt = Math.round(add * 100) / 100;
           if (amt <= 0) continue;
-          if (cur === 0 && amt < minOtH) continue;
           await conn.run(
             `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
             amt, monthId, emp.id, r.day
           );
           diff = Math.round((diff - amt) * 100) / 100;
         }
-        // Gom phần dư nhỏ (< minOtH) vào ngày có OT sẵn
-        if (diff > 0 && diff < minOtH) {
-          for (const r of workDays) {
-            if (diff <= 0) break;
-            const cur = Number(r.otH) || 0;
-            if (cur <= 0 || cur >= maxOtH) continue;
-            const add = Math.min(maxOtH - cur, diff);
-            const amt = Math.round(add * 100) / 100;
-            if (amt <= 0) continue;
-            await conn.run(
-              `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-              amt, monthId, emp.id, r.day
-            );
-            diff = Math.round((diff - amt) * 100) / 100;
-          }
+        // Sau đó thêm vào ngày trống (chỉ nếu đủ ≥ minOtH để không vi phạm QT7)
+        for (const r of workDays) {
+          if (diff <= 0) break;
+          const cur = Number(r.otH) || 0;
+          if (cur > 0) continue;
+          const add = Math.min(maxOtH, diff);
+          const amt = Math.round(add * 100) / 100;
+          if (amt < minOtH) continue;
+          await conn.run(
+            `UPDATE distribution_results SET ot_hours = ROUND(?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
+            amt, monthId, emp.id, r.day
+          );
+          diff = Math.round((diff - amt) * 100) / 100;
         }
       } else {
         diff = -diff;
