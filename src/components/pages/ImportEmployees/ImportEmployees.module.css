@@ -86,6 +86,7 @@
   text-align: left;
   border-bottom: 1px solid var(--gray-200);
   border-right: 1px solid var(--gray-100);
+  user-select: none;
 }
 .thCenter { text-align: center; }
 .thStt    { width: 44px; text-align: center; }
