@@ -1443,7 +1443,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                         borderRight: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
                         borderBottom: dragOtOver?.code === r.code && dragOtOver?.day === i + 1 ? '2px solid #1d4ed8' : '1px solid #f1f5f9',
                         opacity: dragOtSrc?.code === r.code && dragOtSrc?.day === i + 1 ? 0.35 : 1,
-                        cursor: dt === 0 ? 'grab' : 'default',
+                        cursor: dt === 0 && ot > 0 ? 'grab' : 'default',
                       }}
                       draggable={dt === 0 && ot > 0 && !savingOt}
                       onDragStart={() => { if (dt === 0 && ot > 0) setDragOtSrc({ code: r.code, day: i + 1 }); }}
