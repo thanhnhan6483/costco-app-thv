@@ -1388,8 +1388,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span>{r.overtimeHours}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span>{r.lateMinutes}</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{r.overtimeHours}h</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{r.lateMinutes}</span> : '—'}</td>
                 <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
                 <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
