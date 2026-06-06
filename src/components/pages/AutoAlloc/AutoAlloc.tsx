@@ -1542,9 +1542,9 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         <>
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
-            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 170 : cellPicker.x),
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 160 : cellPicker.x),
             top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 150 : cellPicker.y),
-            padding: 8,
+            padding: 8, display: 'block', minWidth: 0, width: 150,
           }}>
             <div style={{ fontSize: '0.7rem', color: '#374151', marginBottom: 4 }}>
               <div>OT (h):</div>
