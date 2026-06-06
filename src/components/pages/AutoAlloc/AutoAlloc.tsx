@@ -85,12 +85,12 @@ function SortTh({ label, sortKey, sort, onSort, style, className }: { label: Rea
     </th>
   );
 }
-function DiffCell({ value, source, unit, cls, cls2, clr }: { value: unknown; source: unknown; unit: string; cls: string; cls2: string; clr: string }) {
+function DiffCell({ value, source, unit, decimals, cls, cls2, clr }: { value: unknown; source: unknown; unit: string; decimals: number; cls: string; cls2: string; clr: string }) {
   const num = Number(value) || 0;
   const src = Number(source) || 0;
   const match = Math.abs(num - src) < 0.01;
   const bg = num > 0 && !match ? '#fef2f2' : 'transparent';
-  return <td className={cls} style={{ color: clr, background: bg }}>{num > 0 ? <span className={cls2}>{Math.round(num)}{unit}</span> : '—'}</td>;
+  return <td className={cls} style={{ color: clr, background: bg }}>{num > 0 ? <span className={cls2}>{num.toFixed(decimals)}{unit}</span> : '—'}</td>;
 }
 function useSortRows(rows: any[], sort: SortState) {
   return useMemo(() => {
@@ -1388,10 +1388,10 @@ function OtLateGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, un
                     <td key={i} style={{ background: bg, color: clr, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center', padding: '3px 2px', minWidth: 28, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{r.overtimeHours}h</span> : '—'}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{r.lateMinutes}</span> : '—'}</td>
-                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
-                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.overtimeHours ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : '—'}</td>
+                <td className={styles.statCell} style={{ color: '#6b7280' }}>{r.lateMinutes ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}</span> : '—'}</td>
+                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
+                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               </tr>
             );
           })}</tbody>
