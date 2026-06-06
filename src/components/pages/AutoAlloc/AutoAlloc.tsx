@@ -1378,6 +1378,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
       const kFrom = `${dragSrc.code}_${dragSrc.day}`;
       const kTo   = `${toCode}_${toDay}`;
       if (toOt > 0) next.set(kTo, Math.round((toOt + fromOt) * 100) / 100);
+      else if (fromOt > 0) next.set(kTo, fromOt);
       else next.delete(kTo);
       if (fromOt !== 0) next.set(kFrom, 0);
       else next.delete(kFrom);
