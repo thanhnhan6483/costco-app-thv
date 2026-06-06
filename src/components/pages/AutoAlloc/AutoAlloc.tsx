@@ -1341,29 +1341,54 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
     return r;
   }, [baseFiltered, fOT, fLate, fSourceOT, fSourceLate, filterCodes]);
 
-  /* ── Kéo-thả OT ── */
+  /* ── Kéo-thả OT (edit state, không auto-save) ── */
   const [dragOtSrc, setDragOtSrc] = useState<{ code: string; day: number } | null>(null);
   const [dragOtOver, setDragOtOver] = useState<{ code: string; day: number } | null>(null);
+  const [otEdits, setOtEdits] = useState<Map<string, number>>(new Map());
   const [savingOt, setSavingOt] = useState(false);
 
-  const handleOtDrop = useCallback(async (toCode: string, toDay: number) => {
-    if (!dragOtSrc || dragOtSrc.code !== toCode || dragOtSrc.day === toDay || savingOt || !monthId) return;
+  const getEffectiveOt = useCallback((code: string, day: number, origOt: number) => {
+    const v = otEdits.get(`${code}_${day}`);
+    return v !== undefined ? v : origOt;
+  }, [otEdits]);
+
+  const handleOtDrop = useCallback((toCode: string, toDay: number) => {
+    if (!dragOtSrc || dragOtSrc.code !== toCode || dragOtSrc.day === toDay) { setDragOtSrc(null); setDragOtOver(null); return; }
+    const rowsList = filtered as any[];
+    const origFrom = rowsList.find((r: any) => r.code === dragOtSrc.code)?.days?.find((d: any) => d.day === dragOtSrc.day)?.otH ?? 0;
+    const origTo   = rowsList.find((r: any) => r.code === toCode)?.days?.find((d: any) => d.day === toDay)?.otH ?? 0;
+    const fromOt = getEffectiveOt(dragOtSrc.code, dragOtSrc.day, origFrom);
+    const toOt   = getEffectiveOt(toCode, toDay, origTo);
+    if (fromOt <= 0) { setDragOtSrc(null); setDragOtOver(null); return; }
+    setOtEdits(prev => {
+      const next = new Map(prev);
+      const kFrom = `${dragOtSrc.code}_${dragOtSrc.day}`;
+      const kTo   = `${toCode}_${toDay}`;
+      if (fromOt !== 0) next.set(kFrom, 0);
+      else next.delete(kFrom);
+      next.set(kTo, Math.round((toOt + fromOt) * 100) / 100);
+      return next;
+    });
+    setDragOtSrc(null); setDragOtOver(null);
+  }, [dragOtSrc, filtered, getEffectiveOt]);
+
+  const handleOtSave = useCallback(async () => {
+    if (otEdits.size === 0 || !monthId) return;
     setSavingOt(true);
     try {
-      const r = await fetch('/api/distribution/step/4/edit-ot', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monthId, code: dragOtSrc.code, fromDay: dragOtSrc.day, toDay }),
+      const changes = Array.from(otEdits.entries()).map(([key, otH]) => {
+        const lastDash = key.lastIndexOf('_');
+        return { code: key.slice(0, lastDash), day: Number(key.slice(lastDash + 1)), otH };
       });
-      if (!r.ok) {
-        const err = await r.json();
-        alert(err.error || 'Lỗi di chuyển OT');
-      } else {
-        onSaved?.();
-      }
+      const r = await fetch('/api/distribution/step/4/edit-ot', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId, changes }),
+      });
+      if (!r.ok) { const err = await r.json(); alert(err.error || 'Lỗi lưu thay đổi OT'); }
+      else { setOtEdits(new Map()); onSaved?.(); }
     } catch (e) { alert('Lỗi kết nối: ' + String(e)); }
-    finally { setSavingOt(false); setDragOtSrc(null); setDragOtOver(null); }
-  }, [dragOtSrc, monthId, onSaved, savingOt]);
+    finally { setSavingOt(false); }
+  }, [otEdits, monthId, onSaved]);
 
   return (
     <div className={styles.tableOuter}>
@@ -1399,7 +1424,8 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
-                  const ot = Number(d?.otH) || 0;
+                  const origOt = Number(d?.otH) || 0;
+                  const ot = getEffectiveOt(r.code, i + 1, origOt);
                   const late = Number(d?.lateM) || 0;
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (dt === 0 && ot > 0 && late > 0) {
@@ -1437,6 +1463,13 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
           })}</tbody>
         </table>
       </ScrollTable>
+      {otEdits.size > 0 && (
+        <div className={styles.editBar}>
+          <span className={styles.editBarInfo}>✏️ <span className={styles.editBarCount}>{otEdits.size}</span> thay đổi</span>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={() => setOtEdits(new Map())} type="button">↩ Hoàn tác</button>
+          <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleOtSave} disabled={savingOt} type="button">{savingOt ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}</button>
+        </div>
+      )}
     </div>
   );
 }
