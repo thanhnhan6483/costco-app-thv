@@ -623,26 +623,20 @@ export async function GET(req: NextRequest) {
     };
     const symToType = new Map(Object.entries(symbolMap));
     for (const r of empImportRows) {
-      const workdaysVal = Math.round(Number(r.workdays) || 27);
-      const phepNam = Math.max(0, Math.round(Number(r.phep_nam) || 0));
-      let realFree = 0;
+      const workdaysVal = Math.round(Number(r.workdays) ?? 27);
+      const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
+      const xVal = workdaysVal - phepNam;
       let freeSlots = 0;
-      for (let i = 1; i <= 31; i++) {
+      for (let i = 1; i <= daysInMonth; i++) {
         const raw = (r[`day_${i}`] ?? '').toString().trim();
-        if (!raw) { freeSlots++; if (i <= daysInMonth) realFree++; continue; }
+        if (!raw) { freeSlots++; continue; }
         const dt = symToType.get(raw);
-        const isFree = dt !== undefined && dt >= 0 && dt <= 1;
-        if (isFree) { freeSlots++; if (i <= daysInMonth) realFree++; }
+        if (dt !== undefined && dt >= 0 && dt <= 1) freeSlots++;
       }
-      const totalNeeded = workdaysVal + phepNam;
-      const ok = freeSlots >= totalNeeded && realFree >= workdaysVal;
-      if (ok) continue;
-      const reasons: string[] = [];
-      if (freeSlots < totalNeeded) reasons.push(`tổng slots ${freeSlots} < cần ${totalNeeded} (X+PN)`);
-      if (realFree < workdaysVal) reasons.push(`ngày trống trong tháng ${realFree} < ${workdaysVal} X`);
+      if (freeSlots >= workdaysVal) continue;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: reasons.join('; ') + ' — không thể phân bổ',
+        detail: `Thiếu ${workdaysVal - freeSlots} ô trống. Chỉ có ${freeSlots} ô trống, cần xếp ${workdaysVal} chổ (${xVal}X + ${phepNam}PN). Cần kiểm tra lại Ngày Công, Phép Năm hoặc nghỉ cố định (NP, Ô, TS,...) đang chiếm ô`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;

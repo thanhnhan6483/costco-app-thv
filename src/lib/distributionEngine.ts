@@ -639,7 +639,7 @@ export function processEmployee(
   groupWorkHours: number | null,
   symbolMap?: Record<string, number>,
 ): DayResult[] {
-  const workdays    = parseFloat(emp.workdays)      || 27;
+  const workdays    = isNaN(parseFloat(emp.workdays)) ? 27 : parseFloat(emp.workdays);
   const otHours     = parseFloat(emp.overtimeHours) || 0;
   const lateMinutes = parseFloat(emp.lateMinutes)   || 0;
   const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));

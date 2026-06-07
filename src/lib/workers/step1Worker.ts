@@ -36,8 +36,9 @@ for (const [, group] of deptGroups) {
   let totalExpectedLP = 0;
   for (const emp of group) {
     if (accountingSet.has(emp.departmentId ?? '')) continue;
-    const workdays = parseFloat(emp.workdays) || 27;
-    if (workdays === 0) continue;
+    const workdays = parseFloat(emp.workdays);
+    const workdaysVal = isNaN(workdays) ? 27 : workdays;
+    if (workdaysVal === 0) continue;
     const inputArray = encodeInputArray(emp.days, symbolMap);
     const fa = inputArray.slice(0, 31);
     if (workdays >= params.workdaysThreshold)

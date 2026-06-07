@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { markStepDone, DAY_COLS } from '@/lib/stepHelpers';
+import { markStepDone, DAY_COLS, loadMonthInfo, loadSymbolMap } from '@/lib/stepHelpers';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
 
@@ -48,9 +48,65 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — đánh dấu step 2 done (người dùng đã xem và xác nhận)
+// POST — kiểm tra dữ liệu đầu vào rồi đánh dấu step 1 done
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
+
+  // Kiểm tra input_data_consistency trước khi cho phép xác nhận
+  const symbolMap = await loadSymbolMap(monthId);
+  const { daysInMonth } = await loadMonthInfo(monthId);
+  const conn = await getConn();
+  const empRows = await conn.all<Record<string, string>>(
+    `SELECT e.code, e.name, d.name AS deptName,
+            e.workdays, e.phep_nam,
+            ${DAY_COLS.map(c => `e.${c}`).join(', ')}
+     FROM employees e
+     LEFT JOIN departments d ON e.department_id = d.id
+     WHERE e.month_id = ? AND e.active = TRUE`, monthId
+  );
+  await conn.close();
+
+  const symToType = new Map(Object.entries(symbolMap));
+  const violations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
+
+  for (const r of empRows) {
+    const workdaysVal = Math.round(Number(r.workdays) ?? 27);
+    const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
+    const xVal = workdaysVal - phepNam;
+    let freeSlots = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+      const raw = (r[`day_${i}`] ?? '').toString().trim();
+      if (!raw) { freeSlots++; continue; }
+      const dt = symToType.get(raw);
+      if (dt !== undefined && dt >= 0 && dt <= 1) freeSlots++;
+    }
+    if (freeSlots >= workdaysVal) continue;
+    violations.push({
+      code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+      detail: `Thiếu ${workdaysVal - freeSlots} ô trống. Chỉ có ${freeSlots} ô trống, cần xếp ${workdaysVal} chổ (${xVal}X + ${phepNam}PN). Cần kiểm tra lại Ngày Công, Phép Năm hoặc nghỉ cố định (NP, Ô, TS,...) đang chiếm ô`,
+    });
+  }
+
+  if (violations.length > 0) {
+    return NextResponse.json({
+      error: 'Dữ liệu đầu vào không hợp lệ',
+      monthId,
+      totalEmps: empRows.length,
+      totalViolations: violations.length,
+      overallStatus: 'error',
+      checkedAt: new Date().toISOString(),
+      results: [{
+        id: 'input_data_consistency',
+        label: 'Kiểm tra dữ liệu đầu vào — đủ ô trống cho X + PN không',
+        description: 'Tổng ô trống (31 positions) phải ≥ workdays + PN; ngày trống trong tháng phải ≥ workdays.',
+        status: 'error',
+        violations,
+        violationCount: violations.length,
+        checkedCount: empRows.length,
+      }],
+    }, { status: 400 });
+  }
+
   await markStepDone(monthId, 1);
   return NextResponse.json({ ok: true, step: 2 });
 }

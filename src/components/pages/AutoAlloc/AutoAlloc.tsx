@@ -334,7 +334,17 @@ export default function AutoAlloc() {
     if (!step || step.viewOnly) return;
     const { apiNum } = step;
     if (apiNum === 1) {
-      await fetch(`/api/distribution/step/${apiNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId }) });
+      const res = await fetch(`/api/distribution/step/${apiNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monthId: activeMonthId }) });
+      if (!res.ok) {
+        const errData = await res.json();
+        if (errData.results) {
+          setValidateOpen(true);
+          setValidate2Status({ loading: false, result: errData });
+        } else {
+          alert(errData.error || 'Lỗi xác nhận dữ liệu đầu vào');
+        }
+        return;
+      }
       setValidateOpen(false);
       setValidate2Status({ loading: false, result: null });
       await refreshStatus();
@@ -2340,7 +2350,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
 
   if (step === 1) return stepWrapper(
-    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
+    <>      {validateWrapper(<ValidatePanel key={`${step}_${validateResult?.checkedAt ?? 'init'}`} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} />)}</>
   );
   if (step === 2) return stepWrapper(
