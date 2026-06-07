@@ -7,12 +7,12 @@ export async function GET() {
   const XLSX = await import('xlsx-js-style');
   const wb = XLSX.utils.book_new();
   const header = [
-    'employee_code', 'employee_name', 'department_code', 'group_code', 'group_code_end_date', 'workdays',
+    'employee_code', 'employee_name', 'department_name', 'group_code', 'group_code_end_date', 'workdays',
     ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
     'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_thang_truoc',
   ];
   const sample = [
-    'NV001', 'Nguyễn Văn A', 'KD', 'FULL', '31/12/2026', 26,
+    'NV001', 'Nguyễn Văn A', 'Kinh Doanh', 'FULL', '31/12/2026', 26,
     ...Array(31).fill(''),
     0, 0, 0, '',
   ];
@@ -115,6 +115,18 @@ export async function POST(req: NextRequest) {
     );
     const existingCodes = new Set(existingRows.map(r => r.code));
 
+    function fromExcelDate(val: unknown): string {
+      if (!val) return '';
+      const num = Number(val);
+      if (!isNaN(num) && num > 59 && Number.isInteger(num)) {
+        const d = new Date((num - 25569) * 86400000);
+        if (!isNaN(d.getTime())) {
+          return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        }
+      }
+      return String(val).trim();
+    }
+
     // Build danh sách rows hợp lệ
     const toInsert: unknown[][] = [];
     const now = new Date().toISOString().slice(0, 10);
@@ -126,15 +138,15 @@ export async function POST(req: NextRequest) {
 
       if (existingCodes.has(code)) { skipped++; skippedCodes.push(code); continue; }
 
-      const maPbRaw      = String(row['department_code'] ?? row['department_name'] ?? row['Mã PB'] ?? '').trim();
+const maPbRaw = String(row['department_code'] ?? row['department_name'] ?? row['Mã PB'] ?? row['TÊN PHÒNG BAN'] ?? '').trim();
       const departmentId = resolveDept(maPbRaw);
       const specialGroup = String(row['group_code'] ?? row['group_name'] ?? row['Mã nhóm'] ?? row['Nhóm'] ?? row['special_group'] ?? '').trim();
-      const groupCodeEndDate = String(row['group_code_end_date'] ?? '').trim();
+      const groupCodeEndDate = fromExcelDate(row['group_code_end_date']);
       const workdays = String(row['workdays'] ?? '').trim();
       const overtimeHours = String(row['overtime_hours'] ?? '').trim();
       const lateMinutes = String(row['late_minutes'] ?? '').trim();
       const phepNam = String(row['phep_nam'] ?? '').trim();
-      const ngayNghiCuoiThangTruoc = String(row['ngay_nghi_thang_truoc'] ?? '').trim();
+      const ngayNghiCuoiThangTruoc = fromExcelDate(row['ngay_nghi_thang_truoc']);
       const dayVals = Array.from({ length: 31 }, (_, i) => String(row[`Day ${i + 1}`] ?? '').trim());
 
       if (maPbRaw && !departmentId) {

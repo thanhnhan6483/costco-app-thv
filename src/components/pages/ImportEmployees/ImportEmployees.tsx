@@ -19,6 +19,11 @@ const IconUpload = () => (
 
 const DAY_COUNT = 31;
 
+const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
+const DT_TEXT: Record<number, string> = { 0: '#15803d', 1: '#475569', 2: '#6d28d9', 3: '#b91c1c', 4: '#be185d', 5: '#0f766e', 6: '#c2410c', 7: '#1d4ed8', 8: '#4b5563', 9: '#0e7490', 10: '#065f46', 11: '#92400e', 12: '#78350f', 13: '#1e40af', 14: '#374151' };
+const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5f3ff', 3: '#fef2f2', 4: '#fdf2f8', 5: '#f0fdfa', 6: '#fff7ed', 7: '#eff6ff', 8: '#f8fafc', 9: '#ecfeff', 10: '#d1fae5', 11: '#fef3c7', 12: '#fef9c3', 13: '#dbeafe', 14: '#f3f4f6' };
+const DT_SYMBOL: Record<number, string> = { 0: 'X', 1: 'LP', 2: 'PN', 3: 'Ô', 4: 'TS', 5: 'DS', 6: 'O', 7: 'NL', 8: 'OF', 9: 'P', 10: 'X/2', 11: 'LL', 12: 'LN', 13: 'H', 14: 'B' };
+
 interface Employee {
   id: string;
   code: string;
@@ -49,7 +54,7 @@ interface Employee {
 const BLANK = {
   code: '', name: '', departmentId: '', specialGroup: '',
   groupCodeEndDate: '', workdays: '', overtimeHours: '',
-  lateMinutes: '', phepNam: '',
+  lateMinutes: '', phepNam: '', ngayNghiCuoiThangTruoc: '',
   days: Array(DAY_COUNT).fill(''),
 };
 
@@ -138,7 +143,12 @@ function LimitSelector({ total, shown, limit, onLimit }: {
 }
 
 export default function ImportEmployees() {
-  const { activeMonthId, activeMonthLocked } = useApp();
+  const { activeMonthId, activeMonthLabel, activeMonthLocked } = useApp();
+  const daysInMonth = useMemo(() => {
+    const parts = String(activeMonthLabel).match(/^(\d{2})\/(\d{4})$/);
+    if (!parts) return DAY_COUNT;
+    return new Date(+parts[2], +parts[1], 0).getDate();
+  }, [activeMonthLabel]);
   const [rows, setRows] = useState<Employee[]>([]);
   const [depts, setDepts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [groups, setGroups] = useState<{ code: string; name: string }[]>([]);
@@ -155,6 +165,91 @@ export default function ImportEmployees() {
   const [relinking, setRelinking] = useState(false);
   const [relinkResult, setRelinkResult] = useState<{ linked: number; notFound: string[]; totalChecked: number } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
+  useEffect(() => {
+    fetch(`/api/leave-types?month=${activeMonthId}`).then(r => r.json()).then((data: { code: string; name: string; dayType: number }[]) => {
+      setLeaveTypes(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, [activeMonthId]);
+  const [picker, setPicker] = useState<{ code: string; day: number; currentDT: number | null; x: number; y: number } | null>(null);
+  const [edits, setEdits] = useState<Map<string, string>>(new Map());
+  const [dragSrc, setDragSrc] = useState<{ code: string; day: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ code: string; day: number } | null>(null);
+
+  const handleCellRightClick = (code: string, day: number, sym: string, e: React.MouseEvent) => {
+    if (activeMonthLocked) return;
+    e.preventDefault();
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPicker({ code, day, currentDT: sym === '' ? null : (SYM_TO_DT[sym] ?? -1), x: rect.left, y: rect.bottom + 4 });
+  };
+
+  const handlePick = (dt: number | null) => {
+    if (!picker) return;
+    const newSym = dt === null ? '' : (DT_SYMBOL[dt] ?? '');
+    const origRow = rows.find(r => r.code === picker.code) as unknown as Record<string, unknown>;
+    const origSym = String(origRow?.[`day_${picker.day}`] ?? '');
+    const k = `${picker.code}_${picker.day}`;
+    setEdits(prev => {
+      const n = new Map(prev);
+      newSym === origSym ? n.delete(k) : n.set(k, newSym);
+      return n;
+    });
+    setPicker(null);
+  };
+
+  const handleDrop = (toCode: string, toDay: number) => {
+    if (!dragSrc || dragSrc.code !== toCode || dragSrc.day === toDay) {
+      setDragSrc(null); setDragOver(null); return;
+    }
+    const fromRow = rows.find(r => r.code === dragSrc.code) as unknown as Record<string, unknown>;
+    const toRow = rows.find(r => r.code === toCode) as unknown as Record<string, unknown>;
+    const origFrom = String(fromRow?.[`day_${dragSrc.day}`] ?? '');
+    const origTo = String(toRow?.[`day_${toDay}`] ?? '');
+    const kFrom = `${dragSrc.code}_${dragSrc.day}`;
+    const kTo = `${toCode}_${toDay}`;
+    const fromSym = edits.get(kFrom) ?? origFrom;
+    const toSym = edits.get(kTo) ?? origTo;
+    if (fromSym === origTo && toSym === origFrom) {
+      setDragSrc(null); setDragOver(null); return;
+    }
+    setEdits(prev => {
+      const n = new Map(prev);
+      toSym === origFrom ? n.delete(kFrom) : n.set(kFrom, toSym);
+      fromSym === origTo ? n.delete(kTo) : n.set(kTo, fromSym);
+      return n;
+    });
+    setDragSrc(null); setDragOver(null);
+  };
+
+  const handleSaveEdits = async () => {
+    if (edits.size === 0) return;
+    setSaving(true);
+    try {
+      const changes = Array.from(edits.entries()).map(([k, symbol]) => {
+        const idx = k.lastIndexOf('_');
+        return { empCode: k.slice(0, idx), day: Number(k.slice(idx + 1)), symbol };
+      });
+      const r = await fetch('/api/distribution/edit-day-import', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthId: activeMonthId, changes }),
+      });
+      if (r.ok) {
+        setEdits(new Map());
+        setRows(prev => {
+          const updated = [...prev];
+          for (const ch of changes) {
+            const idx = updated.findIndex(e => e.code === ch.empCode);
+            if (idx >= 0) {
+              (updated[idx] as unknown as Record<string, unknown>)[`day_${ch.day}`] = ch.symbol;
+            }
+          }
+          return updated;
+        });
+      }
+    } finally { setSaving(false); }
+  };
+
   const [importResult, setImportResult] = useState<{
     inserted: number; skipped: number; skippedCodes: string[]; errors: string[];
     unmappedDept: { code: string; name: string; deptCode: string }[];
@@ -290,6 +385,25 @@ export default function ImportEmployees() {
     });
   }, [filtered, sort]);
 
+  // ── Legend: unique day symbols ────────────────────
+  const symbolToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const lt of leaveTypes) {
+      m[lt.code] = lt.name;
+    }
+    return m;
+  }, [leaveTypes]);
+  const usedSymbols = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of sorted) {
+      for (let i = 1; i <= daysInMonth; i++) {
+        const v = (r as unknown as Record<string, unknown>)[`day_${i}`];
+        if (v && String(v).trim()) s.add(String(v).trim());
+      }
+    }
+    return [...s].filter(sym => SYM_TO_DT[sym] !== undefined).sort((a, b) => a.localeCompare(b));
+  }, [sorted]);
+
   // ── Selection helpers ─────────────────────────────
   const allVisibleIds = useMemo(() => sorted.map(r => r.id), [sorted]);
   const isAllSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
@@ -363,7 +477,8 @@ export default function ImportEmployees() {
       specialGroup: r.specialGroup, groupCodeEndDate: r.groupCodeEndDate,
       workdays: r.workdays, overtimeHours: r.overtimeHours,
       lateMinutes: r.lateMinutes, phepNam: r.phepNam,
-      days: Array.from({ length: DAY_COUNT }, (_, i) => getDay(r, i)),
+      ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc,
+      days: Array.from({ length: daysInMonth }, (_, i) => getDay(r, i)),
     });
     setEditId(r.id); setShowForm(true);
   };
@@ -657,7 +772,7 @@ export default function ImportEmployees() {
                   </select>
                 </div>
                 <div className={s.field}>
-                  <label className={s.label}>Nhóm</label>
+                  <label className={s.label}>Nhóm Đặc Thù</label>
                   <select className={s.input} value={form.specialGroup} onChange={e => setForm(f => ({ ...f, specialGroup: e.target.value }))}>
                     <option value="">— Không có —</option>
                     {groups.map(g => <option key={g.code} value={g.code}>{g.code} – {g.name}</option>)}
@@ -666,7 +781,7 @@ export default function ImportEmployees() {
               </div>
               <div className={s.row2}>
                 <div className={s.field}>
-                  <label className={s.label}>Ngày KT Nhóm</label>
+                  <label className={s.label}>Ngày Kết Thúc Nhóm Đặc Thù</label>
                   <input className={s.input} value={form.groupCodeEndDate} onChange={e => setForm(f => ({ ...f, groupCodeEndDate: e.target.value }))} placeholder="DD/MM/YYYY" />
                 </div>
                 <div className={s.field}>
@@ -676,9 +791,9 @@ export default function ImportEmployees() {
               </div>
               {/* Ký hiệu chấm công */}
               <div className={s.field}>
-                <label className={s.label}>Ký hiệu chấm công (1–31)</label>
+                <label className={s.label}>Ký hiệu chấm công (1–{daysInMonth})</label>
                 <div className={styles.dayGrid}>
-                  {Array.from({ length: DAY_COUNT }, (_, i) => (
+                  {Array.from({ length: daysInMonth }, (_, i) => (
                     <div key={i} className={styles.dayCell}>
                       <span className={styles.dayLabel}>{i + 1}</span>
                       <input
@@ -699,13 +814,19 @@ export default function ImportEmployees() {
                   <input className={s.input} value={form.overtimeHours} onChange={e => setForm(f => ({ ...f, overtimeHours: e.target.value }))} placeholder="0" />
                 </div>
                 <div className={s.field}>
-                  <label className={s.label}>Trễ (phút)</label>
+                  <label className={s.label}>Giờ Trễ (phút)</label>
                   <input className={s.input} value={form.lateMinutes} onChange={e => setForm(f => ({ ...f, lateMinutes: e.target.value }))} placeholder="0" />
                 </div>
               </div>
-              <div className={s.field} style={{ maxWidth: 200 }}>
-                <label className={s.label}>Phép Năm</label>
-                <input className={s.input} value={form.phepNam} onChange={e => setForm(f => ({ ...f, phepNam: e.target.value }))} placeholder="0" />
+              <div className={s.row2} style={{ marginTop: 8 }}>
+                <div className={s.field}>
+                  <label className={s.label}>Phép Năm</label>
+                  <input className={s.input} value={form.phepNam} onChange={e => setForm(f => ({ ...f, phepNam: e.target.value }))} placeholder="0" />
+                </div>
+                <div className={s.field}>
+                  <label className={s.label}>Nghỉ Tháng Trước</label>
+                  <input className={s.input} value={form.ngayNghiCuoiThangTruoc} onChange={e => setForm(f => ({ ...f, ngayNghiCuoiThangTruoc: e.target.value }))} placeholder="DD/MM/YYYY" />
+                </div>
               </div>
               <div className={s.formActions}>
                 <button type="submit" className={s.btnPrimary} disabled={saving}>{saving ? 'Đang lưu…' : editId ? '💾 Lưu' : '✅ Thêm'}</button>
@@ -915,6 +1036,7 @@ export default function ImportEmployees() {
         {loading ? (
           <div className={s.loadingState}><span className={s.spinner} /><span>Đang tải…</span></div>
         ) : (
+          <div className={styles.tableBody}>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -933,15 +1055,15 @@ export default function ImportEmployees() {
                   <SortTh label="TÊN NHÂN VIÊN" sortKey="name" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thName} ${styles.s2}`} />
                   <SortTh label="PHÒNG BAN" sortKey="departmentName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thDept}`} />
                   <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroupName" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thGroup}`} />
-                  <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" current={sort} onSort={toggleSort} className={styles.th} />
+                  <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="NGÀY CÔNG" sortKey="workdays" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
-                  {Array.from({ length: DAY_COUNT }, (_, i) => (
+                  {Array.from({ length: daysInMonth }, (_, i) => (
                     <th key={i} className={`${styles.th} ${styles.thDay}`}>{i + 1}</th>
                   ))}
                   <SortTh label="TĂNG CA(H)" sortKey="overtimeHours" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
-                  <SortTh label="TRỄ (ph)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <SortTh label="PHÉP NĂM" sortKey="phepNam" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
-                  <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
+                  <SortTh label="NGHỈ T. TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" current={sort} onSort={toggleSort} className={`${styles.th} ${styles.thCenter}`} />
                   <th className={`${styles.th} ${styles.thAction}`}>THAO TÁC</th>
                 </tr>
                 {/* Filter row */}
@@ -975,12 +1097,12 @@ export default function ImportEmployees() {
                       ))}
                     </select>
                   </th>
-                  <th><select className={styles.deptFilterSelect} value={col.groupCodeEndDate} onChange={e => setCol(p => ({ ...p, groupCodeEndDate: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueEndDates.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.workdays} onChange={e => setCol(p => ({ ...p, workdays: e.target.value }))}><option value="">Tất cả</option>{uniqueWorkdays.map(d => <option key={d} value={d}>{d}</option>)}</select></th>{Array.from({ length: DAY_COUNT }, (_, i) => <th key={i} />)}<th><select className={styles.deptFilterSelect} value={col.overtimeHours} onChange={e => setCol(p => ({ ...p, overtimeHours: e.target.value }))}><option value="">Tất cả</option>{uniqueOvertimeHours.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.lateMinutes} onChange={e => setCol(p => ({ ...p, lateMinutes: e.target.value }))}><option value="">Tất cả</option>{uniqueLateMinutes.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.phepNam} onChange={e => setCol(p => ({ ...p, phepNam: e.target.value }))}><option value="">Tất cả</option>{uniquePhepNam.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.ngayNghi} onChange={e => setCol(p => ({ ...p, ngayNghi: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueNgayNghi.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th />
+                  <th><select className={styles.deptFilterSelect} value={col.groupCodeEndDate} onChange={e => setCol(p => ({ ...p, groupCodeEndDate: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueEndDates.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.workdays} onChange={e => setCol(p => ({ ...p, workdays: e.target.value }))}><option value="">Tất cả</option>{uniqueWorkdays.map(d => <option key={d} value={d}>{d}</option>)}</select></th>{Array.from({ length: daysInMonth }, (_, i) => <th key={i} />)}<th><select className={styles.deptFilterSelect} value={col.overtimeHours} onChange={e => setCol(p => ({ ...p, overtimeHours: e.target.value }))}><option value="">Tất cả</option>{uniqueOvertimeHours.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.lateMinutes} onChange={e => setCol(p => ({ ...p, lateMinutes: e.target.value }))}><option value="">Tất cả</option>{uniqueLateMinutes.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.phepNam} onChange={e => setCol(p => ({ ...p, phepNam: e.target.value }))}><option value="">Tất cả</option>{uniquePhepNam.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={styles.deptFilterSelect} value={col.ngayNghi} onChange={e => setCol(p => ({ ...p, ngayNghi: e.target.value }))}><option value="">Tất cả</option><option value="__EMPTY__">⚠️ Ngày trống</option>{uniqueNgayNghi.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th />
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 ? (
-                  <tr><td colSpan={DAY_COUNT + 12} className={styles.noResult}>
+                  <tr><td colSpan={daysInMonth + 12} className={styles.noResult}>
                     {rows.length === 0 ? 'Chưa có nhân viên. Nhấn Thêm Mới hoặc Import Excel.' : 'Không tìm thấy.'}
                     {hasFilter && <button className={s.linkBtn} onClick={clearFilters}> Xóa bộ lọc</button>}
                   </td></tr>
@@ -1008,10 +1130,32 @@ export default function ImportEmployees() {
                           {r.workdays || <span className={s.noNote}>—</span>}
                         </td>);
                     })()}
-                    {Array.from({ length: DAY_COUNT }, (_, j) => {
+                    {Array.from({ length: daysInMonth }, (_, j) => {
                       const val = getDay(r, j);
+                      const dt = val ? (SYM_TO_DT[val] ?? -1) : -1;
+                      const bg = dt >= 0 ? (DT_CELL_BG[dt] ?? '#fff') : '#fff';
+                      const clr = dt >= 0 ? (DT_TEXT[dt] ?? '#9ca3af') : '#9ca3af';
+                      const isDragSrc = dragSrc?.code === r.code && dragSrc?.day === j + 1;
+                      const isDragOver = dragOver?.code === r.code && dragOver?.day === j + 1;
                       return (
-                        <td key={j} className={`${styles.td} ${styles.tdDay} ${val ? styles.tdDayFilled : ''}`}>
+                        <td key={j} className={`${styles.td} ${styles.tdDay}`}
+                          style={{
+                            background: bg,
+                            color: clr,
+                            fontWeight: val ? 700 : 400,
+                            cursor: activeMonthLocked ? 'default' : (val ? 'grab' : 'default'),
+                            opacity: isDragSrc ? 0.4 : 1,
+                            outline: isDragOver ? '2px solid #1d4ed8' : undefined,
+                            outlineOffset: isDragOver ? -1 : undefined,
+                          }}
+                          onContextMenu={e => handleCellRightClick(r.code, j + 1, val, e)}
+                          draggable={!activeMonthLocked && !!val}
+                          onDragStart={() => { if (!activeMonthLocked && val) setDragSrc({ code: r.code, day: j + 1 }); }}
+                          onDragOver={e => { if (activeMonthLocked) return; e.preventDefault(); setDragOver({ code: r.code, day: j + 1 }); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={() => handleDrop(r.code, j + 1)}
+                          onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                        >
                           {val || <span className={styles.dot}>·</span>}
                         </td>
                       );
@@ -1019,13 +1163,13 @@ export default function ImportEmployees() {
                     {(() => {
                       const n = numVal(r.overtimeHours); const warn = !isNaN(n) && n < 0; return (
                         <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                          {isNaN(n) ? (r.overtimeHours || '—') : Math.round(n)}
+                          {isNaN(n) ? (r.overtimeHours || '') : n > 0 ? <span className={styles.otTag}>{n.toFixed(2)}h</span> : ''}
                         </td>);
                     })()}
                     {(() => {
                       const n = numVal(r.lateMinutes); const warn = !isNaN(n) && n < 0; return (
                         <td className={`${styles.td} ${styles.tdNum} ${warn ? styles.tdWarnVal : ''}`}>
-                          {isNaN(n) ? (r.lateMinutes || '—') : Math.round(n)}
+                          {isNaN(n) ? (r.lateMinutes || '') : n > 0 ? <span className={styles.lateTag}>{n.toFixed(2)}ph</span> : ''}
                         </td>);
                     })()}
                     <td className={`${styles.td} ${styles.tdNum}`}>{r.phepNam || '—'}</td>
@@ -1043,8 +1187,82 @@ export default function ImportEmployees() {
               </tbody>
             </table>
           </div>
+          {usedSymbols.length > 0 && (
+            <div className={styles.legend}>
+              {usedSymbols.map(sym => {
+                const dt = SYM_TO_DT[sym] ?? -1;
+                const bg = dt >= 0 ? DT_CELL_BG[dt] : '#fff';
+                const clr = dt >= 0 ? DT_TEXT[dt] : '#9ca3af';
+                return (
+                  <span key={sym} className={styles.legendItem}>
+                    <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: bg, color: clr, fontWeight: 700, fontSize: '0.72rem', marginRight: 3, border: `1px solid ${clr}30` }}>{sym}</span>
+                    {symbolToName[sym] ?? sym}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {edits.size > 0 && (
+            <div className={styles.editBar}>
+              <span className={styles.editBarInfo}>✏️ <span className={styles.editBarCount}>{edits.size}</span> thay đổi</span>
+              <button className={`${styles.editBarBtn} ${styles.editBarBtnUndo}`} onClick={() => setEdits(new Map())} disabled={activeMonthLocked} type="button">↩ Hoàn tác</button>
+              <button className={`${styles.editBarBtn} ${styles.editBarBtnSave}`} onClick={handleSaveEdits} disabled={saving || activeMonthLocked} type="button">{saving ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}</button>
+            </div>
+          )}
+          </div>
         )}
+
+      {picker && (
+        <DayTypePicker
+          currentDT={picker.currentDT}
+          x={picker.x} y={picker.y}
+          onPick={handlePick}
+          onClose={() => setPicker(null)}
+          leaveTypes={leaveTypes}
+        />
+      )}
       </div>
     </div>
+  );
+}
+
+function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
+  currentDT: number | null; x: number; y: number;
+  onPick: (dt: number | null) => void; onClose: () => void;
+  leaveTypes: { code: string; name: string; dayType: number }[];
+}) {
+  const left = Math.min(x, typeof window !== 'undefined' ? window.innerWidth - 220 : x);
+  const top = Math.min(y, typeof window !== 'undefined' ? window.innerHeight - 160 : y);
+  return (
+    <>
+      <div className={styles.dayPickerOverlay} onClick={onClose} />
+      <div className={styles.dayPicker} style={{ left, top }}>
+        <button
+          className={`${styles.dayPickerBtn} ${currentDT === null ? styles.dayPickerBtnActive : ''}`}
+          onClick={() => onPick(null)}
+          type="button"
+          style={{ gridColumn: '1 / -1', color: '#6b7280', background: '#f3f4f6' }}
+        >
+          ✕ Trống
+        </button>
+        {(Array.isArray(leaveTypes) ? leaveTypes : []).map(lt => {
+          const dt = lt.dayType >= 0 ? lt.dayType : (SYM_TO_DT[lt.code] ?? -1);
+          if (dt < 0) return null;
+          const sym = DT_SYMBOL[dt] ?? lt.code;
+          const isActive = dt === currentDT;
+          return (
+            <button key={lt.code}
+              className={`${styles.dayPickerBtn} ${isActive ? styles.dayPickerBtnActive : ''}`}
+              style={{ color: DT_TEXT[dt] ?? '#374151', background: DT_CELL_BG[dt] ?? '#f9fafb' }}
+              onClick={() => onPick(dt)}
+              type="button"
+            >
+              <span>{sym}</span>
+              <span className={styles.dayPickerLabel}>{lt.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }

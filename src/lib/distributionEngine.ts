@@ -545,6 +545,10 @@ export function step1_generateArrangement(
   // ZEROS gồm X cho workdays + X cho padded
   let ZEROS = Math.max(0, workdaysVal + paddedCount);
   let ONES = Math.max(0, freeSlots - ZEROS);
+  // Đảm bảo LP ≥ ceil(workdays/6)-1 để không vi phạm max consecutive
+  const minLP = Math.max(0, Math.ceil(workdaysVal / 6) - 1);
+  ONES = Math.max(ONES, minLP);
+  ZEROS = Math.max(0, freeSlots - ONES);
 
   // Retry original params nhiều lần (random hóa đường đi) trước khi fallback
   arrangement = null;
@@ -748,6 +752,9 @@ export function processEmployee(
     const paddedCount = Math.max(0, 31 - daysInMonth);
     let ZEROS = Math.max(0, workdaysVal + paddedCount);
     let ONES = Math.max(0, freeSlots - ZEROS);
+    const minLP = Math.max(0, Math.ceil(workdaysVal / 6) - 1);
+    ONES = Math.max(ONES, minLP);
+    ZEROS = Math.max(0, freeSlots - ONES);
 
     arrangement = null;
     for (let attempt = 0; attempt < 5; attempt++) {

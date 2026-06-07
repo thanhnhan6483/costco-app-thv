@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadParams, loadMonthInfo } from '@/lib/stepHelpers';
+import { loadParams, loadMonthInfo, loadSymbolMap, loadSpecialDeptIds } from '@/lib/stepHelpers';
+import { DEFAULT_SYMBOL_MAP } from '@/lib/distributionEngine';
 export const runtime = 'nodejs';
 
 /* ── Types ── */
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
   try {
     const params = await loadParams(monthId);
     const { daysInMonth, month, year } = await loadMonthInfo(monthId);
+    const symbolMap = await loadSymbolMap(monthId);
 
     // Danh sách rule đang active — dùng để quyết định có chạy check hay không
     const activeRuleRows = await conn.all<{ paramKey: string }>(
@@ -526,33 +528,120 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
     const empImportRows = await conn.all<Record<string, string>>(
-      `SELECT e.code, e.name, d.name AS deptName, ${DAY_COLS.map(c => `e.${c}`).join(', ')}
+       `SELECT e.code, e.name, d.name AS deptName, e.department_id,
+               e.ngay_nghi_cuoi_thang_truoc,
+               e.workdays, e.phep_nam,
+               ${DAY_COLS.map(c => `e.${c}`).join(', ')}
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
        WHERE e.month_id = ? AND e.active = TRUE`, monthId
     );
-    const checkImportPN: CheckResult = {
-      id: 'pn_start_day_import',
-      label: `PN trong dữ liệu import (≥ ngày ${params.pnStartFromDay})`,
-      description: `PN trong file import chỉ được xếp từ ngày ${params.pnStartFromDay} trở đi`,
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Ngày nghỉ T.Trước chưa phải ngày nghỉ cuối cùng của tháng
+       Nếu từ ngày nhập → cuối tháng ≥ maxConsecutiveDays+1 (tức sau
+       6 work days vẫn còn 1 rest day trong tháng đó) thì báo lỗi
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkLastLeave: CheckResult = {
+      id: 'last_leave_day_import',
+      label: `Ngày nghỉ tháng trước chưa phải ngày cuối cùng (cách cuối tháng >${params.maxConsecutiveDays} ngày)`,
+      description: `Sau ${params.maxConsecutiveDays} ngày làm việc tiếp theo vẫn còn 1 ngày nghỉ trong tháng → nhập chưa đúng ngày nghỉ cuối cùng thực tế`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
-    const PN_SYMBOLS = new Set(['PN', 'pn']);
     for (const r of empImportRows) {
-      for (let d = 1; d < params.pnStartFromDay; d++) {
-        const sym = (r[`day_${d}`] ?? '').trim();
-        if (PN_SYMBOLS.has(sym)) {
-          checkImportPN.violations.push({
-            code: r.code, name: r.name, deptName: r.deptName ?? '—', day: d,
-            detail: `PN tại ngày ${d} trong dữ liệu import (trước ngày ${params.pnStartFromDay})`,
+      const ngayNghiRaw = (r.ngay_nghi_cuoi_thang_truoc ?? '').trim();
+      if (!ngayNghiRaw) continue;
+      const initRun = calcConsecutiveDays(ngayNghiRaw);
+      if (initRun <= params.maxConsecutiveDays) continue;
+      checkLastLeave.violations.push({
+        code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+        detail: `${formatDDMMYYYY(ngayNghiRaw)} → sau ${params.maxConsecutiveDays} ngày LV cần nghỉ (còn trong tháng) — cập nhật ngày nghỉ cuối cùng thực tế`,
+      });
+    }
+    checkLastLeave.violationCount = checkLastLeave.violations.length;
+    checkLastLeave.status = checkLastLeave.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkLastLeave);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Bộ phận kế toán — ngày nghỉ tháng trước không rơi vào T7/CN
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const { accountingIds } = await loadSpecialDeptIds(monthId);
+    const checkAcctNgayNghi: CheckResult = {
+      id: 'accounting_ngay_nghi_cuoi_thang_truoc',
+      label: 'Bộ phận kế toán ngày nghỉ cuối tháng không phải ngày T7/CN trong tháng',
+      description: 'Nhân viên kế toán: ngày nghỉ cuối tháng trước phải sau T7/CN cuối cùng của tháng đó (không để còn T7/CN sau ngày nhập)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
+    };
+    const parseDateObj = (s: string): { d: number; m: number; y: number } | null => {
+      if (!s) return null;
+      const clean = s.trim().replace(/^["']|["']$/g, '');
+      if (!clean) return null;
+      let d: number, m: number, y: number;
+      if (clean.includes('/')) {
+        const parts = clean.split('/').map(Number);
+        if (parts.length < 2) return null;
+        [d, m, y] = parts;
+      } else {
+        const parts = clean.split('T')[0].split(' ')[0].split('-').map(Number);
+        if (parts.length < 3) return null;
+        [y, m, d] = parts;
+      }
+      return { d, m, y };
+    };
+    for (const r of empImportRows) {
+      const deptId = (r.department_id ?? '').trim();
+      if (!deptId || !accountingIds.has(deptId)) continue;
+      const ngayNghiRaw = (r.ngay_nghi_cuoi_thang_truoc ?? '').trim();
+      if (!ngayNghiRaw) continue;
+      const parsed = parseDateObj(ngayNghiRaw);
+      if (!parsed) continue;
+      const { d, m, y } = parsed;
+      const lastDay = new Date(y, m, 0).getDate();
+      for (let checkDay = d + 1; checkDay <= lastDay; checkDay++) {
+        const dow = new Date(y, m - 1, checkDay).getDay();
+        if (dow === 0 || dow === 6) {
+          checkAcctNgayNghi.violations.push({
+            code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+            detail: `NGHỈ THÁNG TRƯỚC (${formatDDMMYYYY(ngayNghiRaw)}) — còn T7/CN ngày ${checkDay}/${String(m).padStart(2, '0')} sau đó, cập nhật ngày cuối cùng thực tế`,
           });
-          break; // 1 vi phạm/NV là đủ
+          break;
         }
       }
     }
-    checkImportPN.violationCount = checkImportPN.violations.length;
-    checkImportPN.status = checkImportPN.violationCount === 0 ? 'ok' : 'error';
-    results.push(checkImportPN);
+    checkAcctNgayNghi.violationCount = checkAcctNgayNghi.violations.length;
+    checkAcctNgayNghi.status = checkAcctNgayNghi.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkAcctNgayNghi);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Dữ liệu đầu vào — số ô trống có đủ cho LP + X không
+       Đọc từ employees (dữ liệu gốc, chưa phân bổ)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkInputData: CheckResult = {
+      id: 'input_data_consistency',
+      label: 'Kiểm tra dữ liệu đầu vào — ô trống có đủ cho LP + X không',
+      description: 'Tính số ô trống, LP tối thiểu, workdays mục tiêu → tổng có vượt quá số ô trống?',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
+    };
+    const symToType = new Map(Object.entries(symbolMap));
+    for (const r of empImportRows) {
+      const workdaysVal = Math.round(Number(r.workdays) || 27);
+      const minLP = Math.max(0, Math.ceil(workdaysVal / 6) - 1);
+      const inputArray: number[] = [];
+      for (let i = 1; i <= 31; i++) {
+        const raw = (r[`day_${i}`] ?? '').toString().trim();
+        if (!raw) { inputArray.push(0); continue; }
+        const dt = symToType.get(raw);
+        inputArray.push(dt ?? 3);
+      }
+      const freeSlots = inputArray.filter(v => v >= 0 && v <= 1).length;
+      if (freeSlots >= minLP + workdaysVal) continue;
+      checkInputData.violations.push({
+        code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+        detail: `Còn ${freeSlots} ô trống, cần tối thiểu ${minLP} LP + ${workdaysVal} X = ${minLP + workdaysVal} ô — thiếu ${minLP + workdaysVal - freeSlots} ô (không thể phân bổ)`,
+      });
+    }
+    checkInputData.violationCount = checkInputData.violations.length;
+    checkInputData.status = checkInputData.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkInputData);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check QT7: OT tối thiểu/ngày (nếu có OT thì ≥ minOtPerDayMinutes)

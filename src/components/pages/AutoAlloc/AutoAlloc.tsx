@@ -451,7 +451,8 @@ export default function AutoAlloc() {
             >
               {(running === activeStep || (activeStep === 2 && algoRunning))
                 ? <><span className={styles.spinnerSm} /> {elapsed}s</>
-                : curStep?.apiNum === 1 ? <><IconCheck /> Xác nhận</>
+                : curStep?.apiNum === 1
+                  ? <><IconCheck /> Xác nhận</>
                   : <><IconPlay /> {'Chạy bước'} {activeStep}</>}
             </button>
           )}
@@ -519,6 +520,22 @@ export default function AutoAlloc() {
 .              */}
               </>
             )}
+            {activeStep === 1 && (() => {
+              const { loading, result } = validate2Status;
+              const doRun = () => { setRecheckKey(k => k + 1); setValidateOpen(true); validateRef.current?.run(); };
+              if (loading) return <button className={styles.btnExport} disabled style={{ minWidth: 130, justifyContent: 'center' }}>⏳ Đang kiểm tra...</button>;
+              if (result) return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button className={styles.btnExport} onClick={() => setValidateOpen(v => !v)}
+                    style={{ minWidth: 130, justifyContent: 'center', background: result.overallStatus === 'ok' ? '#f0fdf4' : '#fef2f2', color: result.overallStatus === 'ok' ? '#15803d' : '#b91c1c', borderColor: result.overallStatus === 'ok' ? '#86efac' : '#fca5a5' }}>
+                    {validateOpen ? '▴ ' : '▾ '}{result.overallStatus === 'ok' ? '✅ Đạt' : `❌ Xem vi phạm`}
+                  </button>
+                  <button className={styles.btnExport} title="Kiểm tra lại" onClick={doRun}
+                    style={{ minWidth: 32, padding: '0 8px', justifyContent: 'center', color: '#64748b' }}>🔄 Kiểm tra lại</button>
+                </div>
+              );
+              return <button className={styles.btnExport} style={{ minWidth: 130, justifyContent: 'center' }} onClick={doRun}>🔍 Kiểm tra</button>;
+            })()}
             {(activeStep === 1 || (curStep && status[curStep.key])) && (
               <a href={activeMonthId ? `/api/distribution/export?month=${activeMonthId}&step=${activeStep}` : '#'} className={styles.btnExport} download id={`btn-export-step-${activeStep}`} style={{ minWidth: 110, justifyContent: 'center' }}>
                 <IconDl /> Tải Excel
@@ -657,6 +674,12 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   const [fLate, setFLate] = useState('');
   const [fPN, setFPN] = useState('');
   const [fSymCounts, setFSymCounts] = useState<Record<number, string>>({});
+  const [fNghiTruoc, setFNghiTruoc] = useState('');
+  const nghiTruocList = useMemo(() => {
+    const vals = [...new Set((rows as any[]).map(r => fmtDate(r.ngayNghiCuoiThangTruoc)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'vi'));
+    if ((rows as any[]).some(r => !fmtDate(r.ngayNghiCuoiThangTruoc))) vals.unshift('(Trống)');
+    return vals;
+  }, [rows]);
   const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
@@ -730,6 +753,13 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
     if (fOT) result = result.filter(r => String(Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.')))) === fOT);
     if (fLate) result = result.filter(r => String(Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.')))) === fLate);
     if (fPN) result = result.filter(r => String(r.phepNam ?? '') === fPN);
+    if (fNghiTruoc) {
+      if (fNghiTruoc === '(Trống)') {
+        result = result.filter((x: any) => !fmtDate(x.ngayNghiCuoiThangTruoc));
+      } else {
+        result = result.filter((x: any) => (fmtDate(x.ngayNghiCuoiThangTruoc) ?? '') === fNghiTruoc);
+      }
+    }
     for (const [dtStr, val] of Object.entries(fSymCounts)) {
       if (!val) continue;
       const dt = Number(dtStr);
@@ -739,6 +769,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
         return String(days.filter(d => getEffectiveSym(r.code, d.day, d.symbol ?? '') === sym).length) === val;
       });
     }
+    if (filterCodes) result = result.filter((r: any) => filterCodes.has(r.code));
     if (!step1Filter) return result;
     return result.filter(r => {
       const days: { day: number; symbol: string }[] = r.days ?? [];
@@ -747,7 +778,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
       if (step1Filter === 'pn_mismatch') { const pnCount = pnDays.length; const colPN = Number(r.phepNam) || 0; return pnCount !== colPN; }
       return true;
     });
-  }, [baseFiltered, fWorkdays, fOT, fLate, fPN, fSymCounts, step1Filter]);
+  }, [baseFiltered, fWorkdays, fOT, fLate, fPN, fNghiTruoc, fSymCounts, step1Filter, filterCodes]);
   const [leaveTypes, setLeaveTypes] = useState<{ code: string; name: string; dayType: number }[]>([]);
   useEffect(() => {
     fetch(`/api/leave-types?month=${monthId}`).then(r => r.json()).then((data: { code: string; name: string; dayType: number }[]) => {
@@ -805,6 +836,11 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
           🔍 Đang lọc: <strong>{step1Filter === 'pn_before_15' ? 'PN trước ngày 15' : 'PN khác SL ngày cột'}</strong> — {filtered.length} dòng
         </div>
       )}
+      {filterCodes && filterCodes.size > 0 && (
+        <div style={{ padding: '4px 12px', background: '#fef2f2', borderBottom: '1px solid #fecaca', fontSize: 12, color: '#dc2626' }}>
+          🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào nút lọc bên trên để bỏ lọc
+        </div>
+      )}
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
           <thead>
@@ -814,6 +850,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
+              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               {usedSymbols.map(({ dt, sym }) => (
@@ -823,7 +860,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>
             </tr>
              <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}>
+              middleChildren={<><th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th></>}>
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt}><select className={s.statusFilterSelect} value={fSymCounts[dt] ?? ''} onChange={e => setFSymCounts(p => ({ ...p, [dt]: e.target.value }))} style={{ fontSize: 10, padding: '1px 3px', minWidth: 32 }}><option value="">—</option>{(symCountsList[dt] ?? []).map(v => <option key={v} value={v}>{v}</option>)}</select></th>
               ))}
@@ -841,6 +878,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+                  <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
@@ -1119,6 +1157,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+              <SortTh label="DỰ KIẾN LP" sortKey="expectedLP" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
@@ -1126,7 +1165,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
             >
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
-              <th /><th /><th />
+              <th /><th /><th /><th />
               <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
             </InlineFilterRow>
           </thead>
@@ -1174,6 +1213,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={styles.statCell}>{r._lpCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>
+                <td className={styles.statCell} style={{ color: '#1d4ed8', fontWeight: 600 }}>{r.expectedLP ?? 0}</td>
                 {(() => {
                   const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                   const [mm, yyyy] = monthLabel.split('/');
@@ -1816,8 +1856,13 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const [error, setError] = useState<string | null>(null);
     const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
     const [activeFilter, setActiveFilter] = useState<{ id: string; mode: FilterMode } | null>(null);
+    const [activeFilterGlobal, setActiveFilterGlobal] = useState<FilterMode | null>(null);
     const activeFilterRef = useRef(activeFilter);
     activeFilterRef.current = activeFilter;
+    const totalViolatorCodes = useMemo(() => {
+      if (!result) return new Set<string>();
+      return new Set(result.results.flatMap(c => c.violations.filter(v => v.code !== '—').map(v => v.code)));
+    }, [result]);
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
     const lastFetchVersion = useRef<number | undefined>(undefined);
 
@@ -1907,23 +1952,33 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
         {result && (
           
           <div className={styles.validateGrid}>
+            <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', borderBottom: '1px solid #e2e8f0', marginBottom: 4 }}>
+              <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Lọc:</span>
+              {totalViolatorCodes.size > 0 && (
+                <span onClick={e => { e.stopPropagation(); if (activeFilterGlobal === 'violation') { setActiveFilterGlobal(null); onFilterChange(null); } else { setActiveFilterGlobal('violation'); onFilterChange({ mode: 'violation', codes: totalViolatorCodes }); } }}
+                  style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', background: activeFilterGlobal === 'violation' ? '#fee2e2' : '#f1f5f9', color: activeFilterGlobal === 'violation' ? '#b91c1c' : '#64748b', border: activeFilterGlobal === 'violation' ? '1px solid #fca5a5' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >{activeFilterGlobal === 'violation' ? '🔍' : ''} ❌ Vi phạm ({totalViolatorCodes.size} NV)</span>
+              )}
+              {totalViolatorCodes.size > 0 && (
+                <span onClick={e => { e.stopPropagation(); if (activeFilterGlobal === 'pass') { setActiveFilterGlobal(null); onFilterChange(null); } else { const allCodes = new Set(result.results.flatMap(c => c.violations.filter(v => v.code !== '—').map(v => v.code))); const passCodes = new Set([...allCodes].filter(c => !totalViolatorCodes.has(c))); onFilterChange({ mode: 'pass', codes: passCodes }); setActiveFilterGlobal('pass'); } }}
+                  style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', background: activeFilterGlobal === 'pass' ? '#dcfce7' : '#f1f5f9', color: activeFilterGlobal === 'pass' ? '#15803d' : '#64748b', border: activeFilterGlobal === 'pass' ? '1px solid #86efac' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >{activeFilterGlobal === 'pass' ? '🔍' : ''} ✅ Đạt</span>
+              )}
+            </div>
             {result.results.map(check => (
-              <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}${activeFilter?.id === check.id ? ` ${styles.checkCardActive}` : ''}`}>
+              <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}`}>
                 <div className={styles.checkCardHeader}>
                   <span className={`${styles.checkStatusDot} ${dotClass[check.status]}`} />
                   <span className={styles.checkLabel}>{check.label}</span>
                   <span className={`${styles.checkCount} ${countClass[check.status]}`} onClick={e => { if (check.violationCount === 0) return; e.stopPropagation(); setExpandedChecks(prev => { if (prev.has(check.id)) return new Set(); return new Set([check.id]); }); }} style={{ cursor: check.violationCount > 0 ? 'pointer' : 'default' }}>{(() => { if (check.violationCount === 0) return ''; if (check.id === 'lp_balance') { const dayCount = check.violations.filter(v => v.code === '—' && v.day > 0).length; return expandedChecks.has(check.id) ? `▴ ${dayCount} ngày vi phạm` : `▾ ${dayCount} ngày vi phạm`; } const nvCount = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)).size; const label = nvCount > 0 ? `${check.violationCount} vi phạm/${nvCount} NV` : `${check.violationCount} vi phạm`; return expandedChecks.has(check.id) ? `▴ ${label}` : `▾ ${label}`; })()}</span>
                   {onFilterChange && (
                     <span style={{ display: 'flex', gap: 2, marginLeft: 4, alignItems: 'center' }}>
-                      {activeFilter?.id === check.id && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 10, background: '#1d4ed8', color: '#fff', whiteSpace: 'nowrap' }}>🔍 Đang lọc</span>}
                       {check.violationCount > 0 && (
-                        <span
-                          onClick={e => { e.stopPropagation(); const violatorCodes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'violation') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'violation' }); onFilterChange({ mode: 'violation', codes: violatorCodes }); } }}
+                        <span onClick={e => { e.stopPropagation(); const codes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'violation') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'violation' }); onFilterChange({ mode: 'violation', codes }); } }}
                           style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', background: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '#fee2e2' : '#f1f5f9', color: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '#b91c1c' : '#64748b', border: activeFilter?.id === check.id && activeFilter?.mode === 'violation' ? '1px solid #fca5a5' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
                         >❌ Vi phạm</span>
                       )}
-                      <span
-                        onClick={e => { e.stopPropagation(); const allViolatorCodes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'pass') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'pass' }); onFilterChange({ mode: 'pass', codes: allViolatorCodes }); } }}
+                      <span onClick={e => { e.stopPropagation(); const codes = new Set(check.violations.filter(v => v.code !== '—').map(v => v.code)); if (activeFilter?.id === check.id && activeFilter?.mode === 'pass') { setActiveFilter(null); onFilterChange(null); } else { setActiveFilter({ id: check.id, mode: 'pass' }); onFilterChange({ mode: 'pass', codes }); } }}
                         style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, cursor: 'pointer', background: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '#dcfce7' : '#f1f5f9', color: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '#15803d' : '#64748b', border: activeFilter?.id === check.id && activeFilter?.mode === 'pass' ? '1px solid #86efac' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
                       >✅ Đạt</span>
                     </span>
@@ -1950,7 +2005,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
                   )}
                 </div>
-                {(['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                {(['input_data_consistency', 'consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
                   <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
@@ -2270,14 +2325,6 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       ? <div className={styles.emptyState}>Lỗi dữ liệu — vui lòng restart server.</div>
       : null;
 
-  if (step === 1) return (
-    <>
-      <div style={validateOpen ? undefined : { display: 'none' }}>
-        <ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['pn_start_day_import']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra PN trong file import không được trước ngày quy định" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />
-      </div>
-      {dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} />}
-    </>
-  );
   const stepWrapper = (content: React.ReactNode) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {content}
@@ -2290,6 +2337,10 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
     <div style={{ display: validateOpen ? undefined : 'none' }}>{panel}</div>
   );
 
+  if (step === 1) return stepWrapper(
+    <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
+      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} />)}</>
+  );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
       {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}

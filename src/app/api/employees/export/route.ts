@@ -8,6 +8,15 @@ const SELECT_DAYS = DAY_COLS.map(c => `e.${c}`).join(', ');
 
 function formatDate(val: unknown): string {
   if (!val) return '';
+  if (typeof val === 'number' || !isNaN(Number(val))) {
+    const num = Number(val);
+    if (num > 59 && Number.isInteger(num)) {
+      const d = new Date((num - 25569) * 86400000);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      }
+    }
+  }
   const s = String(val).trim();
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -22,10 +31,8 @@ export async function GET(req: NextRequest) {
     const rows = await conn.all(`
       SELECT e.code AS employee_code,
              e.name AS employee_name,
-             COALESCE(d1.code, d2.code, e.ma_pb) AS department_code,
              COALESCE(d1.name, d2.name)           AS department_name,
              e.special_group                       AS group_code,
-             sg.name                               AS group_name,
              e.group_code_end_date,
              e.workdays,
              ${SELECT_DAYS},
@@ -47,8 +54,8 @@ export async function GET(req: NextRequest) {
 
     const header = [
       'employee_code', 'employee_name',
-      'department_code', 'department_name',
-      'group_code', 'group_name',
+      'department_name',
+      'group_code',
       'group_code_end_date', 'workdays',
       ...Array.from({ length: 31 }, (_, i) => `Day ${i + 1}`),
       'overtime_hours', 'late_minutes', 'phep_nam', 'ngay_nghi_thang_truoc',
@@ -57,11 +64,9 @@ export async function GET(req: NextRequest) {
     const data = rows.map((r: Record<string, unknown>) => [
       r['employee_code'] ?? '',
       r['employee_name'] ?? '',
-      r['department_code'] ?? '',
       r['department_name'] ?? '',
       r['group_code'] ?? '',
-      r['group_name'] ?? '',
-      r['group_code_end_date'] ?? '',
+      formatDate(r['group_code_end_date']),
       r['workdays'] ?? '',
       ...Array.from({ length: 31 }, (_, i) => r[`day_${i + 1}`] ?? ''),
       r['overtime_hours'] ?? '',
@@ -74,8 +79,8 @@ export async function GET(req: NextRequest) {
 
     ws['!cols'] = [
       { wch: 14 }, { wch: 22 },
-      { wch: 12 }, { wch: 22 },
-      { wch: 16 }, { wch: 24 },
+      { wch: 22 },
+      { wch: 16 },
       { wch: 16 }, { wch: 8  },
       ...Array(31).fill({ wch: 5 }),
       { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 },
