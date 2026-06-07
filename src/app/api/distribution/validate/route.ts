@@ -778,10 +778,35 @@ export async function GET(req: NextRequest) {
     checkPnCount.status = checkPnCount.violationCount === 0 ? 'ok' : 'error';
     results.push(checkPnCount);
 
-
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check: Phân bổ ngày công (PBNC = X+PN = NGÀY CÔNG)
+       PBNC = tổng X_count + PN_count trong kết quả phân bổ
+       phải bằng NGÀY CÔNG (workdays) từ dữ liệu nhập vào
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkPbnc: CheckResult = {
+      id: 'pbnc_check',
+      label: 'Kiểm tra Phân bổ ngày công (PBNC = X+PN = NGÀY CÔNG)',
+      description: 'PBNC (X_count + PN_count) trong kết quả phân bổ phải bằng NGÀY CÔNG từ dữ liệu nhập',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    for (const emp of emps) {
+      const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+      const xCount = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && d.dayType === 0).length;
+      const pnCount = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && d.dayType === 2).length;
+      const pbnc = xCount + pnCount;
+      if (pbnc !== emp.inputWorkdays) {
+        checkPbnc.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `PBNC = ${xCount}X + ${pnCount}PN = ${pbnc}, NGÀY CÔNG nhập = ${emp.inputWorkdays} — chênh lệch ${Math.abs(pbnc - emp.inputWorkdays)}`,
+        });
+      }
+    }
+    checkPbnc.violationCount = checkPbnc.violations.length;
+    checkPbnc.status = checkPbnc.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkPbnc);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Summary
+        Summary
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     // Chỉ hiển thị 3 checks quan trọng về OT (trừ khi có filter cụ thể)
     const IMPORTANT_OT_CHECKS = new Set(['ot_min_per_day', 'ot_balance', 'ot_between_rest']);

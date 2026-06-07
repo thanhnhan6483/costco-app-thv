@@ -2007,7 +2007,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
                   )}
                 </div>
-                {(['input_data_consistency', 'consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                {(['input_data_consistency', 'consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
                   <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
@@ -2345,7 +2345,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
-      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 6 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
+      {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 7 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, PBNC = X+PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
   );
   if (step === 3) return stepWrapper(
