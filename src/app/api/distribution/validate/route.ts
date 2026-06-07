@@ -617,26 +617,24 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkInputData: CheckResult = {
       id: 'input_data_consistency',
-      label: 'Kiểm tra dữ liệu đầu vào — ô trống có đủ cho LP + X không',
-      description: 'Tính số ô trống, LP tối thiểu, workdays mục tiêu → tổng có vượt quá số ô trống?',
+      label: 'Kiểm tra dữ liệu đầu vào — ngày thực tế trong tháng có đủ cho X không',
+      description: 'Số ngày trống trong tháng (bỏ NL/Ô/TS) phải ≥ workdays để đặt X.',
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
     const symToType = new Map(Object.entries(symbolMap));
     for (const r of empImportRows) {
       const workdaysVal = Math.round(Number(r.workdays) || 27);
-      const minLP = Math.max(0, Math.ceil(workdaysVal / 6) - 1);
-      const inputArray: number[] = [];
-      for (let i = 1; i <= 31; i++) {
+      let realFree = 0;
+      for (let i = 1; i <= daysInMonth; i++) {
         const raw = (r[`day_${i}`] ?? '').toString().trim();
-        if (!raw) { inputArray.push(0); continue; }
+        if (!raw) { realFree++; continue; }
         const dt = symToType.get(raw);
-        inputArray.push(dt ?? 3);
+        if (dt !== undefined && dt >= 0 && dt <= 1) realFree++;
       }
-      const freeSlots = inputArray.filter(v => v >= 0 && v <= 1).length;
-      if (freeSlots >= minLP + workdaysVal) continue;
+      if (realFree >= workdaysVal) continue;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Còn ${freeSlots} ô trống, cần tối thiểu ${minLP} LP + ${workdaysVal} X = ${minLP + workdaysVal} ô — thiếu ${minLP + workdaysVal - freeSlots} ô (không thể phân bổ)`,
+        detail: `Tháng chỉ còn ${realFree} ngày trống, cần ${workdaysVal} X — thiếu ${workdaysVal - realFree} ngày (không thể phân bổ)`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
