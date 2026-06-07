@@ -1157,6 +1157,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
               <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
               <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
+              <th style={{ minWidth: 36, color: '#b45309' }}>PBNC</th>
               <SortTh label="DỰ KIẾN LP" sortKey="expectedLP" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
@@ -1165,7 +1166,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
             >
               <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
-              <th /><th /><th /><th />
+              <th /><th /><th /><th /><th />
               <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
             </InlineFilterRow>
           </thead>
@@ -1213,6 +1214,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={styles.statCell}>{r._lpCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>
                 <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>
+                <td className={styles.statCell} style={{ color: '#b45309' }}>{((r._xCnt ?? 0) + (r._pnDayCnt ?? 0))}</td>
                 <td className={styles.statCell} style={{ color: '#1d4ed8', fontWeight: 600 }}>{r.expectedLP ?? 0}</td>
                 {(() => {
                   const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
