@@ -617,24 +617,32 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkInputData: CheckResult = {
       id: 'input_data_consistency',
-      label: 'Kiểm tra dữ liệu đầu vào — ngày thực tế trong tháng có đủ cho X không',
-      description: 'Số ngày trống trong tháng (bỏ NL/Ô/TS) phải ≥ workdays để đặt X.',
+      label: 'Kiểm tra dữ liệu đầu vào — đủ ô trống cho X + PN không',
+      description: 'Tổng ô trống (31 positions) phải ≥ workdays + PN; ngày trống trong tháng phải ≥ workdays.',
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
     const symToType = new Map(Object.entries(symbolMap));
     for (const r of empImportRows) {
       const workdaysVal = Math.round(Number(r.workdays) || 27);
+      const phepNam = Math.max(0, Math.round(Number(r.phep_nam) || 0));
       let realFree = 0;
-      for (let i = 1; i <= daysInMonth; i++) {
+      let freeSlots = 0;
+      for (let i = 1; i <= 31; i++) {
         const raw = (r[`day_${i}`] ?? '').toString().trim();
-        if (!raw) { realFree++; continue; }
+        if (!raw) { freeSlots++; if (i <= daysInMonth) realFree++; continue; }
         const dt = symToType.get(raw);
-        if (dt !== undefined && dt >= 0 && dt <= 1) realFree++;
+        const isFree = dt !== undefined && dt >= 0 && dt <= 1;
+        if (isFree) { freeSlots++; if (i <= daysInMonth) realFree++; }
       }
-      if (realFree >= workdaysVal) continue;
+      const totalNeeded = workdaysVal + phepNam;
+      const ok = freeSlots >= totalNeeded && realFree >= workdaysVal;
+      if (ok) continue;
+      const reasons: string[] = [];
+      if (freeSlots < totalNeeded) reasons.push(`tổng slots ${freeSlots} < cần ${totalNeeded} (X+PN)`);
+      if (realFree < workdaysVal) reasons.push(`ngày trống trong tháng ${realFree} < ${workdaysVal} X`);
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Tháng chỉ còn ${realFree} ngày trống, cần ${workdaysVal} X — thiếu ${workdaysVal - realFree} ngày (không thể phân bổ)`,
+        detail: reasons.join('; ') + ' — không thể phân bổ',
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
