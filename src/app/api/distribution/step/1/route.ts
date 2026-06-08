@@ -69,16 +69,19 @@ export async function POST(req: NextRequest) {
   const symToType = new Map(Object.entries(symbolMap));
   const violations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
 
+  const THRESHOLD = 27; // workdaysThreshold — matching engine behavior
   for (const r of empRows) {
     const workdaysVal = Math.round(Number(r.workdays) ?? 27);
     const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
     const needed = workdaysVal + phepNam;
+    const isFullTime = workdaysVal >= THRESHOLD;
     let freeSlots = 0;
     for (let i = 1; i <= daysInMonth; i++) {
       const raw = (r[`day_${i}`] ?? '').toString().trim();
       if (!raw) { freeSlots++; continue; }
       const dt = symToType.get(raw);
-      if (dt !== undefined && dt >= 0 && dt <= 1) freeSlots++;
+      if (dt === 0) freeSlots++;
+      else if (dt === 1 && isFullTime) freeSlots++;
     }
     if (freeSlots >= needed) continue;
     const shortage = needed - freeSlots;

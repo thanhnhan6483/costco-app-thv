@@ -172,6 +172,36 @@ export async function POST(req: NextRequest) {
       if (totalFixed > 0) console.log(`[step1] fixed ${totalFixed} LP balance violations inline`);
     }
 
+    // ── Post-verify: kiểm tra X = workdays && PN = phepNam ──
+    {
+      const empLookup = new Map(empInputs.map(e => [e.id, e]));
+      const empCounts = new Map<string, { xCount: number; pnCount: number }>();
+      for (const row of allRows) {
+        const empId = (row as any[])[2] as string;
+        const dt = (row as any[])[4] as number;
+        if (!empCounts.has(empId)) empCounts.set(empId, { xCount: 0, pnCount: 0 });
+        const c = empCounts.get(empId)!;
+        if (dt === 0) c.xCount++;
+        else if (dt === 2) c.pnCount++;
+      }
+      let verifyErrors = 0;
+      for (const [empId, counts] of empCounts) {
+        const emp = empLookup.get(empId);
+        if (!emp) continue;
+        const wd = Math.round(Number(emp.workdays) || 27);
+        const pn = Math.max(0, Math.round(Number(emp.phepNam) || 0));
+        if (counts.xCount !== wd || counts.pnCount !== pn) {
+          verifyErrors++;
+          console.log(`[step1] VERIFY FAIL: emp=${empId} workdays=${wd} phepNam=${pn} → X=${counts.xCount} PN=${counts.pnCount}`);
+        }
+      }
+      if (verifyErrors > 0) {
+        console.log(`[step1] VERIFY: ${verifyErrors}/${empInputs.length} employees mismatch`);
+      } else {
+        console.log(`[step1] VERIFY: all ${empInputs.length} employees OK`);
+      }
+    }
+
     // Batch INSERT theo chunk 500 rows/lần trong 1 transaction
     const CHUNK = 2000;
     await conn.run('BEGIN TRANSACTION');
