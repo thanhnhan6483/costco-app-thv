@@ -345,8 +345,14 @@ export default function AutoAlloc() {
         }
         return;
       }
-      setValidateOpen(false);
-      setValidate2Status({ loading: false, result: null });
+      const result = await res.json();
+      if (result.overallStatus === 'warning' || result.overallStatus === 'error') {
+        setValidateOpen(true);
+        setValidate2Status({ loading: false, result });
+      } else {
+        setValidateOpen(false);
+        setValidate2Status({ loading: false, result: null });
+      }
       await refreshStatus();
       setStepCache(prev => { const n = { ...prev }; delete n[1]; return n; });
       setStepData(prev => { const n = { ...prev }; delete n[1]; return n; });

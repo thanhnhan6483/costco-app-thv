@@ -92,12 +92,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (violations.length > 0) {
+    await markStepDone(monthId, 1);
     return NextResponse.json({
-      error: 'Dữ liệu đầu vào không hợp lệ',
-      monthId,
+      ok: true, step: 2,
+      overallStatus: 'warning',
       totalEmps: empRows.length,
       totalViolations: violations.length,
-      overallStatus: 'error',
       checkedAt: new Date().toISOString(),
       results: [{
         id: 'input_data_consistency',
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
         violationCount: violations.length,
         checkedCount: empRows.length,
       }],
-    }, { status: 400 });
+    });
   }
 
   await markStepDone(monthId, 1);
