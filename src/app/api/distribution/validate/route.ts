@@ -625,7 +625,7 @@ export async function GET(req: NextRequest) {
     for (const r of empImportRows) {
       const workdaysVal = Math.round(Number(r.workdays) ?? 27);
       const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
-      const xVal = workdaysVal - phepNam;
+      const needed = workdaysVal + phepNam;
       let freeSlots = 0;
       for (let i = 1; i <= daysInMonth; i++) {
         const raw = (r[`day_${i}`] ?? '').toString().trim();
@@ -633,10 +633,11 @@ export async function GET(req: NextRequest) {
         const dt = symToType.get(raw);
         if (dt !== undefined && dt >= 0 && dt <= 1) freeSlots++;
       }
-      if (freeSlots >= workdaysVal) continue;
+      if (freeSlots >= needed) continue;
+      const shortage = needed - freeSlots;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Thiếu ${workdaysVal - freeSlots} ô trống. Chỉ có ${freeSlots} ô trống, cần xếp ${workdaysVal} chổ (${xVal}X + ${phepNam}PN). Cần kiểm tra lại Ngày Công, Phép Năm hoặc nghỉ cố định (NP, Ô, TS,...) đang chiếm ô`,
+        detail: `Thiếu ${shortage} ô trống. Chỉ có ${freeSlots} ô trống, cần xếp ${needed} chổ (${workdaysVal}X + ${phepNam}PN). Cần kiểm tra lại Ngày Công, Phép Năm hoặc nghỉ cố định (NP, Ô, TS,...) đang chiếm ô`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
