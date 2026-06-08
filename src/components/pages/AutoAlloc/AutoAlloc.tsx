@@ -1877,13 +1877,8 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const [error, setError] = useState<string | null>(null);
     const [fixResult, setFixResult] = useState<{ label: string; fixed: number; total?: number; onConfirm: () => void } | null>(null);
     const [activeFilter, setActiveFilter] = useState<{ id: string; mode: FilterMode } | null>(null);
-    const [activeFilterGlobal, setActiveFilterGlobal] = useState<FilterMode | null>(null);
     const activeFilterRef = useRef(activeFilter);
     activeFilterRef.current = activeFilter;
-    const totalViolatorCodes = useMemo(() => {
-      if (!result) return new Set<string>();
-      return new Set(result.results.flatMap(c => c.violations.filter(v => v.code !== '—').map(v => v.code)));
-    }, [result]);
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
     const lastFetchVersion = useRef<number | undefined>(undefined);
 
@@ -1973,19 +1968,6 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
         {result && (
           
           <div className={styles.validateGrid}>
-            <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', borderBottom: '1px solid #e2e8f0', marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Lọc:</span>
-              {totalViolatorCodes.size > 0 && (
-                <span onClick={e => { e.stopPropagation(); if (activeFilterGlobal === 'violation') { setActiveFilterGlobal(null); onFilterChange(null); } else { setActiveFilterGlobal('violation'); onFilterChange({ mode: 'violation', codes: totalViolatorCodes }); } }}
-                  style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', background: activeFilterGlobal === 'violation' ? '#fee2e2' : '#f1f5f9', color: activeFilterGlobal === 'violation' ? '#b91c1c' : '#64748b', border: activeFilterGlobal === 'violation' ? '1px solid #fca5a5' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
-                >{activeFilterGlobal === 'violation' ? '🔍' : ''} ❌ Vi phạm ({totalViolatorCodes.size} NV)</span>
-              )}
-              {totalViolatorCodes.size > 0 && (
-                <span onClick={e => { e.stopPropagation(); if (activeFilterGlobal === 'pass') { setActiveFilterGlobal(null); onFilterChange(null); } else { const allCodes = new Set(result.results.flatMap(c => c.violations.filter(v => v.code !== '—').map(v => v.code))); const passCodes = new Set([...allCodes].filter(c => !totalViolatorCodes.has(c))); onFilterChange({ mode: 'pass', codes: passCodes }); setActiveFilterGlobal('pass'); } }}
-                  style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', background: activeFilterGlobal === 'pass' ? '#dcfce7' : '#f1f5f9', color: activeFilterGlobal === 'pass' ? '#15803d' : '#64748b', border: activeFilterGlobal === 'pass' ? '1px solid #86efac' : '1px solid transparent', userSelect: 'none', whiteSpace: 'nowrap' }}
-                >{activeFilterGlobal === 'pass' ? '🔍' : ''} ✅ Đạt</span>
-              )}
-            </div>
             {result.results.map(check => (
               <div key={check.id} className={`${styles.checkCard} ${statusClass[check.status]}`}>
                 <div className={styles.checkCardHeader}>
