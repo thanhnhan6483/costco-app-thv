@@ -691,6 +691,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
     return vals;
   }, [rows]);
   const workdaysList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.workdays ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
+  const pnList = useMemo(() => [...new Set((rows as any[]).map(r => String(r.phepNam ?? '')).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const otList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.overtimeHours || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
   const lateList = useMemo(() => [...new Set((rows as any[]).map(r => { const v = Math.round(parseFloat(String(r.lateMinutes || '0').replace(',', '.'))); return v > 0 ? String(v) : ''; }).filter(Boolean))].sort((a, b) => Number(a) - Number(b)), [rows]);
 
@@ -862,6 +863,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
+              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt} style={{ minWidth: 28, color: DT_TEXT[dt] ?? '#64748b', fontWeight: 700, fontSize: '0.68rem' }}>{sym}</th>
@@ -870,7 +872,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>
             </tr>
              <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<><th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th></>}>
+              middleChildren={<><th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th></>}>
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt}><select className={s.statusFilterSelect} value={fSymCounts[dt] ?? ''} onChange={e => setFSymCounts(p => ({ ...p, [dt]: e.target.value }))} style={{ fontSize: 10, padding: '1px 3px', minWidth: 32 }}><option value="">—</option>{(symCountsList[dt] ?? []).map(v => <option key={v} value={v}>{v}</option>)}</select></th>
               ))}
@@ -890,6 +892,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
                   <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
+                  <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const origSym = d?.symbol ?? '';
