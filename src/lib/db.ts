@@ -428,6 +428,7 @@ async function initSchema(db: Database): Promise<void> {
     )
   `);
   await conn.run(`CREATE INDEX IF NOT EXISTS idx_distribution_month_emp ON distribution_results(month_id, employee_id)`);
+  await conn.run(`CREATE INDEX IF NOT EXISTS idx_distribution_month_emp_day ON distribution_results(month_id, employee_id, day)`);
 
   /* distribution_status — Tiến trình từng bước phân bổ theo tháng */
   await conn.run(`

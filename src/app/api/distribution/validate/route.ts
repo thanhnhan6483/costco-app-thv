@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       empId: string; empCode: string; empName: string; deptId: string;
       phepNam: number; ngayNghiCuoiThangTruoc: string; inputWorkdays: number;
       day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string;
-      checkIn: string; checkOut: string;
+      checkIn: string; checkOut: string; overtimeHours: number; lateMinutes: number;
     }>(
       `SELECT dr.employee_id AS empId, e.code AS empCode, e.name AS empName,
               e.department_id AS deptId,
@@ -66,7 +66,9 @@ export async function GET(req: NextRequest) {
               dr.day, dr.day_type AS dayType,
               dr.ot_hours AS otHours, dr.late_mins AS lateMins,
               COALESCE(dr.shift_code, '') AS shiftCode,
-              COALESCE(dr.check_in, '') AS checkIn, COALESCE(dr.check_out, '') AS checkOut
+              COALESCE(dr.check_in, '') AS checkIn, COALESCE(dr.check_out, '') AS checkOut,
+              COALESCE(TRY_CAST(e.overtime_hours AS FLOAT), 0) AS overtimeHours,
+              COALESCE(TRY_CAST(e.late_minutes AS FLOAT), 0) AS lateMinutes
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        WHERE dr.month_id = ?
@@ -75,11 +77,11 @@ export async function GET(req: NextRequest) {
 
     // Group by empId
     type DayData = { day: number; dayType: number; otHours: number; lateMins: number; shiftCode: string; checkIn: string; checkOut: string };
-    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; inputWorkdays: number; ngayNghiCuoiThangTruoc: string; days: DayData[] };
+    type EmpData = { empId: string; code: string; name: string; deptId: string; phepNam: number; inputWorkdays: number; ngayNghiCuoiThangTruoc: string; overtimeHours: number; lateMinutes: number; days: DayData[] };
     const empMap = new Map<string, EmpData>();
     for (const r of rawRows) {
       if (!empMap.has(r.empId)) {
-        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, inputWorkdays: Number(r.inputWorkdays) || 0, ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', days: [] });
+        empMap.set(r.empId, { empId: r.empId, code: r.empCode, name: r.empName, deptId: r.deptId, phepNam: Number(r.phepNam) || 0, inputWorkdays: Number(r.inputWorkdays) || 0, ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', overtimeHours: Number(r.overtimeHours) || 0, lateMinutes: Number(r.lateMinutes) || 0, days: [] });
       }
       empMap.get(r.empId)!.days.push({ day: Number(r.day), dayType: Number(r.dayType), otHours: Number(r.otHours), lateMins: Number(r.lateMins), shiftCode: r.shiftCode ?? '', checkIn: r.checkIn ?? '', checkOut: r.checkOut ?? '' });
     }
@@ -759,6 +761,62 @@ export async function GET(req: NextRequest) {
     results.push(checkQt9);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check OT10: Tổng OT phân bổ khớp với dữ liệu đầu vào
+       So sánh cột TĂNG CA (H) (employees.overtime_hours) với PHÂN BỔ TC (H) (sum distribution_results.ot_hours)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkOtMatch: CheckResult = {
+      id: 'ot_total_match',
+      label: 'Phân bổ giờ tăng ca không khớp (Tăng ca = Phân bổ TC)',
+      description: 'PHÂN BỔ TC (H) phải bằng TĂNG CA (H)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    const OT_TOLERANCE_H = 0.05;  
+    for (const emp of emps) {
+      const totalOtAllocated = emp.days
+        .filter(d => d.day >= 1 && d.day <= daysInMonth)
+        .reduce((sum, d) => sum + d.otHours, 0);
+      const diff = Math.abs(totalOtAllocated - emp.overtimeHours);
+      if (diff > OT_TOLERANCE_H) {
+        const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+        checkOtMatch.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `TĂNG CA (H) = ${emp.overtimeHours.toFixed(2)}h, PHÂN BỔ TC (H) = ${totalOtAllocated.toFixed(2)}h, chênh ${diff.toFixed(2)}h`,
+        });
+      }
+    }
+    checkOtMatch.violationCount = checkOtMatch.violations.length;
+    checkOtMatch.status = checkOtMatch.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkOtMatch);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       Check Late: Tổng late phân bổ khớp với dữ liệu đầu vào
+       So sánh cột GIỜ TRỄ (PH) (employees.late_minutes) với PHÂN BỔ GT (PH) (sum distribution_results.late_mins)
+       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const checkLateMatch: CheckResult = {
+      id: 'late_total_match',
+      label: 'Phân bổ giờ trễ không khớp (Giờ trễ = Phân bổ GT)',
+      description: 'PHÂN BỔ GT (PH) phải bằng GIỜ TRỄ (PH)',
+      status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
+    };
+    const LATE_TOLERANCE = 1; // phút
+    for (const emp of emps) {
+      const totalLateAllocated = emp.days
+        .filter(d => d.day >= 1 && d.day <= daysInMonth)
+        .reduce((sum, d) => sum + d.lateMins, 0);
+      const diff = Math.abs(totalLateAllocated - emp.lateMinutes);
+      if (diff > LATE_TOLERANCE) {
+        const deptName = deptMap.get(emp.deptId)?.name ?? '—';
+        checkLateMatch.violations.push({
+          code: emp.code, name: emp.name, deptName, day: 0,
+          detail: `GIỜ TRỄ (PH) = ${emp.lateMinutes}ph, PHÂN BỔ GT (PH) = ${totalLateAllocated}ph, chênh ${diff}ph`,
+        });
+      }
+    }
+    checkLateMatch.violationCount = checkLateMatch.violations.length;
+    checkLateMatch.status = checkLateMatch.violationCount === 0 ? 'ok' : 'error';
+    results.push(checkLateMatch);
+
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
        Check Cuối: Số ngày PN phải đúng bằng phepNam
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkPnCount: CheckResult = {
@@ -813,7 +871,7 @@ export async function GET(req: NextRequest) {
         Summary
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     // Chỉ hiển thị 3 checks quan trọng về OT (trừ khi có filter cụ thể)
-    const IMPORTANT_OT_CHECKS = new Set(['ot_min_per_day', 'ot_balance', 'ot_between_rest']);
+    const IMPORTANT_OT_CHECKS = new Set(['ot_min_per_day', 'ot_balance', 'ot_between_rest', 'ot_total_match', 'late_total_match']);
     const filtered = filterIds 
       ? results.filter(r => filterIds.has(r.id)) 
       : results.filter(r => IMPORTANT_OT_CHECKS.has(r.id));

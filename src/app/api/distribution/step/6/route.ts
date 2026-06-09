@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
       day: number; dayType: number; checkIn: string; checkOut: string;
       shiftCode: string; otHours: number; lateMins: number;
     }>(`
-      SELECT e.id AS empId, e.code, e.name AS empName, d.name AS deptName, e.workdays, e.special_group AS specialGroup,
+      SELECT e.id AS empId, e.code, e.name AS empName, d.name AS deptName, e.workdays,
+             e.special_group AS specialGroup, sg.name AS specialGroupName,
              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
              dr.day, dr.day_type AS dayType,
              dr.check_in AS checkIn, dr.check_out AS checkOut,
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
       FROM distribution_results dr
       JOIN employees e ON dr.employee_id = e.id
       LEFT JOIN departments d ON e.department_id = d.id
+      LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
       WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders})
       ORDER BY e.code, dr.day
     `, monthId, ...ids);
@@ -45,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     const empMap = new Map<string, {
       code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string;
-      workdays: string; specialGroup: string;
+      workdays: string; specialGroup: string; specialGroupName: string;
       days: typeof rows;
       workCount: number; lpCount: number; pnCount: number; totalOT: number; totalLate: number;
     }>();
@@ -54,6 +56,7 @@ export async function GET(req: NextRequest) {
         empMap.set(row.empId, {
           code: row.code, name: row.empName, deptName: row.deptName ?? '',
           ngayNghiCuoiThangTruoc: row.ngayNghiCuoiThangTruoc ?? '', workdays: row.workdays ?? '', specialGroup: row.specialGroup ?? '',
+          specialGroupName: row.specialGroupName || row.specialGroup || '',
           days: [], workCount: 0, lpCount: 0, pnCount: 0, totalOT: 0, totalLate: 0,
         });
       }

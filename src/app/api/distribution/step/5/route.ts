@@ -124,6 +124,7 @@ export async function GET(req: NextRequest) {
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName,
               e.special_group AS specialGroup,
+              sg.name AS specialGroupName,
               e.group_code_end_date AS groupCodeEndDate,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               dr.day, dr.day_type AS dayType, dr.shift_code AS shiftCode,
@@ -132,6 +133,7 @@ export async function GET(req: NextRequest) {
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
        WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders}) AND dr.day BETWEEN 1 AND ?
        ORDER BY e.code, dr.day`, monthId, ...ids, daysInMonth
     );
@@ -141,6 +143,7 @@ export async function GET(req: NextRequest) {
       if (!map.has(r.code)) map.set(r.code, {
         code: r.code, name: r.empName, deptName: r.deptName ?? '',
         specialGroup: r.specialGroup ?? '',
+        specialGroupName: r.specialGroupName || r.specialGroup || '',
         groupCodeEndDate: r.groupCodeEndDate ?? '',
         ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '',
         days: [],

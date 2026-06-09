@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     const empPage = await conn.all<Record<string, string>>(
       `SELECT e.id, e.code, e.name, d.name AS deptName,
               e.special_group AS specialGroup,
+              sg.name AS specialGroupName,
               e.group_code_end_date AS groupCodeEndDate,
               e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               e.workdays, e.overtime_hours AS overtimeHours,
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
               ${DAY_COLS.map(c => `e.${c}`).join(', ')}
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
        WHERE e.month_id = ? AND e.active = TRUE
        ORDER BY e.code LIMIT ? OFFSET ?`, monthId, limit, offset
     );
@@ -33,6 +35,7 @@ export async function GET(req: NextRequest) {
       id: emp.id, code: emp.code, name: emp.name,
       deptName: emp.deptName ?? '',
       specialGroup: emp.specialGroup ?? '',
+      specialGroupName: emp.specialGroupName || emp.specialGroup || '',
       ngayNghiCuoiThangTruoc: emp.ngayNghiCuoiThangTruoc ?? '',
       workdays: emp.workdays,
       overtimeHours: emp.overtimeHours ? (Math.round(parseFloat(String(emp.overtimeHours).replace(',', '.')) * 100) / 100).toString() : '0',

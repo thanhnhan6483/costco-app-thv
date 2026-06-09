@@ -102,77 +102,111 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    for (const u of otUpdates) {
+    // Bulk UPDATE QT8 via temp table
+    await conn.run(`CREATE TEMP TABLE IF NOT EXISTS _tmp_ot (emp_id VARCHAR, day INTEGER, ot_hours DOUBLE)`);
+    if (otUpdates.length > 0) {
+      await conn.run(`DELETE FROM _tmp_ot`);
+      for (let i = 0; i < otUpdates.length; i += 500) {
+        const chunk = otUpdates.slice(i, i + 500).map(u => `('${u.empId}',${u.day},${u.otHours})`).join(',');
+        await conn.run(`INSERT INTO _tmp_ot VALUES ${chunk}`);
+      }
       await conn.run(
-        `UPDATE distribution_results SET ot_hours = ? WHERE month_id = ? AND employee_id = ? AND day = ?`,
-        u.otHours, monthId, u.empId, u.day
+        `UPDATE distribution_results dr
+         SET ot_hours = t.ot_hours
+         FROM _tmp_ot t
+         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
       );
     }
 
     // Điều chỉnh OT sau QT8: bù chính xác (không round 0.25h)
     const maxOtH = params.maxOtPerDayHours;
+    const minOtHadj = params.minOtPerDayMinutes > 0 ? params.minOtPerDayMinutes / 60 : 0;
+
+    // Load current results in 1 query (thay vì N+1)
+    const curAll = await conn.all<{ empId: string; day: number; dayType: number; otH: number }>(
+      `SELECT employee_id AS empId, day, day_type AS dayType, ot_hours AS otH
+       FROM distribution_results WHERE month_id = ? ORDER BY employee_id, day`, monthId
+    );
+    const empDaysMap = new Map<string, Map<number, { dayType: number; otH: number }>>();
+    for (const r of curAll) {
+      if (!empDaysMap.has(r.empId)) empDaysMap.set(r.empId, new Map());
+      empDaysMap.get(r.empId)!.set(r.day, { dayType: Number(r.dayType), otH: Number(r.otH) });
+    }
+
+    const adjRows: string[] = [];
     for (const emp of emps) {
       const srcOt = parseFloat(emp.overtimeHours) || 0;
       if (srcOt <= 0) continue;
-      const curRows = await conn.all<{ day: number; dayType: number; otH: number }>(
-        `SELECT day, day_type AS dayType, ot_hours AS otH
-         FROM distribution_results WHERE month_id = ? AND employee_id = ? ORDER BY day`,
-        monthId, emp.id
-      );
-      let curTotal = curRows.reduce((s, r) => s + (Number(r.otH) || 0), 0);
+      const daysMap = empDaysMap.get(emp.id);
+      if (!daysMap) continue;
+      let curTotal = 0;
+      const workDays: { day: number; otH: number }[] = [];
+      for (const [day, val] of daysMap) {
+        curTotal += val.otH;
+        if (val.dayType === 0) workDays.push({ day, otH: val.otH });
+      }
       let diff = Math.round((srcOt - curTotal) * 100) / 100;
       if (Math.abs(diff) < 0.01) continue;
-      const workDays = curRows.filter(r => r.dayType === 0);
+
+      const empAdj = new Map<number, number>();
       if (diff > 0) {
-        const minOtH = params.minOtPerDayMinutes / 60;
-        // Ưu tiên thêm vào ngày có OT sẵn (không giới hạn số lượng nhỏ)
+        // Ưu tiên thêm vào ngày có OT sẵn
         for (const r of workDays) {
           if (diff <= 0) break;
-          const cur = Number(r.otH) || 0;
-          if (cur <= 0 || cur >= maxOtH) continue;
-          const add = Math.min(maxOtH - cur, diff);
+          if (r.otH <= 0 || r.otH >= maxOtH) continue;
+          const add = Math.min(maxOtH - r.otH, diff);
           const amt = Math.round(add * 100) / 100;
           if (amt <= 0) continue;
-          await conn.run(
-            `UPDATE distribution_results SET ot_hours = ROUND(ot_hours + ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            amt, monthId, emp.id, r.day
-          );
+          const newVal = Math.round((r.otH + amt) * 100) / 100;
+          empAdj.set(r.day, newVal);
+          daysMap.get(r.day)!.otH = newVal;
           diff = Math.round((diff - amt) * 100) / 100;
         }
-        // Sau đó thêm vào ngày trống (chỉ nếu đủ ≥ minOtH để không vi phạm QT7)
+        // Sau đó thêm vào ngày trống (chỉ nếu đủ ≥ minOtH)
         for (const r of workDays) {
           if (diff <= 0) break;
-          const cur = Number(r.otH) || 0;
-          if (cur > 0) continue;
+          if (r.otH > 0) continue;
           const add = Math.min(maxOtH, diff);
           const amt = Math.round(add * 100) / 100;
-          if (amt < minOtH) continue;
-          await conn.run(
-            `UPDATE distribution_results SET ot_hours = ROUND(?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            amt, monthId, emp.id, r.day
-          );
+          if (amt < minOtHadj) continue;
+          empAdj.set(r.day, amt);
+          daysMap.get(r.day)!.otH = amt;
           diff = Math.round((diff - amt) * 100) / 100;
         }
       } else {
         diff = -diff;
-        const minOtH = params.minOtPerDayMinutes / 60;
         for (const r of workDays) {
           if (diff <= 0) break;
-          const cur = Number(r.otH) || 0;
-          if (cur <= 0) continue;
-          const sub = Math.min(cur, diff);
+          if (r.otH <= 0) continue;
+          const sub = Math.min(r.otH, diff);
           const amt = Math.round(sub * 100) / 100;
           if (amt <= 0) continue;
-          const remain = Math.round((cur - amt) * 100) / 100;
-          // Nếu sau trừ còn OT mà < minOtH → xóa hẳn ngày đó (vi phạm QT7)
-          const actualSub = remain > 0 && remain < minOtH ? cur : amt;
-          await conn.run(
-            `UPDATE distribution_results SET ot_hours = ROUND(ot_hours - ?, 2) WHERE month_id = ? AND employee_id = ? AND day = ?`,
-            actualSub, monthId, emp.id, r.day
-          );
+          const remain = Math.round((r.otH - amt) * 100) / 100;
+          const actualSub = remain > 0 && remain < minOtHadj ? r.otH : amt;
+          const newVal = Math.round((r.otH - actualSub) * 100) / 100;
+          empAdj.set(r.day, newVal);
+          daysMap.get(r.day)!.otH = newVal;
           diff = Math.round((diff - actualSub) * 100) / 100;
         }
       }
+
+      for (const [day, otHours] of empAdj) {
+        adjRows.push(`('${emp.id}',${day},${otHours})`);
+      }
+    }
+
+    // Bulk UPDATE adjustments via temp table
+    if (adjRows.length > 0) {
+      await conn.run(`DELETE FROM _tmp_ot`);
+      for (let i = 0; i < adjRows.length; i += 500) {
+        await conn.run(`INSERT INTO _tmp_ot VALUES ${adjRows.slice(i, i + 500).join(',')}`);
+      }
+      await conn.run(
+        `UPDATE distribution_results dr
+         SET ot_hours = t.ot_hours
+         FROM _tmp_ot t
+         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+      );
     }
 
     // QT7 cleanup: xóa mọi OT < ngưỡng tối thiểu (QT8 có thể tạo ra giá trị 0.75h)

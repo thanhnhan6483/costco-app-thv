@@ -57,7 +57,7 @@ function useGridFilter(rows: Record<string, unknown>[], fCode: string, fName: st
     if (dFCode && !String(r.code ?? '').toLowerCase().includes(dFCode.toLowerCase())) return false;
     if (dFName && !String(r.name ?? '').toLowerCase().includes(dFName.toLowerCase())) return false;
     if (dFDept && String(r.deptName ?? '') !== dFDept) return false;
-    if (dFGroup && String(r.specialGroup ?? '') !== dFGroup) return false;
+    if (dFGroup && String(r.specialGroupName ?? '') !== dFGroup) return false;
     return true;
   }), [rows, dFCode, dFName, dFDept, dFGroup]);
 }
@@ -684,7 +684,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [fGroup, setFGroup] = useState('');
-  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroupName) gs.add(r.specialGroupName); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
   const [fWorkdays, setFWorkdays] = useState('');
   const [fOT, setFOT] = useState('');
   const [fLate, setFLate] = useState('');
@@ -895,7 +895,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                   <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                   <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                  <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+                  <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
                   <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                   <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
                   <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>
@@ -1620,32 +1620,32 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
         <>
           <div className={styles.dayPickerOverlay} onClick={() => setCellPicker(null)} />
           <div className={styles.dayPicker} style={{
-            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 90 : cellPicker.x),
-            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 150 : cellPicker.y),
-            padding: 6, display: 'block', minWidth: 0, width: 80,
+            left: Math.min(cellPicker.x, typeof window !== 'undefined' ? window.innerWidth - 130 : cellPicker.x),
+            top: Math.min(cellPicker.y, typeof window !== 'undefined' ? window.innerHeight - 200 : cellPicker.y),
+            padding: 10, display: 'block', minWidth: 0, width: 130,
           }}>
-            <div style={{ fontSize: '0.65rem', color: '#374151', marginBottom: 3 }}>
-              <div>OT (h):</div>
+            <div style={{ fontSize: '0.82rem', color: '#374151', marginBottom: 6 }}>
+              <div style={{ fontWeight: 600 }}>OT (h):</div>
               <input type="number" step="0.01" min="0" max="24" value={pickOtVal}
-                style={{ width: '100%', padding: '1px 2px', fontSize: '0.68rem', border: '1px solid #d1d5db', borderRadius: 2, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
+                style={{ width: '100%', padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box', marginTop: 4 }}
                 onChange={(e) => setPickOtVal(e.target.value)}
                 autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter') (document.getElementById('pick-late-input') as HTMLInputElement)?.focus(); }}
               />
             </div>
-            <div style={{ fontSize: '0.65rem', color: '#374151', marginBottom: 4 }}>
-              <div>Trễ (ph):</div>
+            <div style={{ fontSize: '0.82rem', color: '#374151', marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>Trễ (ph):</div>
               <input id="pick-late-input" type="number" step="1" min="0" max="60" value={pickLateVal}
-                style={{ width: '100%', padding: '1px 2px', fontSize: '0.68rem', border: '1px solid #d1d5db', borderRadius: 2, outline: 'none', boxSizing: 'border-box', marginTop: 1 }}
+                style={{ width: '100%', padding: '4px 6px', fontSize: '0.82rem', border: '1px solid #d1d5db', borderRadius: 4, outline: 'none', boxSizing: 'border-box', marginTop: 4 }}
                 onChange={(e) => setPickLateVal(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') savePick(); }}
               />
             </div>
-            <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
               <button type="button" onClick={() => setCellPicker(null)}
-                style={{ padding: '1px 6px', fontSize: '0.65rem', borderRadius: 3, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', lineHeight: 1.5 }}>Huỷ</button>
+                style={{ padding: '4px 10px', fontSize: '0.82rem', borderRadius: 4, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', lineHeight: 1.5 }}>Huỷ</button>
               <button type="button" onClick={savePick}
-                style={{ padding: '1px 6px', fontSize: '0.65rem', borderRadius: 3, border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', lineHeight: 1.5 }}>Lưu</button>
+                style={{ padding: '4px 10px', fontSize: '0.82rem', borderRadius: 4, border: 'none', background: '#1d4ed8', color: '#fff', cursor: 'pointer', lineHeight: 1.5 }}>Lưu</button>
             </div>
           </div>
         </>
@@ -1665,7 +1665,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   const [fDept, setFDept] = useState('');
   const [fGroup, setFGroup] = useState('');
   const deptList = useDeptList(rows);
-  const groupList = useMemo(() => [...new Set((rows as any[]).map(r => r.specialGroup).filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi')), [rows]);
+  const groupList = useMemo(() => [...new Set((rows as any[]).map(r => r.specialGroupName).filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi')), [rows]);
   const [fEndDate, setFEndDate] = useState('');
   const endDateList = useMemo(() => [...new Set((rows as any[]).map(r => r.groupCodeEndDate).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [rows]);
   const [sort, onSort] = useSort();
@@ -1689,7 +1689,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
               <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fEndDate} onChange={e => setFEndDate(e.target.value)}><option value="">Tất cả</option>{endDateList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             />
           </thead>
@@ -1701,7 +1701,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
                 <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
@@ -1735,7 +1735,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [fGroup, setFGroup] = useState('');
-  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroup) gs.add(r.specialGroup); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
+  const groupList = useMemo(() => { const gs = new Set<string>(); for (const r of rows as any[]) { if (r.specialGroupName) gs.add(r.specialGroupName); } return [...gs].sort((a, b) => a.localeCompare(b, 'vi')); }, [rows]);
   const [fWorkdays, setFWorkdays] = useState('');
   const [fLP, setFLP] = useState('');
   const [fPN2, setFPN2] = useState('');
@@ -1825,7 +1825,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
               <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroup || '—'}</td>
+              <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
@@ -2008,7 +2008,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixTime(); }} disabled={fixingTime || loading} type="button">{fixingTime ? '...' : '🔧 Sửa giờ ra/vào'}</button>
                   )}
                 </div>
-                {(['input_data_consistency', 'consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc', 'shift_assigned', 'check_time'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
+                {(['input_data_consistency', 'consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc', 'shift_assigned', 'check_time', 'ot_total_match', 'late_total_match'] as string[]).includes(check.id) && check.violations.length > 0 && expandedChecks.has(check.id) && (
                   <div style={{ padding: '6px 12px 8px', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 2, height: 150, overflowY: 'auto' }}>
                     {check.violations.map((v, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '2px 8px 2px 20px', borderLeft: '2px solid #e2e8f0' }}>
@@ -2279,10 +2279,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
     if (!filter) {
       setFilterCodes(null);
       setFilterMode(null);
-      try {
-        const r = await fetch(`/api/distribution/step/${step}?month=${monthId}&page=1&limit=9999`);
-        if (r.ok) { const json = await r.json(); setAllRows(json.data ?? []); setDataVersion(v => v + 1); }
-      } catch { /* ignore */ }
+      setAllRows(null);
       return;
     }
     if (filter.mode === 'violation') {

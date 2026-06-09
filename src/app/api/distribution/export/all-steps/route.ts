@@ -91,32 +91,35 @@ export async function GET(req: NextRequest) {
 
     // ── SHEET 1: Dữ liệu gốc ────────────────────────────────────────────────
     const rows1 = await conn.all(
-      `SELECT e.code, e.name,
-              COALESCE(d1.name, d2.name) AS deptName,
+      `SELECT e.code, e.name, d.name AS deptName,
+              sg.name AS specialGroupName, e.special_group AS specialGroup,
+              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               ${days.map(d => `e.day_${d}`).join(', ')},
-              e.workdays, e.overtime_hours, e.late_minutes, e.phep_nam
+              e.workdays, e.phep_nam, e.overtime_hours, e.late_minutes
        FROM employees e
-       LEFT JOIN departments d1 ON d1.id = e.department_id AND d1.month_id = e.month_id AND e.department_id <> ''
-       LEFT JOIN departments d2 ON UPPER(d2.code) = UPPER(e.ma_pb) AND d2.month_id = e.month_id AND e.ma_pb <> ''
+       LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
        WHERE e.month_id = ? AND e.active = TRUE ORDER BY e.code`, monthId
     ) as Record<string, unknown>[];
 
-    const FIXED1 = 3;
+    const FIXED1 = 5;
     const SYM_DT: Record<string, number> = { X: 0, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9 };
-    const header1 = ['Mã NV', 'Tên', 'Phòng ban', ...days.map(d => String(d)), 'Ngày công', 'Tăng ca (H)', 'Trễ (ph)', 'Phép năm'];
-    const dowRow1 = ['', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', '', '', ''];
+    const header1 = ['MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', 'NHÓM ĐẶC THÙ', 'NGHỈ THÁNG TRƯỚC', ...days.map(d => String(d)), 'NGÀY CÔNG', 'PHÉP NĂM', 'TĂNG CA (H)', 'GIỜ TRỄ (PH)'];
+    const dowRow1 = ['', '', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', '', '', ''];
     const data1 = rows1.map(r => [
       r.code, r.name, r.deptName ?? '',
+      (r.specialGroupName || r.specialGroup || '') as string,
+      fmtDate(String(r.ngayNghiCuoiThangTruoc ?? '')),
       ...days.map(d => r[`day_${d}`] ?? ''),
       r.workdays != null ? Math.round(Number(r.workdays)) : '',
-      r.overtime_hours != null ? Math.round(Number(r.overtime_hours)) : '',
-      r.late_minutes != null ? Math.round(Number(r.late_minutes)) : '',
       r.phep_nam != null ? Math.round(Number(r.phep_nam)) : '',
+      r.overtime_hours ? parseFloat(String(r.overtime_hours)) : '',
+      r.late_minutes ? parseFloat(String(r.late_minutes)) : '',
     ]);
     const ws1 = XLSX.utils.aoa_to_sheet([header1, dowRow1, ...data1]);
     applyStyles(ws1, header1.length, FIXED1, daysInMonth, dowIdx, 2, 1, -1, rows1.length,
       (ri, di) => SYM_DT[String(rows1[ri][`day_${days[di]}`] ?? '')] ?? -1);
-    ws1['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 9 }];
+    ws1['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 9 }, { wch: 10 }, { wch: 8 }];
     ws1['!rows'] = [{ hpt: 28 }, { hpt: 14 }];
     ws1['!freeze'] = { xSplit: FIXED1, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws1, 'Buoc1_DuLieu');
@@ -196,7 +199,8 @@ export async function GET(req: NextRequest) {
 
     // ── SHEET 4: Tăng ca / Đi trễ ───────────────────────────────────────────
     const rows4 = await conn.all(
-      `SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.ot_hours, dr.late_mins
+      `SELECT e.code, e.name, d.name AS deptName, e.overtime_hours, e.late_minutes,
+              dr.day, dr.day_type, dr.ot_hours, dr.late_mins
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
@@ -206,7 +210,7 @@ export async function GET(req: NextRequest) {
     const empMap4 = new Map<string, Record<string, unknown>>();
     for (const r of rows4) {
       const k = String(r.code);
-      if (!empMap4.has(k)) empMap4.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', totalOt: 0, totalLate: 0 });
+      if (!empMap4.has(k)) empMap4.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', overtimeHours: r.overtime_hours ? parseFloat(String(r.overtime_hours)) : '', lateMinutes: r.late_minutes ? parseFloat(String(r.late_minutes)) : '', totalOt: 0, totalLate: 0 });
       const ot = Number(r.ot_hours) || 0;
       const late = Number(r.late_mins) || 0;
       empMap4.get(k)![`dt${r.day}`] = Number(r.day_type);
@@ -217,16 +221,16 @@ export async function GET(req: NextRequest) {
     }
     const empArr4 = Array.from(empMap4.values());
     const FIXED4 = 4;
-    const header4 = ['STT', 'Mã NV', 'Họ và tên', 'Phòng ban', ...days.map(d => String(d)), 'TĂNG CA (H)', 'TRỄ (PH)'];
-    const dowRow4 = ['', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', ''];
+    const header4 = ['STT', 'MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', ...days.map(d => String(d)), 'TĂNG CA (H)', 'GIỜ TRỄ (PH)', 'PHÂN BỔ TC (H)', 'PHÂN BỔ GT (PH)'];
+    const dowRow4 = ['', '', '', '', ...dowIdx.map(i => i >= 0 ? DOW_SHORT[i] : ''), '', '', '', ''];
     const data4 = empArr4.map((r, idx) => {
       const vals = days.map(d => {
         const dt = Number(r[`dt${d}`] ?? -1);
         const ot = Number(r[`ot${d}`]) || 0;
         const late = Number(r[`late${d}`]) || 0;
         if (dt === 0) {
-          const otR = ot > 0 ? Math.round(ot) : 0;
-          const lateR = late > 0 ? Math.round(late) : 0;
+          const otR = ot > 0 ? ot : 0;
+          const lateR = late > 0 ? late : 0;
           if (otR > 0 && lateR > 0) return `${otR}/${lateR}`;
           if (otR > 0) return otR;
           if (lateR > 0) return lateR;
@@ -234,9 +238,11 @@ export async function GET(req: NextRequest) {
         }
         return dt >= 0 ? (DT_LABEL[dt] ?? '') : '';
       });
+      const totalOt = Number(r.totalOt);
+      const totalLate = Number(r.totalLate);
       return [idx + 1, r.code, r.name, r.deptName, ...vals,
-        Number(r.totalOt) > 0 ? Math.round(Number(r.totalOt)) : '',
-        Number(r.totalLate) > 0 ? Math.round(Number(r.totalLate)) : ''];
+        r.overtimeHours || '', r.lateMinutes || '',
+        totalOt > 0 ? totalOt : '', totalLate > 0 ? totalLate : ''];
     });
     const ws4 = XLSX.utils.aoa_to_sheet([header4, dowRow4, ...data4]);
     applyStyles(ws4, header4.length, FIXED4, daysInMonth, dowIdx, 2, 1, -1, empArr4.length,
@@ -253,7 +259,7 @@ export async function GET(req: NextRequest) {
         (ws4 as any)[addr].s = { ...(ws4 as any)[addr].s, font: { bold: true, sz: 9, color: { rgb: clr } }, fill: { fgColor: { rgb: bg } } };
       }
     }
-    ws4['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 8 }];
+    ws4['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth).fill({ wch: 4.5 }), { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 8 }];
     ws4['!rows'] = [{ hpt: 28 }, { hpt: 14 }];
     ws4['!freeze'] = { xSplit: FIXED4, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws4, 'Buoc4_OT_DiTre');
@@ -261,17 +267,21 @@ export async function GET(req: NextRequest) {
 
     // ── SHEET 5: Giờ vào/ra ──────────────────────────────────────────────────
     const rows5 = await conn.all(
-      `SELECT e.code, e.name, d.name AS deptName, dr.day, dr.day_type, dr.check_in, dr.check_out, dr.shift_code
+      `SELECT e.code, e.name, d.name AS deptName,
+              e.special_group AS specialGroup, sg.name AS specialGroupName,
+              e.group_code_end_date AS groupCodeEndDate,
+              dr.day, dr.day_type, dr.check_in, dr.check_out, dr.shift_code
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
        WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
     ) as Record<string, unknown>[];
 
     const empMap5 = new Map<string, Record<string, unknown>>();
     for (const r of rows5) {
       const k = String(r.code);
-      if (!empMap5.has(k)) empMap5.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '' });
+      if (!empMap5.has(k)) empMap5.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', specialGroupName: r.specialGroupName || r.specialGroup || '', groupCodeEndDate: r.groupCodeEndDate ?? '' });
       const dt = Number(r.day_type);
       const sc = String(r.shift_code ?? '');
       if (dt === 0) {
@@ -287,41 +297,43 @@ export async function GET(req: NextRequest) {
       empMap5.get(k)![`dt${r.day}`] = dt;
     }
     const empArr5 = Array.from(empMap5.values());
-    const FIXED5 = 4;
-    const header5 = ['STT', 'Mã NV', 'Tên nhân viên', 'Phòng ban', ...days.flatMap(d => [d, d])];
-    const dowRow5 = ['', '', '', '', ...days.flatMap(d => { const l = dowIdx[d - 1] >= 0 ? DOW_SHORT[dowIdx[d - 1]] : ''; return [l, l]; })];
-    const inOutRow5 = ['', '', '', '', ...days.flatMap(() => ['In', 'Out'])];
+    const FIXED5 = 6;
+    const header5 = ['STT', 'MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', 'NHÓM ĐẶC THÙ', 'NGÀY KẾT THÚC', ...days.flatMap(d => [d, d])];
+    const dowRow5 = ['', '', '', '', '', '', ...days.flatMap(d => { const l = dowIdx[d - 1] >= 0 ? DOW_SHORT[dowIdx[d - 1]] : ''; return [l, l]; })];
+    const inOutRow5 = ['', '', '', '', '', '', ...days.flatMap(() => ['In', 'Out'])];
     const data5 = empArr5.map((r, idx) => [
       idx + 1, r.code, r.name, r.deptName,
+      String(r.specialGroupName || r.specialGroup || ''),
+      String(r.groupCodeEndDate || ''),
       ...days.flatMap(d => [r[`in${d}`] ?? '', r[`out${d}`] ?? '']),
     ]);
     const ws5 = XLSX.utils.aoa_to_sheet([header5, dowRow5, inOutRow5, ...data5]);
     applyStyles(ws5, header5.length, FIXED5, daysInMonth, dowIdx, 3, 1, 2, empArr5.length,
       (ri, di) => empArr5[ri][`dt${days[di]}`] as number ?? -1, 2);
-    ws5['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, ...Array(daysInMonth * 2).fill({ wch: 7 })];
+    ws5['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, ...Array(daysInMonth * 2).fill({ wch: 7 })];
     ws5['!rows'] = [{ hpt: 28 }, { hpt: 14 }, { hpt: 14 }];
     ws5['!freeze'] = { xSplit: FIXED5, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws5, 'Buoc5_GioVaoRa');
 
     // ── SHEET 6: Kết quả tổng hợp ────────────────────────────────────────────
+    const [mm, yyyy] = (monthRow?.month ?? '01/2026').split('/').map(Number);
     const rows6 = await conn.all(
-      `SELECT e.code, e.name,
-              COALESCE(d1.name, d2.name) AS deptName,
-              e.special_group AS nhom,
-              e.ngay_nghi_cuoi_thang_truoc AS ngayNghi,
+      `SELECT e.code, e.name, d.name AS deptName,
+              e.special_group AS specialGroup, sg.name AS specialGroupName,
+              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
               e.workdays,
               dr.day, dr.day_type, dr.check_in, dr.check_out, dr.ot_hours, dr.late_mins
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
-       LEFT JOIN departments d1 ON d1.id = e.department_id AND d1.month_id = e.month_id AND e.department_id <> ''
-       LEFT JOIN departments d2 ON UPPER(d2.code) = UPPER(e.ma_pb) AND d2.month_id = e.month_id AND e.ma_pb <> ''
+       LEFT JOIN departments d ON e.department_id = d.id
+       LEFT JOIN special_groups sg ON UPPER(sg.code) = UPPER(e.special_group) AND sg.month_id = e.month_id AND e.special_group <> ''
        WHERE dr.month_id = ? ORDER BY e.code, dr.day`, monthId
     ) as Record<string, unknown>[];
 
     const empMap6 = new Map<string, Record<string, unknown>>();
     for (const r of rows6) {
       const k = String(r.code);
-      if (!empMap6.has(k)) empMap6.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', nhom: r.nhom ?? '', ngayNghi: r.ngayNghi ?? '', workdays: r.workdays ?? '', totalLP: 0, totalPN: 0, totalOT: 0, totalLate: 0 });
+      if (!empMap6.has(k)) empMap6.set(k, { code: r.code, name: r.name, deptName: r.deptName ?? '', specialGroupName: r.specialGroupName || r.specialGroup || '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', totalLP: 0, totalPN: 0, totalOT: 0, totalLate: 0, _nghiCuoi: '' });
       const dt = Number(r.day_type);
       const emp = empMap6.get(k)!;
       emp[`dt${r.day}`] = dt;
@@ -337,18 +349,26 @@ export async function GET(req: NextRequest) {
         if (dt === 2) emp.totalPN = Number(emp.totalPN) + 1;
       }
     }
+    // Compute _nghiCuoi (last non-X day)
+    for (const emp of empMap6.values()) {
+      for (let d = daysInMonth; d >= 1; d--) {
+        const dt = emp[`dt${d}`] as number ?? -1;
+        if (dt >= 0 && dt !== 0) { emp._nghiCuoi = `${String(d).padStart(2, '0')}/${String(mm).padStart(2, '0')}/${yyyy}`; break; }
+      }
+    }
     const empArr6 = Array.from(empMap6.values());
-    const FIXED6 = 6;
-    const SUMMARY = ['NGÀY CÔNG', 'LP', 'PN', 'TĂNG CA(H)', 'TRỄ(PH)'];
-    const row0 = ['STT', 'Mã NV', 'Tên nhân viên', 'Phòng ban', 'Nhóm', 'Ngày nghỉ của tháng', ...days.flatMap(d => [d, d]), ...SUMMARY];
+    const FIXED6 = 7;
+    const SUMMARY = ['NGÀY CÔNG', 'LP', 'PN', 'TĂNG CA(H)', 'TRỄ(PH)', 'NGHỈ CUỐI THÁNG NÀY'];
+    const row0 = ['STT', 'MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', 'NHÓM ĐẶC THÙ', 'NGHỈ THÁNG TRƯỚC', ...days.flatMap(d => [d, d]), ...SUMMARY];
     const row1 = ['', '', '', '', '', '', ...days.flatMap(d => { const l = dowIdx[d - 1] >= 0 ? DOW_SHORT[dowIdx[d - 1]] : ''; return [l, l]; }), ...Array(SUMMARY.length).fill('')];
     const row2 = ['', '', '', '', '', '', ...days.flatMap(() => ['In', 'Out']), ...Array(SUMMARY.length).fill('')];
     const dataRows6 = empArr6.map((r, idx) => [
-      idx + 1, r.code, r.name, r.deptName, r.nhom, fmtDate(String(r.ngayNghi ?? '')),
+      idx + 1, r.code, r.name, r.deptName, r.specialGroupName, fmtDate(String(r.ngayNghiCuoiThangTruoc ?? '')),
       ...days.flatMap(d => [r[`in${d}`] ?? '', r[`out${d}`] ?? '']),
       r.workdays != null ? Math.round(Number(r.workdays)) : '', r.totalLP, r.totalPN,
       Number(r.totalOT) > 0 ? Math.round(Number(r.totalOT)) : '',
       Number(r.totalLate) > 0 ? Math.round(Number(r.totalLate)) : '',
+      String(r._nghiCuoi || ''),
     ]);
     const ws6 = XLSX.utils.aoa_to_sheet([row0, row1, row2, ...dataRows6]);
     const merges = [];
@@ -363,7 +383,7 @@ export async function GET(req: NextRequest) {
     ws6['!merges'] = merges;
     applyStyles(ws6, FIXED6 + daysInMonth * 2 + SUMMARY.length, FIXED6, daysInMonth, dowIdx, 3, 1, 2, empArr6.length,
       (ri, di) => empArr6[ri][`dt${days[di]}`] as number ?? -1, 2);
-    ws6['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, ...Array(daysInMonth * 2).fill({ wch: 7 }), { wch: 11 }, { wch: 6 }, { wch: 6 }, { wch: 11 }, { wch: 9 }];
+    ws6['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, ...Array(daysInMonth * 2).fill({ wch: 7 }), { wch: 11 }, { wch: 6 }, { wch: 6 }, { wch: 11 }, { wch: 9 }, { wch: 16 }];
     ws6['!rows'] = [{ hpt: 30 }, { hpt: 20 }, { hpt: 15 }];
     ws6['!freeze'] = { xSplit: FIXED6, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws6, 'Buoc6_KetQua');
