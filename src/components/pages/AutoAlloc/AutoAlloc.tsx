@@ -249,6 +249,46 @@ export default function AutoAlloc() {
   const validateRef = useRef<{ run: () => void }>(null);
   const [recheckKey, setRecheckKey] = useState(0);
 
+  const [vis1, setVis1] = useColumnVisibility('step1', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, ot: true, late: true });
+  const [vis2, setVis2] = useColumnVisibility('step2', { deptName: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, lp: true, x: true, pn: true, pbnc: true, nghiCuoi: true });
+  const [vis3, setVis3] = useColumnVisibility('step3', { deptName: true, c1: true, c2: true, c: true });
+  const [vis4, setVis4] = useColumnVisibility('step4', { deptName: true, overtimeHours: true, lateMinutes: true, totalOT: true, totalLate: true });
+  const [vis5, setVis5] = useColumnVisibility('step5', { deptName: true, specialGroup: true, groupCodeEndDate: true });
+  const [vis6, setVis6] = useColumnVisibility('step6', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, nghiCuoi: true, overtimeHours: true, lateMinutes: true, lpCount: true, pnCount: true, totalOT: true, totalLate: true });
+
+  const colToggle1 = <ColumnToggle visible={vis1} setVisible={setVis1} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' }, { key: 'workdays', label: 'NGÀY CÔNG' },
+    { key: 'phepNam', label: 'PHÉP NĂM' }, { key: 'ot', label: 'TĂNG CA (H)' }, { key: 'late', label: 'GIỜ TRỄ (PH)' },
+  ]} />;
+  const colToggle2 = <ColumnToggle visible={vis2} setVisible={setVis2} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
+    { key: 'workdays', label: 'NGÀY CÔNG' }, { key: 'phepNam', label: 'PHÉP NĂM' },
+    { key: 'lp', label: 'LP' }, { key: 'x', label: 'X' }, { key: 'pn', label: 'PN' },
+    { key: 'pbnc', label: 'PBNC' }, { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
+  ]} />;
+  const colToggle3 = <ColumnToggle visible={vis3} setVisible={setVis3} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'c1', label: 'C1' }, { key: 'c2', label: 'C2' }, { key: 'c', label: 'C' },
+  ]} />;
+  const colToggle4 = <ColumnToggle visible={vis4} setVisible={setVis4} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'overtimeHours', label: 'TĂNG CA (H)' },
+    { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' }, { key: 'totalOT', label: 'PHÂN BỔ TC (H)' },
+    { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
+  ]} />;
+  const colToggle5 = <ColumnToggle visible={vis5} setVisible={setVis5} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'groupCodeEndDate', label: 'NGÀY KẾT THÚC' },
+  ]} />;
+  const colToggle6 = <ColumnToggle visible={vis6} setVisible={setVis6} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' }, { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' }, { key: 'workdays', label: 'NGÀY CÔNG' },
+    { key: 'phepNam', label: 'PHÉP NĂM' }, { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
+    { key: 'overtimeHours', label: 'TĂNG CA (H)' }, { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' },
+    { key: 'lpCount', label: 'LP' }, { key: 'pnCount', label: 'PN' },
+    { key: 'totalOT', label: 'PHÂN BỔ TC (H)' }, { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
+  ]} />;
+  const colToggleMap: Record<number, React.ReactNode> = { 1: colToggle1, 2: colToggle2, 3: colToggle3, 4: colToggle4, 5: colToggle5, 6: colToggle6 };
+
   const [completionInfo, setCompletionInfo] = useState<{
     stepNum: number | 'all'; stepLabel: string; stepIcon: string; elapsedSec: number;
     onConfirm: () => void;
@@ -510,6 +550,7 @@ export default function AutoAlloc() {
       <div className={styles.panel}>
         <div className={styles.panelHeader}>
           <span className={styles.panelTitle}>{curStep?.icon} Bước {activeStep}: {curStep?.label}</span>
+          <span style={{ marginLeft: 8 }}>{colToggleMap[activeStep] ?? null}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             {[2, 3, 4, 5].includes(activeStep) && curStep && status[curStep.key] && (() => {
               const { loading, result } = validate2Status;
@@ -681,7 +722,7 @@ const DT_CELL_BG: Record<number, string> = { 0: '#f0fdf4', 1: '#f1f5f9', 2: '#f5
 const SYM_TO_DT: Record<string, number> = { X: 0, L: 1, LP: 1, PN: 2, Ô: 3, TS: 4, DS: 5, O: 6, NL: 7, OF: 8, P: 9, 'X/2': 10, LL: 11, LN: 12, H: 13, B: 14 };
 
 /* === ImportGrid (Step 1) === */
-function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean; }) {
+function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSaved, locked, vis }: { rows: Record<string, unknown>[]; monthLabel: string; monthId: string; filterCodes?: Set<string> | null; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; onSaved?: () => void; locked?: boolean; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
@@ -809,17 +850,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   }, [monthId]);
   const [sort, onSort] = useSort();
   const sortedRows = useSortRows(filtered, sort);
-  const [vis1, setVis1] = useColumnVisibility('step1', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, ot: true, late: true });
 
-  const colToggle1 = <ColumnToggle visible={vis1} setVisible={setVis1} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
-    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
-    { key: 'workdays', label: 'NGÀY CÔNG' },
-    { key: 'phepNam', label: 'PHÉP NĂM' },
-    { key: 'ot', label: 'TĂNG CA (H)' },
-    { key: 'late', label: 'GIỜ TRỄ (PH)' },
-  ]} />;
 
   // Dynamic columns from legend (used day types) — compute from current page
   const usedSymbols = useMemo(() => {
@@ -874,7 +905,6 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
           🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào nút lọc bên trên để bỏ lọc
         </div>
       )}
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle1}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
           <thead>
@@ -1037,7 +1067,7 @@ function DayTypePicker({ currentDT, x, y, onPick, onClose, leaveTypes }: {
 /* === DayTypeGrid (Step 2) – Editable === */
 type EditKey = `${string}_${number}`; // "empCode_day"
 const DOW_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, filterMode }: {
+function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, filterMode, vis }: {
   rows: Record<string, unknown>[];
   monthId: string;
   monthLabel: string;
@@ -1045,6 +1075,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
   locked?: boolean;
   filterCodes?: Set<string> | null;
   filterMode?: FilterMode | null;
+  vis: Record<string, boolean>;
 }) {
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
@@ -1103,18 +1134,6 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
     if (fPN) r = r.filter((x: any) => String(x.phepNam ?? '') === fPN);
     return r;
   }, [baseFiltered, filterCodes, fNghiTruoc, fNghiCuoi, fWorkdays, fPN]);
-  const [vis2, setVis2] = useColumnVisibility('step2', { deptName: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, lp: true, x: true, pn: true, pbnc: true, nghiCuoi: true });
-  const colToggle2 = <ColumnToggle visible={vis2} setVisible={setVis2} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
-    { key: 'workdays', label: 'NGÀY CÔNG' },
-    { key: 'phepNam', label: 'PHÉP NĂM' },
-    { key: 'lp', label: 'LP' },
-    { key: 'x', label: 'X' },
-    { key: 'pn', label: 'PN' },
-    { key: 'pbnc', label: 'PBNC' },
-    { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
-  ]} />;
   const hasViolations = (filterCodes?.size ?? 0) > 0;
 
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
@@ -1190,7 +1209,6 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
           🔍 Đang lọc {filterCodes.size} nhân viên {filterMode === 'pass' ? 'đạt' : 'vi phạm'} — click lại vào nút lọc bên trên để bỏ lọc
         </div>
       )}
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle2}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1330,7 +1348,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
 }
 
 /* === ShiftGrid (Step 3) === */
-function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null }) {
+function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const CA1_BG = '#eff6ff', CA1_CLR = '#1d4ed8';
@@ -1341,18 +1359,10 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [sort, onSort] = useSort();
-  const [vis3, setVis3] = useColumnVisibility('step3', { deptName: true, c1: true, c2: true, c: true });
-  const colToggle3 = <ColumnToggle visible={vis3} setVisible={setVis3} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'c1', label: 'C1' },
-    { key: 'c2', label: 'C2' },
-    { key: 'c', label: 'C' },
-  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered, [baseFiltered, filterCodes]);
   return (
     <div className={styles.tableOuter}>
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle3}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1412,7 +1422,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
 }
 
 /* === OtLateGrid (Step 4) === */
-function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void }) {
+function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved, vis }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const OT_BG = '#eff6ff';
@@ -1430,14 +1440,6 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
   const lateList = useStatList(rows, 'totalLate', 0);
   const sourceOtList = useStatList(rows, 'overtimeHours', 0);
   const sourceLateList = useStatList(rows, 'lateMinutes', 0);
-  const [vis4, setVis4] = useColumnVisibility('step4', { deptName: true, overtimeHours: true, lateMinutes: true, totalOT: true, totalLate: true });
-  const colToggle4 = <ColumnToggle visible={vis4} setVisible={setVis4} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'overtimeHours', label: 'TĂNG CA (H)' },
-    { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' },
-    { key: 'totalOT', label: 'PHÂN BỔ TC (H)' },
-    { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
-  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = baseFiltered as any[];
@@ -1582,7 +1584,6 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
 
   return (
     <div className={styles.tableOuter}>
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle4}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1703,7 +1704,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
 }
 
 /* === TimeGrid (Step 5) === */
-function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean; filterCodes?: Set<string> | null }) {
+function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean; filterCodes?: Set<string> | null; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const IN_BG = '#f0fdf4', IN_CLR = '#15803d';
@@ -1717,12 +1718,6 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   const [fEndDate, setFEndDate] = useState('');
   const endDateList = useMemo(() => [...new Set((rows as any[]).map(r => r.groupCodeEndDate).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [rows]);
   const [sort, onSort] = useSort();
-  const [vis5, setVis5] = useColumnVisibility('step5', { deptName: true, specialGroup: true, groupCodeEndDate: true });
-  const colToggle5 = <ColumnToggle visible={vis5} setVisible={setVis5} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
-    { key: 'groupCodeEndDate', label: 'NGÀY KẾT THÚC' },
-  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
     let r = filterCodes ? baseFiltered.filter((x: any) => filterCodes.has(x.code)) : baseFiltered;
@@ -1731,7 +1726,6 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   }, [baseFiltered, filterCodes, fEndDate]);
   return (
     <div className={styles.tableOuter}>
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle5}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1782,7 +1776,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
 }
 
 /* === FinalGrid (Step 6) === */
-function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; monthLabel: string }) {
+function FinalGrid({ rows, monthLabel, vis }: { rows: Record<string, unknown>[]; monthLabel: string; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
@@ -1832,21 +1826,6 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const sourceLateList = useStatList(rows, 'lateMinutes', 0);
   const baseFiltered2 = useGridFilter(nghiCuoiList2, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
-  const [vis6, setVis6] = useColumnVisibility('step6', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, nghiCuoi: true, overtimeHours: true, lateMinutes: true, lpCount: true, pnCount: true, totalOT: true, totalLate: true });
-  const colToggle6 = <ColumnToggle visible={vis6} setVisible={setVis6} columns={[
-    { key: 'deptName', label: 'PHÒNG BAN' },
-    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
-    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
-    { key: 'workdays', label: 'NGÀY CÔNG' },
-    { key: 'phepNam', label: 'PHÉP NĂM' },
-    { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
-    { key: 'overtimeHours', label: 'TĂNG CA (H)' },
-    { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' },
-    { key: 'lpCount', label: 'LP' },
-    { key: 'pnCount', label: 'PN' },
-    { key: 'totalOT', label: 'PHÂN BỔ TC (H)' },
-    { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
-  ]} />;
   const filtered = useMemo(() => {
     let r = baseFiltered2 as any[];
     if (fNghiTruoc) {
@@ -1869,7 +1848,6 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fPhepNam, fSourceOT, fSourceLate, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
-      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle6}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
@@ -2428,26 +2406,26 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
 
   if (step === 1) return stepWrapper(
     <>      {validateWrapper(<ValidatePanel key={`${step}_${validateResult?.checkedAt ?? 'init'}`} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} />)}</>
+      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} vis={vis1} />)}</>
   );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
       {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 7 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, PBNC = X+PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} />)}</>
+      {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} vis={vis2} />)}</>
   );
   if (step === 3) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} />)}</>
+      {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} vis={vis3} />)}</>
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} />)}</> 
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={vis4} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} />)}</>
+      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} vis={vis5} />)}</>
   );
-  if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} />;
+  if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} vis={vis6} />;
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }
