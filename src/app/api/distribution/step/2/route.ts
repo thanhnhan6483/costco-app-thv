@@ -266,9 +266,9 @@ export async function GET(req: NextRequest) {
        WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders})
        ORDER BY e.code, dr.day`, monthId, ...ids
     );
-    const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; workdays: string; phepNam: string; expectedLP: number; days: {day:number;dayType:number}[] }>();
+     const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; workdays: string; phepNam: string; days: {day:number;dayType:number}[] }>();
     for (const r of rows as any[]) {
-      if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', phepNam: r.phepNam ?? '', expectedLP: (() => { const wd = Number(r.workdays) || 0; return wd <= 0 ? 0 : Math.max(0, Math.ceil(wd / 6) - 1); })(), days: [] });
+       if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', phepNam: r.phepNam ?? '', days: [] });
       map.get(r.code)!.days.push({ day: Number(r.day), dayType: Number(r.day_type) });
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
