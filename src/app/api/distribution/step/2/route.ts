@@ -24,8 +24,9 @@ function runWorker(workerData: unknown): Promise<unknown[][]> {
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const params = await loadParams(monthId);
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
     const { accountingIds } = await loadSpecialDeptIds(monthId);
@@ -79,13 +80,13 @@ export async function POST(req: NextRequest) {
       const maxConsec = params.maxConsecutiveDays;
       type Row = [string, string, string, number, number, string];
       // Build emp → { deptId, days: Map<day, {idx, dt}> }
+      const empDeptMap = new Map(empInputs.map(e => [e.id, e.departmentId ?? 'none']));
       const empData = new Map<string, { deptId: string; days: Map<number, { idx: number; dt: number }> }>();
       for (let i = 0; i < allRows.length; i++) {
         const row = allRows[i] as Row;
         const empId = row[2];
         if (!empData.has(empId)) {
-          const deptId = empInputs.find(e => e.id === empId)?.departmentId ?? 'none';
-          empData.set(empId, { deptId, days: new Map() });
+          empData.set(empId, { deptId: empDeptMap.get(empId) ?? 'none', days: new Map() });
         }
         empData.get(empId)!.days.set(row[3], { idx: i, dt: row[4] });
       }
@@ -223,11 +224,11 @@ export async function POST(req: NextRequest) {
 
     const processed = emps.length;
     await markStepDone(monthId, 2);
-    await conn.close();
     return NextResponse.json({ ok: true, step: 2, processed });
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }
 
@@ -236,8 +237,9 @@ export async function GET(req: NextRequest) {
   const url     = new URL(req.url);
   const monthId = url.searchParams.get('month') ?? '';
   const { page, limit, offset } = parsePage(url);
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const [{ total }] = await conn.all<{ total: number }>(
       `SELECT COUNT(DISTINCT employee_id) AS total FROM distribution_results WHERE month_id = ?`, monthId
     );
@@ -249,7 +251,6 @@ export async function GET(req: NextRequest) {
        WHERE dr.month_id = ? ORDER BY e.code LIMIT ? OFFSET ?`, monthId, limit, offset
     );
     if (empIds.length === 0) {
-      await conn.close();
       return NextResponse.json(buildPagedResponse([], Number(total), page, limit));
     }
     const ids = empIds.map(r => r.empId);
@@ -265,7 +266,6 @@ export async function GET(req: NextRequest) {
        WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders})
        ORDER BY e.code, dr.day`, monthId, ...ids
     );
-    await conn.close();
     const map = new Map<string, { code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string; workdays: string; phepNam: string; expectedLP: number; days: {day:number;dayType:number}[] }>();
     for (const r of rows as any[]) {
       if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', phepNam: r.phepNam ?? '', expectedLP: (() => { const wd = Number(r.workdays) || 0; return wd <= 0 ? 0 : Math.max(0, Math.ceil(wd / 6) - 1); })(), days: [] });
@@ -273,7 +273,8 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }

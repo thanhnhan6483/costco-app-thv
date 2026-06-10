@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import s from '@/styles/table.module.css';
 import styles from './ImportEmployees.module.css';
-import { IconEdit, IconDelete, IconSearch, IconClearX, IconPlus, IconRefresh } from '@/lib/icons';
+import { IconEdit, IconDelete, IconSearch, IconClearX, IconRefresh } from '@/lib/icons';
 import { useApp } from '@/context/AppContext';
 
 

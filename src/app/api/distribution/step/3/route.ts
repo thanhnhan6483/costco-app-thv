@@ -8,8 +8,9 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const shiftMap = await loadShiftMap(monthId);
     const { daysInMonth } = await loadMonthInfo(monthId);
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_results dr
          SET shift_code = t.shift_code
          FROM _tmp_shift t
-         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+         WHERE dr.month_id = ? AND dr.employee_id = t.emp_id AND dr.day = t.day`, monthId
       );
     }
 
@@ -92,11 +93,11 @@ export async function POST(req: NextRequest) {
       monthId, daysInMonth
     );
 
-    await conn.close();
     return NextResponse.json({ ok: true, step: 3, processed: emps.length });
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }
 

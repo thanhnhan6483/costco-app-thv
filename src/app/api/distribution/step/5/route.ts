@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const params = await loadParams(monthId);
     const shiftMap = await loadShiftMap(monthId);
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_results dr
          SET check_in = t.check_in, check_out = t.check_out
          FROM _tmp_time t
-         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+         WHERE dr.month_id = ? AND dr.employee_id = t.emp_id AND dr.day = t.day`, monthId
       );
     }
 
@@ -93,19 +94,20 @@ export async function POST(req: NextRequest) {
       monthId, daysInMonth
     );
 
-    await conn.close();
     return NextResponse.json({ ok: true, step: 5, processed: emps.length });
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }
 export async function GET(req: NextRequest) {
   const url     = new URL(req.url);
   const monthId = url.searchParams.get('month') ?? '';
   const { page, limit, offset } = parsePage(url);
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const { daysInMonth } = await loadMonthInfo(monthId);
     const [{ total }] = await conn.all<{ total: number }>(
       `SELECT COUNT(DISTINCT employee_id) AS total FROM distribution_results WHERE month_id = ?`, monthId
@@ -116,7 +118,6 @@ export async function GET(req: NextRequest) {
        WHERE dr.month_id = ? ORDER BY e.code LIMIT ? OFFSET ?`, monthId, limit, offset
     );
     if (empIds.length === 0) {
-      await conn.close();
       return NextResponse.json(buildPagedResponse([], Number(total), page, limit));
     }
     const ids = empIds.map(r => r.empId);
@@ -137,7 +138,6 @@ export async function GET(req: NextRequest) {
        WHERE dr.month_id = ? AND dr.employee_id IN (${placeholders}) AND dr.day BETWEEN 1 AND ?
        ORDER BY e.code, dr.day`, monthId, ...ids, daysInMonth
     );
-    await conn.close();
     const map = new Map<string, any>();
     for (const r of rows as any[]) {
       if (!map.has(r.code)) map.set(r.code, {
@@ -165,7 +165,8 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(buildPagedResponse(result, Number(total), page, limit));
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }

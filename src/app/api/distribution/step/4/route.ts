@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
-  const conn = await getConn();
+  let conn;
   try {
+    conn = await getConn();
     const params = await loadParams(monthId);
     const { daysInMonth } = await loadMonthInfo(monthId);
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_results dr
          SET ot_hours = t.ot_hours, late_mins = t.late_mins
          FROM _tmp_otlate t
-         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+         WHERE dr.month_id = ? AND dr.employee_id = t.emp_id AND dr.day = t.day`, monthId
       );
     }
 
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_results dr
          SET ot_hours = t.ot_hours
          FROM _tmp_ot t
-         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+         WHERE dr.month_id = ? AND dr.employee_id = t.emp_id AND dr.day = t.day`, monthId
       );
     }
 
@@ -205,7 +206,7 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_results dr
          SET ot_hours = t.ot_hours
          FROM _tmp_ot t
-         WHERE dr.month_id = '${monthId}' AND dr.employee_id = t.emp_id AND dr.day = t.day`
+         WHERE dr.month_id = ? AND dr.employee_id = t.emp_id AND dr.day = t.day`, monthId
       );
     }
 
@@ -218,11 +219,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await conn.close();
     return NextResponse.json({ ok: true, step: 4, processed: emps.length, otBalanceFixes: otUpdates.length });
   } catch (e) {
-    await conn.close();
     return NextResponse.json({ error: String(e) }, { status: 500 });
+  } finally {
+    if (conn) try { await conn.close(); } catch { /* ignore */ }
   }
 }
 export async function GET(req: NextRequest) {

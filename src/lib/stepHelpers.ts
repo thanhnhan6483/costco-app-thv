@@ -154,22 +154,15 @@ export async function markStepDone(monthId: string, step: 1|2|3|4|5|6) {
   const conn = await getConn();
   const col = `step${step}_done`;
   const now = new Date().toISOString().slice(0, 19);
-  // Upsert
-  const existing = await conn.all<{ cnt: number }>(
-    `SELECT COUNT(*) AS cnt FROM distribution_status WHERE month_id = ?`, monthId
-  );
-  if (Number(existing[0].cnt) === 0) {
+  try {
     await conn.run(
-      `INSERT INTO distribution_status (month_id, ${col}, updated_at) VALUES (?, TRUE, ?)`,
-      monthId, now
+      `INSERT INTO distribution_status (month_id, ${col}, updated_at) VALUES (?, TRUE, ?)
+       ON CONFLICT (month_id) DO UPDATE SET ${col} = TRUE, updated_at = ?`,
+      monthId, now, now
     );
-  } else {
-    await conn.run(
-      `UPDATE distribution_status SET ${col} = TRUE, updated_at = ? WHERE month_id = ?`,
-      now, monthId
-    );
+  } finally {
+    await conn.close();
   }
-  await conn.close();
 }
 
 /** Load month info → daysInMonth, month, year */
