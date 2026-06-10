@@ -649,6 +649,7 @@ export default function AutoAlloc() {
             onValidateStatusChange={setValidate2Status}
             validateRef={validateRef}
             step1Filter={step1Filter}
+            visMap={{ 1: vis1, 2: vis2, 3: vis3, 4: vis4, 5: vis5, 6: vis6 }}
             validateResult={validate2Status.result}
             recheckKey={recheckKey}
           />
@@ -2324,10 +2325,11 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey }: {
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey, visMap }: {
   step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
   validateOpen?: boolean; onValidateOpen?: () => void; onValidateStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void;
   validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; validateResult?: ValidateResult | null; recheckKey?: number;
+  visMap: Record<number, Record<string, boolean>>;
 }) {
   const [filterCodes, setFilterCodes] = useState<Set<string> | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode | null>(null);
@@ -2406,26 +2408,26 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
 
   if (step === 1) return stepWrapper(
     <>      {validateWrapper(<ValidatePanel key={`${step}_${validateResult?.checkedAt ?? 'init'}`} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} vis={vis1} />)}</>
+      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} vis={visMap[1]} />)}</>
   );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
       {validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 7 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, PBNC = X+PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} vis={vis2} />)}</>
+      {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} vis={visMap[2]} />)}</>
   );
   if (step === 3) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} vis={vis3} />)}</>
+      {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} vis={visMap[3]} />)}</>
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={vis4} />)}</> 
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={step} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} vis={vis5} />)}</>
+      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} vis={visMap[5]} />)}</>
   );
-  if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} vis={vis6} />;
+  if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} vis={visMap[6]} />;
 
   return <div className={styles.emptyState}>Lỗi bước.</div>;
 }
