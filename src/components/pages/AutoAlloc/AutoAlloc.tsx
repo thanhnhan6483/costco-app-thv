@@ -1743,6 +1743,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fLate2, setFLate2] = useState('');
   const [fNghiCuoi, setFNghiCuoi] = useState('');
   const [fNghiTruoc, setFNghiTruoc] = useState('');
+  const [fPhepNam, setFPhepNam] = useState('');
   const nghiCuoiList = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
     return [...new Set((rows as any[]).map(r => {
@@ -1769,6 +1770,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const pnList2 = useStatList(rows, 'pnCount');
   const otList2 = useStatList(rows, 'totalOT', 0);
   const lateList2 = useStatList(rows, 'totalLate', 0);
+  const phepNamList2 = useStatList(rows, 'phepNam');
   const baseFiltered2 = useGridFilter(nghiCuoiList2, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
   const filtered = useMemo(() => {
@@ -1784,10 +1786,11 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     if (fWorkdays) r = r.filter((x: any) => String(x.workdays ?? '') === fWorkdays);
     if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
     if (fPN2) r = r.filter((x: any) => String(x.pnCount ?? '') === fPN2);
+    if (fPhepNam) r = r.filter((x: any) => String(x.phepNam ?? '') === fPhepNam);
     if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && String(Math.round(Number(x.totalOT))) === fOT2);
     if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && String(Math.round(Number(x.totalLate))) === fLate2);
     return r;
-  }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fOT2, fLate2]);
+  }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fPhepNam, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
       <ScrollTable className={styles.tableWrap}>
@@ -1802,6 +1805,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
+              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#1d4ed8' }} />
@@ -1812,6 +1816,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
+              <StatFilterTh list={phepNamList2} value={fPhepNam} onChange={setFPhepNam} />
               <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />
               <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
               <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
@@ -1837,6 +1842,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
                 </td>;
               })}
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
+              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.phepNam || '—'}</td>
               <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
               <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Math.round(Number(r.totalOT))}</span> : 0}</td>
