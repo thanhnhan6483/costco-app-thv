@@ -1799,7 +1799,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
               <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
               <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
-              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#92400e' }} />
+              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
               <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
@@ -1826,7 +1826,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
               <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#92400e', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
+              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#0369a1', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
