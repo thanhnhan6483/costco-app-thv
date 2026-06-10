@@ -549,8 +549,8 @@ export default function AutoAlloc() {
 
       <div className={styles.panel}>
         <div className={styles.panelHeader}>
+          <span>{colToggleMap[activeStep] ?? null}</span>
           <span className={styles.panelTitle}>{curStep?.icon} Bước {activeStep}: {curStep?.label}</span>
-          <span style={{ marginLeft: 8 }}>{colToggleMap[activeStep] ?? null}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             {[2, 3, 4, 5].includes(activeStep) && curStep && status[curStep.key] && (() => {
               const { loading, result } = validate2Status;
