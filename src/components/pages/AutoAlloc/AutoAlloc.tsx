@@ -1814,26 +1814,26 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
+              <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
               <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
               <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
               <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
               <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: OT_CLR }} />
               <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
-              <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
               middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             >
               <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={phepNamList2} value={fPhepNam} onChange={setFPhepNam} />
+              <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
               <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
               <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />
               <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />
               <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
               <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
               <StatFilterTh list={lateList2} value={fLate2} onChange={setFLate2} />
-              <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => (
@@ -1855,12 +1855,6 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               })}
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.phepNam || '—'}</td>
-              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
-              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
-              <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
-              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
-              <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
-              <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               {(() => {
                 const days: { day: number; dayType: number }[] = r.days ?? [];
                 const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
@@ -1868,6 +1862,12 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
                 const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
                 return <td style={{ textAlign: 'center', color: '#0369a1', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>{val || '—'}</td>;
               })()}
+              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
+              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
+              <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
+              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
+              <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
+              <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
             </tr>
           ))}</tbody>
         </table>
