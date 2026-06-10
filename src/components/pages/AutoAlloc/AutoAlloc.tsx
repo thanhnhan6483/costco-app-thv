@@ -10,13 +10,14 @@ import { ColumnToggle } from './ColumnToggle';
 const OT_CLR = '#1d4ed8', LATE_CLR = '#c2410c';
 
 /* ── Reusable inline filter row for grids ── */
-function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0, children, middleChildren }: {
+function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0, children, middleChildren, hideDeptFilter, hideGroupFilter }: {
   fCode: string; fName: string; fDept: string;
   setFCode: (v: string) => void; setFName: (v: string) => void; setFDept: (v: string) => void;
   deptList: string[]; extraBefore?: number; extraAfter?: number; daysCols?: number;
   codeThStyle?: React.CSSProperties; nameThStyle?: React.CSSProperties; monthLabel?: string;
   fGroup?: string; setFGroup?: (v: string) => void; groupList?: string[]; extraMiddle?: number;
   children?: React.ReactNode; middleChildren?: React.ReactNode;
+  hideDeptFilter?: boolean; hideGroupFilter?: boolean;
 }) {
   const trRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
@@ -35,8 +36,8 @@ function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, de
       {Array.from({ length: extraBefore }, (_, i) => <th key={`b${i}`} className={i === 0 ? styles.sc0 : undefined} />)}
       <th className={styles.sc1} style={codeThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fCode} placeholder="Mã…" onChange={e => setFCode(e.target.value)} />{fCode && <button className={s.colFilterClear} onClick={() => setFCode('')} type="button"><IconClearX /></button>}</div></th>
       <th className={styles.sc2} style={nameThStyle}><div className={s.colFilter}><span className={s.colFilterIcon}><IconSearch /></span><input className={s.colFilterInput} value={fName} placeholder="Tên…" onChange={e => setFName(e.target.value)} />{fName && <button className={s.colFilterClear} onClick={() => setFName('')} type="button"><IconClearX /></button>}</div></th>
-      <th style={{ maxWidth: 50, width: 50, minWidth: 50, overflow: 'hidden' }}><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
-      {groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
+      {!hideDeptFilter && <th style={{ maxWidth: 50, width: 50, minWidth: 50, overflow: 'hidden' }}><select className={s.statusFilterSelect} value={fDept} onChange={e => setFDept(e.target.value)}><option value="">Tất cả</option>{deptList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
+      {!hideGroupFilter && groupList && setFGroup !== undefined && <th><select className={s.statusFilterSelect} value={fGroup ?? ''} onChange={e => setFGroup(e.target.value)}><option value="">Tất cả</option>{groupList.map(g => <option key={g} value={g}>{g}</option>)}</select></th>}
       {Array.from({ length: extraMiddle }, (_, i) => <th key={'m' + i} />)}
       {middleChildren}
       {monthLabel ? (() => { const [mm, yyyy] = monthLabel.split('/'); return Array.from({ length: daysCols }, (_, di) => { const dow = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, di + 1).getDay(); const isSun = dow === 0, isSat = dow === 6; return <th key={'d' + di} style={{ fontSize: '0.6rem', fontWeight: 600, textAlign: 'center', color: isSun ? '#dc2626' : isSat ? '#2563eb' : '#64748b' }}>{DOW_SHORT[dow]}</th>; }); })() : Array.from({ length: daysCols }, (_, i) => <th key={'d' + i} />)}
@@ -893,7 +894,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               {vis1.ot && <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>}
               {vis1.late && <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>}
             </tr>
-             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis1.deptName} hideGroupFilter={!vis1.specialGroup}
               middleChildren={<>{vis1.ngayNghiCuoiThangTruoc && <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}{vis1.workdays && <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}{vis1.phepNam && <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}</>}>
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt}><select className={s.statusFilterSelect} value={fSymCounts[dt] ?? ''} onChange={e => setFSymCounts(p => ({ ...p, [dt]: e.target.value }))} style={{ fontSize: 10, padding: '1px 3px', minWidth: 32 }}><option value="">—</option>{(symCountsList[dt] ?? []).map(v => <option key={v} value={v}>{v}</option>)}</select></th>
@@ -1208,7 +1209,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               {vis2.pbnc && <th style={{ minWidth: 36, color: '#b45309' }}>PBNC</th>}
               {vis2.nghiCuoi && <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis2.deptName}
               middleChildren={vis2.ngayNghiCuoiThangTruoc ? <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             >
               {vis2.workdays && <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />}
@@ -1365,7 +1366,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
               {vis3.c2 && <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>}
               {vis3.c && <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis3.deptName} />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
@@ -1596,7 +1597,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
               {vis4.totalOT && <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />}
               {vis4.totalLate && <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis4.deptName}>
               {vis4.overtimeHours && <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />}
               {vis4.lateMinutes && <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />}
               {vis4.totalOT && <StatFilterTh list={otList} value={fOT} onChange={setFOT} />}
@@ -1743,7 +1744,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
               {vis5.groupCodeEndDate && <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis5.deptName} hideGroupFilter={!vis5.specialGroup}
               middleChildren={vis5.groupCodeEndDate ? <th><select className={s.statusFilterSelect} value={fEndDate} onChange={e => setFEndDate(e.target.value)}><option value="">Tất cả</option>{endDateList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             />
           </thead>
@@ -1890,7 +1891,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               {vis6.totalOT && <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: OT_CLR }} />}
               {vis6.totalLate && <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis6.deptName} hideGroupFilter={!vis6.specialGroup}
               middleChildren={vis6.ngayNghiCuoiThangTruoc ? <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             >
               {vis6.workdays && <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />}
