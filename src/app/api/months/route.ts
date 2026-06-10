@@ -22,7 +22,7 @@ export async function GET() {
       SELECT id, label, month, from_date AS fromDate, to_date AS toDate,
              note, created_at AS createdAt, COALESCE(locked, FALSE) AS locked
       FROM months
-      ORDER BY month DESC
+      ORDER BY created_at DESC
     `);
     try { await conn.close(); } catch { /* ignore */ }
     return NextResponse.json(rows);
@@ -34,25 +34,20 @@ export async function GET() {
 
 /* ── POST ─────────────────────────────────────── */
 export async function POST(req: NextRequest) {
-  let month = '';
   try {
     const body = await req.json();
-    const { id, label, fromDate, toDate, note, createdAt } = body;
-    month = body.month ?? '';
+    const { id, label, month, fromDate, toDate, note, createdAt } = body;
 
     const conn = await getConn();
     await conn.run(
       `INSERT INTO months (id, label, month, from_date, to_date, note, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      id, label ?? '', month, fromDate, toDate, note ?? '', createdAt,
+      id, label ?? '', month ?? '', fromDate, toDate, note ?? '', createdAt,
     );
     try { await conn.close(); } catch { /* ignore close error */ }
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('constraint')) {
-      return NextResponse.json({ error: `Tháng '${month}' đã tồn tại` }, { status: 409 });
-    }
     console.error('[POST /api/months]', e);
     return NextResponse.json({ error: `DB error: ${msg}` }, { status: 500 });
   }

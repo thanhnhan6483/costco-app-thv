@@ -48,7 +48,7 @@ async function initSchema(db: Database): Promise<void> {
     CREATE TABLE IF NOT EXISTS months (
       id          VARCHAR PRIMARY KEY,
       label       VARCHAR DEFAULT '',
-      month       VARCHAR NOT NULL UNIQUE,     -- 'MM/YYYY'
+      month       VARCHAR NOT NULL,     -- 'MM/YYYY'
       from_date   VARCHAR NOT NULL,            -- 'DD/MM/YYYY'
       to_date     VARCHAR NOT NULL,            -- 'DD/MM/YYYY'
       note        VARCHAR DEFAULT '',
@@ -70,6 +70,30 @@ async function initSchema(db: Database): Promise<void> {
       await conn.run(`ALTER TABLE months ADD COLUMN locked BOOLEAN DEFAULT FALSE`);
     }
   } catch { /* bảng chưa tồn tại */ }
+
+  /* Migration: bỏ UNIQUE constraint trên cột month (cho phép tạo tháng trùng) */
+  try {
+    const [def] = await conn.all<{ sql: string }>(
+      `SELECT sql FROM sqlite_master WHERE name = 'months'`
+    );
+    if (def && def.sql && /UNIQUE/i.test(def.sql)) {
+      await conn.run(`ALTER TABLE months RENAME TO months_bak`);
+      await conn.run(`
+        CREATE TABLE months (
+          id          VARCHAR PRIMARY KEY,
+          label       VARCHAR DEFAULT '',
+          month       VARCHAR NOT NULL,     -- 'MM/YYYY'
+          from_date   VARCHAR NOT NULL,     -- 'DD/MM/YYYY'
+          to_date     VARCHAR NOT NULL,     -- 'DD/MM/YYYY'
+          note        VARCHAR DEFAULT '',
+          locked      BOOLEAN DEFAULT FALSE,
+          created_at  VARCHAR NOT NULL
+        )
+      `);
+      await conn.run(`INSERT INTO months SELECT * FROM months_bak`);
+      await conn.run(`DROP TABLE months_bak`);
+    }
+  } catch { /* ignore */ }
 
   /* Tháng mặc định sẽ được tạo trong seedIfEmpty() nếu DB trống */
   /* Không tự động tạo lại nếu user đã xóa */

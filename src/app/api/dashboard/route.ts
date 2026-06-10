@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
     // ── Tổng quan toàn hệ thống ───────────────────────────────────
     const months = await conn.all<{ id: string; label: string; month: string; locked: boolean }>(
-      `SELECT id, label, month, locked FROM months ORDER BY month DESC`
+      `SELECT id, label, month, locked FROM months WHERE month != '' ORDER BY strptime(month, '%m/%Y') DESC`
     );
     const monthIds = months.map(m => m.id);
 
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
        FROM employees e JOIN months m ON e.month_id = m.id
        WHERE e.active = TRUE AND e.month_id IN (${ph})
        GROUP BY e.month_id, m.month, m.locked
-       ORDER BY m.month ASC`,
+       ORDER BY strptime(m.month, '%m/%Y') ASC`,
       ...monthIds
     );
 

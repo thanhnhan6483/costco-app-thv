@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import styles from './Dashboard.module.css';
 
@@ -91,7 +91,9 @@ export default function Dashboard() {
             <XAxis dataKey="month_str" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="nv_count" name="Nhân viên" fill="#2563eb" radius={[4,4,0,0]} />
+            <Bar dataKey="nv_count" name="Nhân viên" fill="#2563eb" radius={[4,4,0,0]}>
+              <LabelList dataKey="nv_count" position="center" style={{ fontSize: 18, fontWeight: 700, fill: '#fff' }} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -154,7 +156,7 @@ export default function Dashboard() {
           <div className={styles.chartRow}>
             <div className={styles.chartCard}>
               <div className={styles.chartLabel}>Cơ Cấu Nhân Sự Theo Phòng Ban</div>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie data={detail.deptDist} dataKey="cnt" nameKey="dept"
                     cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2}>
@@ -167,7 +169,7 @@ export default function Dashboard() {
             </div>
             <div className={styles.chartCard}>
               <div className={styles.chartLabel}>Top Phòng Ban OT Cao Nhất</div>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={detail.deptOT} layout="vertical" margin={{ top: 5, right: 40, left: 60, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />

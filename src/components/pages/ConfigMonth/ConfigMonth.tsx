@@ -297,14 +297,19 @@ export default function ConfigMonth() {
     if (!copyFrom || !copyTo) return;
     setSaving(true);
     try {
-      // 1. Tạo record tháng mới
+      // 1. Xác định tháng nguồn
+      const fromEntry = entries.find(en => en.id === copyFrom);
+
+      // 2. Tạo record tháng mới
       const newEntry: MonthEntry = {
         id: Date.now().toString(),
         month: copyTo,
         label: `Tháng ${copyTo}`,
         fromDate: defaultFrom(copyTo),
         toDate: defaultTo(copyTo),
-        note: `Sao chép từ ${copyFrom}`,
+        note: fromEntry
+          ? `Sao chép từ ${fromEntry.label || fromEntry.month}`
+          : '',
         createdAt: new Date().toISOString().slice(0, 10),
         locked: false,
       };
@@ -315,8 +320,7 @@ export default function ConfigMonth() {
       });
       if (!createRes.ok) throw new Error((await createRes.json()).error);
 
-      // 2. Copy toàn bộ cấu hình từ tháng nguồn
-      const fromEntry = entries.find(en => en.month === copyFrom);
+      // 3. Copy toàn bộ cấu hình từ tháng nguồn
       if (fromEntry) {
         const copyRes = await fetch('/api/months/copy', {
           method: 'POST',
@@ -404,7 +408,11 @@ export default function ConfigMonth() {
                   <select className={styles.select} value={copyFrom}
                     onChange={e => setCopyFrom(e.target.value)} required>
                     <option value="">-- Chọn tháng --</option>
-                    {entries.map(en => <option key={en.id} value={en.month}>{en.month}</option>)}
+                    {entries.map(en => (
+                      <option key={en.id} value={en.id}>
+                        {en.label ? `${en.label} (${en.month})` : en.month}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className={styles.field}>
@@ -412,11 +420,11 @@ export default function ConfigMonth() {
                   <select className={styles.select} value={copyTo}
                     onChange={e => setCopyTo(e.target.value)} required>
                     <option value="">-- Chọn tháng --</option>
-                    {monthOptions.filter(m => !entries.some(en => en.month === m)).map(m =>
+                    {monthOptions.map(m =>
                       <option key={m} value={m}>{m}</option>
                     )}
                   </select>
-                  <span className={styles.fieldHint}>Chỉ hiển thị tháng chưa có cấu hình</span>
+                  <span className={styles.fieldHint}>Có thể tạo nhiều phiên bản cho cùng 1 tháng</span>
                 </div>
               </div>
               <div className={styles.formActions}>
@@ -454,7 +462,7 @@ export default function ConfigMonth() {
                   <select className={styles.select} value={form.month}
                     onChange={e => handleMonthChange(e.target.value)} required disabled={!!editId}>
                     <option value="">-- Chọn tháng --</option>
-                    {monthOptions.filter(m => editId || !entries.some(en => en.month === m)).map(m =>
+                    {monthOptions.map(m =>
                       <option key={m} value={m}>{m}</option>
                     )}
                   </select>
