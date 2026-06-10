@@ -4,6 +4,8 @@ import { useApp } from '@/context/AppContext';
 import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
+import { useColumnVisibility } from './useColumnVisibility';
+import { ColumnToggle } from './ColumnToggle';
 
 const OT_CLR = '#1d4ed8', LATE_CLR = '#c2410c';
 
@@ -806,6 +808,17 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
   }, [monthId]);
   const [sort, onSort] = useSort();
   const sortedRows = useSortRows(filtered, sort);
+  const [vis1, setVis1] = useColumnVisibility('step1', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, ot: true, late: true });
+
+  const colToggle1 = <ColumnToggle visible={vis1} setVisible={setVis1} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
+    { key: 'workdays', label: 'NGÀY CÔNG' },
+    { key: 'phepNam', label: 'PHÉP NĂM' },
+    { key: 'ot', label: 'TĂNG CA (H)' },
+    { key: 'late', label: 'GIỜ TRỄ (PH)' },
+  ]} />;
 
   // Dynamic columns from legend (used day types) — compute from current page
   const usedSymbols = useMemo(() => {
@@ -860,6 +873,7 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
           🔍 Đang lọc {filterCodes.size} nhân viên vi phạm — click lại vào nút lọc bên trên để bỏ lọc
         </div>
       )}
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle1}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.72rem' }}>
           <thead>
@@ -867,25 +881,25 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
-              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
-              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
-              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />
-              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
+              {vis1.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
+              {vis1.specialGroup && <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />}
+              {vis1.ngayNghiCuoiThangTruoc && <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
+              {vis1.workdays && <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 32, color: '#15803d' }} />}
+              {vis1.phepNam && <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt} style={{ minWidth: 28, color: DT_TEXT[dt] ?? '#64748b', fontWeight: 700, fontSize: '0.68rem' }}>{sym}</th>
               ))}
-              <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>
-              <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>
+              {vis1.ot && <th style={{ minWidth: 44, color: '#1d4ed8' }}>TĂNG CA (H)</th>}
+              {vis1.late && <th style={{ minWidth: 50, color: '#c2410c' }}>GIỜ TRỄ (PH)</th>}
             </tr>
              <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraMiddle={0} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<><th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th><th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th></>}>
+              middleChildren={<>{vis1.ngayNghiCuoiThangTruoc && <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}{vis1.workdays && <th><select className={s.statusFilterSelect} value={fWorkdays} onChange={e => setFWorkdays(e.target.value)}><option value="">Tất cả</option>{workdaysList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}{vis1.phepNam && <th><select className={s.statusFilterSelect} value={fPN} onChange={e => setFPN(e.target.value)}><option value="">Tất cả</option>{pnList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}</>}>
               {usedSymbols.map(({ dt, sym }) => (
                 <th key={dt}><select className={s.statusFilterSelect} value={fSymCounts[dt] ?? ''} onChange={e => setFSymCounts(p => ({ ...p, [dt]: e.target.value }))} style={{ fontSize: 10, padding: '1px 3px', minWidth: 32 }}><option value="">—</option>{(symCountsList[dt] ?? []).map(v => <option key={v} value={v}>{v}</option>)}</select></th>
               ))}
-              <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
-              <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+              {vis1.ot && <th><select className={s.statusFilterSelect} value={fOT} onChange={e => setFOT(e.target.value)}><option value="">Tất cả</option>{otList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}
+              {vis1.late && <th><select className={s.statusFilterSelect} value={fLate} onChange={e => setFLate(e.target.value)}><option value="">Tất cả</option>{lateList.map(v => <option key={v} value={v}>{v}</option>)}</select></th>}
             </InlineFilterRow>
           </thead>
           <tbody>
@@ -896,11 +910,11 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                   <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
                   <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                   <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                  <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                  <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
-                  <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                  <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>
-                  <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>
+                  {vis1.deptName && <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
+                  {vis1.specialGroup && <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>}
+                  {vis1.ngayNghiCuoiThangTruoc && <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>}
+                  {vis1.workdays && <td className={styles.statCell} style={{ color: '#15803d' }}><strong>{r.workdays || '—'}</strong></td>}
+                  {vis1.phepNam && <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>}
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = days.find((x: any) => x.day === i + 1);
                     const origSym = d?.symbol ?? '';
@@ -938,8 +952,8 @@ function ImportGrid({ rows, monthLabel, monthId, filterCodes, step1Filter, onSav
                       {countBySym(r, sym)}
                     </td>
                   ))}
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Number(String(r.overtimeHours).replace(',', '.')).toFixed(2)}h</span> : ''}</td>
-                  <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Number(String(r.lateMinutes).replace(',', '.')).toFixed(0)}ph</span> : ''}</td>
+                  {vis1.ot && <td style={{ textAlign: 'center' }}>{Number(String(r.overtimeHours).replace(',', '.')) > 0 ? <span className={styles.otTag}>{Number(String(r.overtimeHours).replace(',', '.')).toFixed(2)}h</span> : ''}</td>}
+                  {vis1.late && <td style={{ textAlign: 'center' }}>{Number(String(r.lateMinutes).replace(',', '.')) > 0 ? <span className={styles.lateTag}>{Number(String(r.lateMinutes).replace(',', '.')).toFixed(0)}ph</span> : ''}</td>}
                 </tr>
               );
             })}
@@ -1088,6 +1102,18 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
     if (fPN) r = r.filter((x: any) => String(x.phepNam ?? '') === fPN);
     return r;
   }, [baseFiltered, filterCodes, fNghiTruoc, fNghiCuoi, fWorkdays, fPN]);
+  const [vis2, setVis2] = useColumnVisibility('step2', { deptName: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, lp: true, x: true, pn: true, pbnc: true, nghiCuoi: true });
+  const colToggle2 = <ColumnToggle visible={vis2} setVisible={setVis2} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
+    { key: 'workdays', label: 'NGÀY CÔNG' },
+    { key: 'phepNam', label: 'PHÉP NĂM' },
+    { key: 'lp', label: 'LP' },
+    { key: 'x', label: 'X' },
+    { key: 'pn', label: 'PN' },
+    { key: 'pbnc', label: 'PBNC' },
+    { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
+  ]} />;
   const hasViolations = (filterCodes?.size ?? 0) > 0;
 
   const handleCellClick = (code: string, day: number, currentDT: number, e: React.MouseEvent) => {
@@ -1163,6 +1189,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
           🔍 Đang lọc {filterCodes.size} nhân viên {filterMode === 'pass' ? 'đạt' : 'vi phạm'} — click lại vào nút lọc bên trên để bỏ lọc
         </div>
       )}
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle2}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1170,24 +1197,27 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
-              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
+              {vis2.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
+              {vis2.ngayNghiCuoiThangTruoc && <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />
-              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
-              <th style={{ minWidth: 36, color: '#475569' }}>LP</th>
-              <th style={{ minWidth: 36, color: '#15803d' }}>X</th>
-              <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>
-              <th style={{ minWidth: 36, color: '#b45309' }}>PBNC</th>
-              <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
+              {vis2.workdays && <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#15803d' }} />}
+              {vis2.phepNam && <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />}
+              {vis2.lp && <th style={{ minWidth: 36, color: '#475569' }}>LP</th>}
+              {vis2.x && <th style={{ minWidth: 36, color: '#15803d' }}>X</th>}
+              {vis2.pn && <th style={{ minWidth: 36, color: '#6d28d9' }}>PN</th>}
+              {vis2.pbnc && <th style={{ minWidth: 36, color: '#b45309' }}>PBNC</th>}
+              {vis2.nghiCuoi && <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
+              middleChildren={vis2.ngayNghiCuoiThangTruoc ? <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             >
-              <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />
-              <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />
-              <th /><th /><th /><th />
-              <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
+              {vis2.workdays && <StatFilterTh list={workdaysList} value={fWorkdays} onChange={setFWorkdays} />}
+              {vis2.phepNam && <StatFilterTh list={pnList} value={fPN} onChange={setFPN} />}
+              {vis2.lp && <th />}
+              {vis2.x && <th />}
+              {vis2.pn && <th />}
+              {vis2.pbnc && <th />}
+              {vis2.nghiCuoi && <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
@@ -1197,8 +1227,8 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>
+                {vis2.deptName && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
+                {vis2.ngayNghiCuoiThangTruoc && <td className={styles.statCell} style={{ color: '#0369a1', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || <span style={{ color: '#d1d5db' }}>—</span>}</td>}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const origDT = d?.dayType !== undefined ? Number(d.dayType) : (SYM_TO_DT[(d as any)?.symbol ?? ''] ?? -1);
@@ -1229,13 +1259,13 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                     </td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: '#15803d' }}>{r.workdays || '—'}</td>
-                <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>
-                <td className={styles.statCell}>{r._lpCnt ?? 0}</td>
-                <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>
-                <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>
-                <td className={styles.statCell} style={{ color: '#b45309' }}>{((r._xCnt ?? 0) + (r._pnDayCnt ?? 0))}</td>
-                {(() => {
+                {vis2.workdays && <td className={styles.statCell} style={{ color: '#15803d' }}>{r.workdays || '—'}</td>}
+                {vis2.phepNam && <td className={styles.statCell} style={{ color: '#7c3aed' }}>{r.phepNam || '—'}</td>}
+                {vis2.lp && <td className={styles.statCell}>{r._lpCnt ?? 0}</td>}
+                {vis2.x && <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>}
+                {vis2.pn && <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>}
+                {vis2.pbnc && <td className={styles.statCell} style={{ color: '#b45309' }}>{((r._xCnt ?? 0) + (r._pnDayCnt ?? 0))}</td>}
+                {vis2.nghiCuoi && (() => {
                   const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                   const [mm, yyyy] = monthLabel.split('/');
                   const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
@@ -1310,10 +1340,18 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
   const [fDept, setFDept] = useState('');
   const deptList = useDeptList(rows);
   const [sort, onSort] = useSort();
+  const [vis3, setVis3] = useColumnVisibility('step3', { deptName: true, c1: true, c2: true, c: true });
+  const colToggle3 = <ColumnToggle visible={vis3} setVisible={setVis3} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'c1', label: 'C1' },
+    { key: 'c2', label: 'C2' },
+    { key: 'c', label: 'C' },
+  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered, [baseFiltered, filterCodes]);
   return (
     <div className={styles.tableOuter}>
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle3}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1321,11 +1359,11 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
+              {vis3.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>
-              <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>
-              <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>
+              {vis3.c1 && <th style={{ minWidth: 40, color: CA1_CLR }}>C1</th>}
+              {vis3.c2 && <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>}
+              {vis3.c && <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} />
           </thead>
@@ -1339,7 +1377,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
+                {vis3.deptName && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
@@ -1355,9 +1393,9 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
                     </td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: CA1_CLR }}>{ca1Count || '—'}</td>
-                <td className={styles.statCell} style={{ color: CA2_CLR }}>{ca2Count || '—'}</td>
-                <td className={styles.statCell} style={{ color: CAC_CLR }}>{caCCount || '—'}</td>
+                {vis3.c1 && <td className={styles.statCell} style={{ color: CA1_CLR }}>{ca1Count || '—'}</td>}
+                {vis3.c2 && <td className={styles.statCell} style={{ color: CA2_CLR }}>{ca2Count || '—'}</td>}
+                {vis3.c && <td className={styles.statCell} style={{ color: CAC_CLR }}>{caCCount || '—'}</td>}
               </tr>
             );
           })}</tbody>
@@ -1391,6 +1429,14 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
   const lateList = useStatList(rows, 'totalLate', 0);
   const sourceOtList = useStatList(rows, 'overtimeHours', 0);
   const sourceLateList = useStatList(rows, 'lateMinutes', 0);
+  const [vis4, setVis4] = useColumnVisibility('step4', { deptName: true, overtimeHours: true, lateMinutes: true, totalOT: true, totalLate: true });
+  const colToggle4 = <ColumnToggle visible={vis4} setVisible={setVis4} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'overtimeHours', label: 'TĂNG CA (H)' },
+    { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' },
+    { key: 'totalOT', label: 'PHÂN BỔ TC (H)' },
+    { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
+  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = baseFiltered as any[];
@@ -1535,6 +1581,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
 
   return (
     <div className={styles.tableOuter}>
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle4}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1542,18 +1589,18 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
+              {vis4.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
-              <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
-              <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
-              <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />
-              <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
+              {vis4.overtimeHours && <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />}
+              {vis4.lateMinutes && <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />}
+              {vis4.totalOT && <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 44, color: OT_CLR }} />}
+              {vis4.totalLate && <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}>
-              <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
-              <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />
-              <StatFilterTh list={otList} value={fOT} onChange={setFOT} />
-              <StatFilterTh list={lateList} value={fLate} onChange={setFLate} />
+              {vis4.overtimeHours && <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />}
+              {vis4.lateMinutes && <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />}
+              {vis4.totalOT && <StatFilterTh list={otList} value={fOT} onChange={setFOT} />}
+              {vis4.totalLate && <StatFilterTh list={lateList} value={fLate} onChange={setFLate} />}
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
@@ -1563,7 +1610,7 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
+                {vis4.deptName && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
@@ -1600,10 +1647,10 @@ function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows:
                     >{label}</td>
                   );
                 })}
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
-                <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
-                <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
-                <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
+                {vis4.overtimeHours && <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>}
+                {vis4.lateMinutes && <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>}
+                {vis4.totalOT && <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />}
+                {vis4.totalLate && <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />}
               </tr>
             );
           })}</tbody>
@@ -1669,6 +1716,12 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   const [fEndDate, setFEndDate] = useState('');
   const endDateList = useMemo(() => [...new Set((rows as any[]).map(r => r.groupCodeEndDate).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [rows]);
   const [sort, onSort] = useSort();
+  const [vis5, setVis5] = useColumnVisibility('step5', { deptName: true, specialGroup: true, groupCodeEndDate: true });
+  const colToggle5 = <ColumnToggle visible={vis5} setVisible={setVis5} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'groupCodeEndDate', label: 'NGÀY KẾT THÚC' },
+  ]} />;
   const baseFiltered = useGridFilter(rows, fCode, fName, fDept, fGroup);
   const filtered = useMemo(() => {
     let r = filterCodes ? baseFiltered.filter((x: any) => filterCodes.has(x.code)) : baseFiltered;
@@ -1677,6 +1730,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
   }, [baseFiltered, filterCodes, fEndDate]);
   return (
     <div className={styles.tableOuter}>
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle5}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable}>
           <thead>
@@ -1684,13 +1738,13 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
-              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#0369a1' }} />
-              <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />
+              {vis5.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
+              {vis5.specialGroup && <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#0369a1' }} />}
+              {vis5.groupCodeEndDate && <SortTh label="NGÀY KẾT THÚC" sortKey="groupCodeEndDate" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 80, color: '#7c3aed' }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum}>{i + 1}</th>)}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<th><select className={s.statusFilterSelect} value={fEndDate} onChange={e => setFEndDate(e.target.value)}><option value="">Tất cả</option>{endDateList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
+              middleChildren={vis5.groupCodeEndDate ? <th><select className={s.statusFilterSelect} value={fEndDate} onChange={e => setFEndDate(e.target.value)}><option value="">Tất cả</option>{endDateList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
@@ -1700,9 +1754,9 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes }: { rows: Record<stri
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
                 <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
                 <td className={`${styles.empName} ${styles.sc2}`} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
-                <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>
+                {vis5.deptName && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
+                {vis5.specialGroup && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>}
+                {vis5.groupCodeEndDate && <td style={{ textAlign: 'left', fontSize: '0.72rem', color: '#7c3aed', whiteSpace: 'nowrap' }}>{r.groupCodeEndDate || '—'}</td>}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const d = days.find(x => x.day === i + 1);
                   const dt = d?.dayType ?? -1;
@@ -1777,6 +1831,21 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const sourceLateList = useStatList(rows, 'lateMinutes', 0);
   const baseFiltered2 = useGridFilter(nghiCuoiList2, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
+  const [vis6, setVis6] = useColumnVisibility('step6', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, nghiCuoi: true, overtimeHours: true, lateMinutes: true, lpCount: true, pnCount: true, totalOT: true, totalLate: true });
+  const colToggle6 = <ColumnToggle visible={vis6} setVisible={setVis6} columns={[
+    { key: 'deptName', label: 'PHÒNG BAN' },
+    { key: 'specialGroup', label: 'NHÓM ĐẶC THÙ' },
+    { key: 'ngayNghiCuoiThangTruoc', label: 'NGHỈ THÁNG TRƯỚC' },
+    { key: 'workdays', label: 'NGÀY CÔNG' },
+    { key: 'phepNam', label: 'PHÉP NĂM' },
+    { key: 'nghiCuoi', label: 'NGHỈ CUỐI THÁNG NÀY' },
+    { key: 'overtimeHours', label: 'TĂNG CA (H)' },
+    { key: 'lateMinutes', label: 'GIỜ TRỄ (PH)' },
+    { key: 'lpCount', label: 'LP' },
+    { key: 'pnCount', label: 'PN' },
+    { key: 'totalOT', label: 'PHÂN BỔ TC (H)' },
+    { key: 'totalLate', label: 'PHÂN BỔ GT (PH)' },
+  ]} />;
   const filtered = useMemo(() => {
     let r = baseFiltered2 as any[];
     if (fNghiTruoc) {
@@ -1799,6 +1868,7 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fPhepNam, fSourceOT, fSourceLate, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
+      <div style={{ padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center' }}>{colToggle6}</div>
       <ScrollTable className={styles.tableWrap}>
         <table className={styles.gridTable} style={{ fontSize: '0.68rem' }}>
           <thead>
@@ -1806,32 +1876,32 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <th className={styles.sc0} style={{ minWidth: 32, color: 'var(--gray-400)', textAlign: 'center' }}>#</th>
               <SortTh label="MÃ NV" sortKey="code" sort={sort} onSort={onSort} className={styles.sc1} style={{ minWidth: 120, maxWidth: 120, overflow: 'hidden' }} />
               <SortTh label="TÊN NHÂN VIÊN" sortKey="name" sort={sort} onSort={onSort} className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200 }} />
-              <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />
-              <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />
-              <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
+              {vis6.deptName && <SortTh label="PHÒNG BAN" sortKey="deptName" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 50 }} />}
+              {vis6.specialGroup && <SortTh label="NHÓM ĐẶC THÙ" sortKey="specialGroup" sort={sort} onSort={onSort} style={{ textAlign: 'left', minWidth: 70, color: '#0369a1' }} />}
+              {vis6.ngayNghiCuoiThangTruoc && <SortTh label="NGHỈ THÁNG TRƯỚC" sortKey="ngayNghiCuoiThangTruoc" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
-              <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
-              <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
-              <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
-              <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
-              <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
-              <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
-              <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
-              <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: OT_CLR }} />
-              <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
+              {vis6.workdays && <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />}
+              {vis6.phepNam && <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />}
+              {vis6.nghiCuoi && <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />}
+              {vis6.overtimeHours && <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />}
+              {vis6.lateMinutes && <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />}
+              {vis6.lpCount && <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />}
+              {vis6.pnCount && <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />}
+              {vis6.totalOT && <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: OT_CLR }} />}
+              {vis6.totalLate && <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />}
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
-              middleChildren={<th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
+              middleChildren={vis6.ngayNghiCuoiThangTruoc ? <th><select className={s.statusFilterSelect} value={fNghiTruoc} onChange={e => setFNghiTruoc(e.target.value)}><option value="">Tất cả</option>{nghiTruocList.map(d => <option key={d} value={d}>{d}</option>)}</select></th> : <th />}
             >
-              <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
-              <StatFilterTh list={phepNamList2} value={fPhepNam} onChange={setFPhepNam} />
-              <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>
-              <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
-              <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />
-              <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />
-              <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
-              <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
-              <StatFilterTh list={lateList2} value={fLate2} onChange={setFLate2} />
+              {vis6.workdays && <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />}
+              {vis6.phepNam && <StatFilterTh list={phepNamList2} value={fPhepNam} onChange={setFPhepNam} />}
+              {vis6.nghiCuoi && <th><select className={s.statusFilterSelect} value={fNghiCuoi} onChange={e => setFNghiCuoi(e.target.value)}><option value="">Tất cả</option>{nghiCuoiList.map(d => <option key={d} value={d}>{d}</option>)}</select></th>}
+              {vis6.overtimeHours && <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />}
+              {vis6.lateMinutes && <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />}
+              {vis6.lpCount && <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />}
+              {vis6.pnCount && <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />}
+              {vis6.totalOT && <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />}
+              {vis6.totalLate && <StatFilterTh list={lateList2} value={fLate2} onChange={setFLate2} />}
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => (
@@ -1839,9 +1909,9 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
               <td className={`${styles.mono} ${styles.sc1}`} style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.code}</td>
               <td className={styles.sc2} style={{ textAlign: 'left', minWidth: 200, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>
-              <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#0369a1', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>
+              {vis6.deptName && <td style={{ textAlign: 'left', fontSize: '0.65rem', color: 'var(--gray-500)', whiteSpace: 'nowrap' }}>{r.deptName || '—'}</td>}
+              {vis6.specialGroup && <td style={{ textAlign: 'left', fontSize: '0.65rem', color: '#0369a1', whiteSpace: 'nowrap' }}>{r.specialGroupName || r.specialGroup || '—'}</td>}
+              {vis6.ngayNghiCuoiThangTruoc && <td style={{ textAlign: 'left', fontSize: '0.7rem', color: '#0369a1', whiteSpace: 'nowrap', fontWeight: 400 }}>{fmtDate(r.ngayNghiCuoiThangTruoc) || '—'}</td>}
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = (r.days ?? []).find((x: any) => x.day === i + 1);
                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
@@ -1851,21 +1921,21 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
                   {isWork ? <><span style={{ color: '#15803d', display: 'block', lineHeight: 1.2 }}>{d.checkIn}</span><span style={{ color: '#1d4ed8', display: 'block', lineHeight: 1.2 }}>{d.checkOut}</span></> : <span style={{ opacity: 0.85 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
                 </td>;
               })}
-              <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
-              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.phepNam || '—'}</td>
-              {(() => {
+              {vis6.workdays && <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>}
+              {vis6.phepNam && <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.phepNam || '—'}</td>}
+              {vis6.nghiCuoi && (() => {
                 const days: { day: number; dayType: number }[] = r.days ?? [];
                 const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                 const [mm, yyyy] = monthLabel.split('/');
                 const val = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${mm}/${yyyy}` : '';
                 return <td style={{ textAlign: 'center', color: '#0369a1', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>{val || '—'}</td>;
               })()}
-              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
-              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
-              <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
-              <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
-              <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
-              <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
+              {vis6.overtimeHours && <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>}
+              {vis6.lateMinutes && <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>}
+              {vis6.lpCount && <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>}
+              {vis6.pnCount && <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>}
+              {vis6.totalOT && <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />}
+              {vis6.totalLate && <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />}
             </tr>
           ))}</tbody>
         </table>
