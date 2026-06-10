@@ -25,12 +25,12 @@ export async function GET(req: NextRequest) {
     const placeholders = ids.map(() => '?').join(',');
     const rows = await conn.all<{
       empId: string; code: string; empName: string; deptName: string;
-      ngayNghiCuoiThangTruoc: string; phepNam: string;
+      ngayNghiCuoiThangTruoc: string; phepNam: string; overtimeHours: string; lateMinutes: string;
       day: number; dayType: number; checkIn: string; checkOut: string;
       shiftCode: string; otHours: number; lateMins: number;
     }>(`
       SELECT e.id AS empId, e.code, e.name AS empName, d.name AS deptName, e.workdays,
-             e.phep_nam AS phepNam,
+             e.phep_nam AS phepNam, e.overtime_hours AS overtimeHours, e.late_minutes AS lateMinutes,
              e.special_group AS specialGroup, sg.name AS specialGroupName,
              e.ngay_nghi_cuoi_thang_truoc AS ngayNghiCuoiThangTruoc,
              dr.day, dr.day_type AS dayType,
@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
 
     const empMap = new Map<string, {
       code: string; name: string; deptName: string; ngayNghiCuoiThangTruoc: string;
-      workdays: string; phepNam: string; specialGroup: string; specialGroupName: string;
+      workdays: string; phepNam: string; overtimeHours: string; lateMinutes: string;
+      specialGroup: string; specialGroupName: string;
       days: typeof rows;
       workCount: number; lpCount: number; pnCount: number; totalOT: number; totalLate: number;
     }>();
@@ -56,7 +57,8 @@ export async function GET(req: NextRequest) {
       if (!empMap.has(row.empId)) {
         empMap.set(row.empId, {
           code: row.code, name: row.empName, deptName: row.deptName ?? '',
-          ngayNghiCuoiThangTruoc: row.ngayNghiCuoiThangTruoc ?? '', workdays: row.workdays ?? '', phepNam: row.phepNam ?? '', specialGroup: row.specialGroup ?? '',
+          ngayNghiCuoiThangTruoc: row.ngayNghiCuoiThangTruoc ?? '', workdays: row.workdays ?? '', phepNam: row.phepNam ?? '',
+          overtimeHours: row.overtimeHours ?? '', lateMinutes: row.lateMinutes ?? '', specialGroup: row.specialGroup ?? '',
           specialGroupName: row.specialGroupName || row.specialGroup || '',
           days: [], workCount: 0, lpCount: 0, pnCount: 0, totalOT: 0, totalLate: 0,
         });

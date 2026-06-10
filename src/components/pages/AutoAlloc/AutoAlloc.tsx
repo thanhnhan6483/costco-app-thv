@@ -5,6 +5,8 @@ import s from '@/styles/table.module.css';
 import styles from './AutoAlloc.module.css';
 import { IconSearch, IconClearX } from '@/lib/icons';
 
+const OT_CLR = '#1d4ed8', LATE_CLR = '#c2410c';
+
 /* ── Reusable inline filter row for grids ── */
 function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0, children, middleChildren }: {
   fCode: string; fName: string; fDept: string;
@@ -1376,8 +1378,8 @@ function ShiftGrid({ rows, monthLabel, filterCodes }: { rows: Record<string, unk
 function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
-  const OT_BG = '#eff6ff', OT_CLR = '#1d4ed8';
-  const LATE_BG = '#fff7ed', LATE_CLR = '#c2410c';
+  const OT_BG = '#eff6ff';
+  const LATE_BG = '#fff7ed';
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -1744,6 +1746,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const [fNghiCuoi, setFNghiCuoi] = useState('');
   const [fNghiTruoc, setFNghiTruoc] = useState('');
   const [fPhepNam, setFPhepNam] = useState('');
+  const [fSourceOT, setFSourceOT] = useState('');
+  const [fSourceLate, setFSourceLate] = useState('');
   const nghiCuoiList = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
     return [...new Set((rows as any[]).map(r => {
@@ -1771,6 +1775,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
   const otList2 = useStatList(rows, 'totalOT', 0);
   const lateList2 = useStatList(rows, 'totalLate', 0);
   const phepNamList2 = useStatList(rows, 'phepNam');
+  const sourceOtList = useStatList(rows, 'overtimeHours', 0);
+  const sourceLateList = useStatList(rows, 'lateMinutes', 0);
   const baseFiltered2 = useGridFilter(nghiCuoiList2, fCode, fName, fDept, fGroup);
   const [sort, onSort] = useSort();
   const filtered = useMemo(() => {
@@ -1787,10 +1793,12 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
     if (fLP) r = r.filter((x: any) => String(x.lpCount ?? '') === fLP);
     if (fPN2) r = r.filter((x: any) => String(x.pnCount ?? '') === fPN2);
     if (fPhepNam) r = r.filter((x: any) => String(x.phepNam ?? '') === fPhepNam);
+    if (fSourceOT) r = r.filter((x: any) => Number(x.overtimeHours) > 0 && Number(x.overtimeHours).toFixed(0) === fSourceOT);
+    if (fSourceLate) r = r.filter((x: any) => Number(x.lateMinutes) > 0 && Number(x.lateMinutes).toFixed(0) === fSourceLate);
     if (fOT2) r = r.filter((x: any) => Number(x.totalOT) > 0 && String(Math.round(Number(x.totalOT))) === fOT2);
     if (fLate2) r = r.filter((x: any) => Number(x.totalLate) > 0 && String(Math.round(Number(x.totalLate))) === fLate2);
     return r;
-  }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fPhepNam, fOT2, fLate2]);
+  }, [baseFiltered2, fNghiTruoc, fNghiCuoi, fWorkdays, fLP, fPN2, fPhepNam, fSourceOT, fSourceLate, fOT2, fLate2]);
   return (
     <div className={styles.tableOuter}>
       <ScrollTable className={styles.tableWrap}>
@@ -1806,10 +1814,12 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               {Array.from({ length: daysInMonth }, (_, i) => <th key={i} className={styles.dayNum} style={{ minWidth: 64 }}>{i + 1}</th>)}
               <SortTh label="NGÀY CÔNG" sortKey="workdays" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#15803d' }} />
               <SortTh label="PHÉP NĂM" sortKey="phepNam" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
+              <SortTh label="TĂNG CA (H)" sortKey="overtimeHours" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#6b7280' }} />
+              <SortTh label="GIỜ TRỄ (PH)" sortKey="lateMinutes" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#6b7280' }} />
               <SortTh label="LP" sortKey="lpCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#1d4ed8' }} />
               <SortTh label="PN" sortKey="pnCount" sort={sort} onSort={onSort} style={{ minWidth: 36, color: '#7c3aed' }} />
-              <SortTh label="TĂNG CA (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: '#1d4ed8' }} />
-              <SortTh label="TRỄ(PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 44, color: '#c2410c' }} />
+              <SortTh label="PHÂN BỔ TC (H)" sortKey="totalOT" sort={sort} onSort={onSort} style={{ minWidth: 50, color: OT_CLR }} />
+              <SortTh label="PHÂN BỔ GT (PH)" sortKey="totalLate" sort={sort} onSort={onSort} style={{ minWidth: 50, color: LATE_CLR }} />
               <SortTh label="NGHỈ CUỐI THÁNG NÀY" sortKey="_nghiCuoi" sort={sort} onSort={onSort} style={{ minWidth: 60, color: '#0369a1' }} />
             </tr>
             <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={0} daysCols={daysInMonth} fGroup={fGroup} setFGroup={setFGroup} groupList={groupList} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel}
@@ -1817,6 +1827,8 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
             >
               <StatFilterTh list={workdaysList2} value={fWorkdays} onChange={setFWorkdays} />
               <StatFilterTh list={phepNamList2} value={fPhepNam} onChange={setFPhepNam} />
+              <StatFilterTh list={sourceOtList} value={fSourceOT} onChange={setFSourceOT} />
+              <StatFilterTh list={sourceLateList} value={fSourceLate} onChange={setFSourceLate} />
               <StatFilterTh list={lpList2} value={fLP} onChange={setFLP} />
               <StatFilterTh list={pnList2} value={fPN2} onChange={setFPN2} />
               <StatFilterTh list={otList2} value={fOT2} onChange={setFOT2} />
@@ -1843,10 +1855,12 @@ function FinalGrid({ rows, monthLabel }: { rows: Record<string, unknown>[]; mont
               })}
               <td style={{ fontWeight: 700, color: '#15803d', textAlign: 'center' }}>{r.workdays || '—'}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.phepNam || '—'}</td>
+              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.overtimeHours) > 0 ? <span className={styles.otTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.overtimeHours).toFixed(2)}h</span> : ''}</td>
+              <td className={styles.statCell} style={{ color: '#6b7280' }}>{Number(r.lateMinutes) > 0 ? <span className={styles.lateTag} style={{ background: '#f3f4f6', color: '#6b7280' }}>{Number(r.lateMinutes).toFixed(0)}ph</span> : ''}</td>
               <td style={{ fontWeight: 700, color: '#1d4ed8', textAlign: 'center' }}>{r.lpCount ?? 0}</td>
               <td style={{ fontWeight: 700, color: '#7c3aed', textAlign: 'center' }}>{r.pnCount ?? 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalOT) > 0 ? <span className={styles.otTag}>{Math.round(Number(r.totalOT))}</span> : 0}</td>
-              <td style={{ textAlign: 'center' }}>{Number(r.totalLate) > 0 ? <span className={styles.lateTag}>{Math.round(Number(r.totalLate))}</span> : 0}</td>
+              <DiffCell value={r.totalOT} source={r.overtimeHours} unit="h" decimals={2} tolerance={0.05} cls={styles.statCell} cls2={styles.otTag} clr={OT_CLR} />
+              <DiffCell value={r.totalLate} source={r.lateMinutes} unit="ph" decimals={0} cls={styles.statCell} cls2={styles.lateTag} clr={LATE_CLR} />
               {(() => {
                 const days: { day: number; dayType: number }[] = r.days ?? [];
                 const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
