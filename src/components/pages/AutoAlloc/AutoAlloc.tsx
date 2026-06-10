@@ -1377,7 +1377,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
               {vis.c2 && <th style={{ minWidth: 40, color: CA2_CLR }}>C2</th>}
               {vis.c && <th style={{ minWidth: 40, color: CAC_CLR }}>C</th>}
             </tr>
-            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={3} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis.deptName} />
+            <InlineFilterRow fCode={fCode} fName={fName} fDept={fDept} setFCode={setFCode} setFName={setFName} setFDept={setFDept} deptList={deptList} extraBefore={1} extraAfter={[vis.c1, vis.c2, vis.c].filter(Boolean).length} daysCols={daysInMonth} codeThStyle={{ maxWidth: 120, width: 120 }} nameThStyle={{ maxWidth: 200, width: 200 }} monthLabel={monthLabel} hideDeptFilter={!vis.deptName} />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
             const days: { day: number; dayType: number; shiftCode: string }[] = r.days ?? [];
