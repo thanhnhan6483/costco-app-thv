@@ -19,6 +19,23 @@ const IconUpload = () => (
 );
 import { useApp } from '@/context/AppContext';
 
+const ToggleSwitch = ({ checked, onChange, disabled }: {
+  checked: boolean; onChange: (v: boolean) => void; disabled?: boolean;
+}) => (
+  <label style={{ position: 'relative', display: 'inline-block', width: 36, height: 20, cursor: disabled ? 'not-allowed' : 'pointer', verticalAlign: 'middle' }}>
+    <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} disabled={disabled}
+      style={{ opacity: 0, width: 0, height: 0 }} />
+    <span style={{
+      position: 'absolute', inset: 0, backgroundColor: checked ? '#0f766e' : '#cbd5e1',
+      borderRadius: 10, transition: 'background 0.2s',
+    }}>
+      <span style={{
+        position: 'absolute', left: checked ? 18 : 2, top: 2, width: 16, height: 16,
+        borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+      }} />
+    </span>
+  </label>
+);
 
 interface LeaveType {
   id: string;
@@ -174,6 +191,24 @@ export default function LeaveTypes() {
     }
   };
 
+  const togglePaid = async (r: LeaveType) => {
+    const newPaid = !r.paid;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/leave-types/${r.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: r.code, name: r.name, description: r.description, paid: newPaid, note: r.note, dayType: r.dayType }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      await load();
+    } catch (err) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; skippedCodes: string[]; errors: string[] } | null>(null);
@@ -310,6 +345,15 @@ export default function LeaveTypes() {
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="VD: Nghỉ được phê duyệt trước." />
               </div>
+              <div className={s.field}>
+                <label className={s.label}>Tính công</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
+                  <ToggleSwitch checked={form.paid} onChange={v => setForm(f => ({ ...f, paid: v }))} />
+                  <span style={{ fontSize: 13.5, color: form.paid ? '#0f766e' : '#94a3b8', fontWeight: 500 }}>
+                    {form.paid ? 'Có' : 'Không'}
+                  </span>
+                </div>
+              </div>
               <div className={s.formActions}>
                 <button type="submit" className={s.btnPrimary} disabled={saving}>
                   {saving ? 'Đang lưu…' : editId ? '💾 Lưu' : '✅ Thêm'}
@@ -428,6 +472,7 @@ export default function LeaveTypes() {
                 <SortTh label="Mã Loại"       sortKey="code" current={sortKey} dir={sortDir} onSort={handleSort} className={s.thCode} />
                 <SortTh label="Tên Loại Nghỉ" sortKey="name" current={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortTh label="Ghi Chú"         sortKey="description" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <th style={{ width: 100, textAlign: 'center' }}>Tính Công</th>
                 <th className={s.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
@@ -436,17 +481,21 @@ export default function LeaveTypes() {
                 <th><ColFilter value={col.name} placeholder="Tên…" onChange={setF('name')} /></th>
                 <th><ColFilter value={col.description} placeholder="Mô tả…" onChange={setF('description')} /></th>
                 <th />
+                <th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr><td colSpan={6} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => (
                 <tr key={r.id}>
                   <td className={s.tdStt}>{i + 1}</td>
                   <td><span className={s.codeBadge}>{r.code}</span></td>
                   <td style={{ fontWeight: 500 }}>{r.name}</td>
                   <td className={s.noteCell}>{r.description || <span className={s.noNote}>—</span>}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <ToggleSwitch checked={r.paid} onChange={() => togglePaid(r)} disabled={saving || activeMonthLocked} />
+                  </td>
                   <td>
                     <div className={s.actions}>
                       <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa" disabled={activeMonthLocked}><IconEdit /></button>

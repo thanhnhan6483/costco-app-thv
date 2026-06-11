@@ -86,6 +86,24 @@ export function getShiftEntry(
   return shiftMap.get(deptId) ?? defaultEntry;
 }
 
+/** Load set dayType của các loại nghỉ có paid = TRUE (tính công) */
+export async function loadPaidDayTypes(monthId: string): Promise<Set<number>> {
+  const conn = await getConn();
+  const rows = await conn.all<{ code: string; dayType: number }>(
+    `SELECT code, COALESCE(day_type, -1) AS dayType
+     FROM leave_types WHERE month_id = ? AND paid = TRUE`, monthId
+  );
+  await conn.close();
+
+  const set = new Set<number>();
+  for (const row of rows) {
+    const code = row.code.trim().toUpperCase();
+    const dt = row.dayType >= 0 ? row.dayType : (DEFAULT_SYMBOL_MAP[code] ?? -1);
+    if (dt >= 0) set.add(dt);
+  }
+  return set;
+}
+
 /** Load symbol → code map từ leave_types (X=0, LP=1, PN=2 cố định, còn lại tự gán) */
 export async function loadSymbolMap(monthId: string): Promise<Record<string, number>> {
   const conn = await getConn();

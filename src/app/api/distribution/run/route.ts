@@ -4,7 +4,7 @@ import {
   AllocParams, EmployeeInput, ShiftInfo,
   processEmployee, DayResult,
 } from '@/lib/distributionEngine';
-import { loadParams, loadSymbolMap } from '@/lib/stepHelpers';
+import { loadParams, loadSymbolMap, loadPaidDayTypes } from '@/lib/stepHelpers';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     /* 1. Load alloc params */
     const params = await loadParams(monthId);
     const symbolMap = await loadSymbolMap(monthId);
+    const paidDayTypes = await loadPaidDayTypes(monthId);
 
     /* 2. Load month info */
     const months = await conn.all<{ fromDate: string; toDate: string }>(
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
       const dayResults: DayResult[] = processEmployee(
         empInput, daysInMonth, monthNum, yearNum,
         params, shiftEntry.ca1, shiftEntry.ca2,
-        isAccounting, groupWorkHours, symbolMap,
+        isAccounting, groupWorkHours, symbolMap, paidDayTypes,
       );
 
       // Kiểm tra ngày công

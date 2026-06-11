@@ -428,6 +428,7 @@ export function step1_generateArrangement(
   symbolMap?: Record<string, number>,
   dailyRest?: number[],
   targetRest?: number,
+  paidDayTypes?: Set<number>,
 ): number[] {
   const workdays = emp.workdays !== '' && emp.workdays !== null && emp.workdays !== undefined
     ? (parseFloat(String(emp.workdays)) || 0)
@@ -465,9 +466,13 @@ export function step1_generateArrangement(
   const normalizedWd = parseFloat(emp.workdays) || workdays;
 
   const workdaysVal = Math.round(normalizedWd);
+  const preExistingPaidDays = paidDayTypes?.size
+    ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
+    : 0;
+  const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
   // ZEROS = X, ONES = LP, pnRemaining = PN — tổng vừa đủ freeSlots
-  // Không dùng paddedCount: LP/PN tự động lấp padded positions, X chỉ đúng workdaysVal
-  let ZEROS = Math.min(workdaysVal, Math.max(0, freeSlots - phepNam));
+  // Không dùng paddedCount: LP/PN tự động lấp padded positions, X chỉ đúng remainingWorkdays
+  let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
   let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
   let pnRemaining = phepNam;
 
@@ -480,7 +485,7 @@ export function step1_generateArrangement(
   for (let extra = 1; !arrangement && extra <= 5; extra++) {
     ONES = ONES + 1;
     ZEROS = Math.max(0, freeSlots - ONES - phepNam);
-    if (ZEROS < workdaysVal) break;
+    if (ZEROS < remainingWorkdays) break;
     for (let attempt = 0; attempt < 3; attempt++) {
       arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
       if (arrangement) break;
@@ -638,6 +643,7 @@ export function processEmployee(
   isAccountingDept: boolean,
   groupWorkHours: number | null,
   symbolMap?: Record<string, number>,
+  paidDayTypes?: Set<number>,
 ): DayResult[] {
   const workdays    = isNaN(parseFloat(emp.workdays)) ? 27 : parseFloat(emp.workdays);
   const otHours     = parseFloat(emp.overtimeHours) || 0;
@@ -662,7 +668,11 @@ export function processEmployee(
   } else {
     const freeSlots = fixedArray.filter(v => v === 0).length;
     const workdaysVal = Math.round(workdays);
-    let ZEROS = Math.min(workdaysVal, Math.max(0, freeSlots - phepNam));
+    const preExistingPaidDays = paidDayTypes?.size
+      ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
+      : 0;
+    const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
+    let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
     let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
     const pnRemaining = phepNam;
 
@@ -673,7 +683,7 @@ export function processEmployee(
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = Math.max(0, freeSlots - ONES - phepNam);
-      if (ZEROS < workdaysVal) break;
+      if (ZEROS < remainingWorkdays) break;
       for (let attempt = 0; attempt < 3; attempt++) {
         arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth);
         if (arrangement) break;

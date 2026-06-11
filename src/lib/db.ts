@@ -640,20 +640,20 @@ async function seedIfEmpty(conn: Connection): Promise<void> {
   /* ── leave_types (14) ───────────────── */
   await conn.run(`
     INSERT INTO leave_types (id, month_id, code, name, description, paid, note, created_at) VALUES
-      ('lt_X',   '${MID}', 'X',   'Làm 1 ngày',       '', TRUE, 'Ngày làm việc đầy đủ.',                                   '${now}'),
-      ('lt_X2',  '${MID}', 'X/2', 'Làm nửa ngày',     '', TRUE, 'Làm việc nửa ngày (sáng hoặc chiều).',                    '${now}'),
-      ('lt_P',   '${MID}', 'P',   'Nghỉ có phép',     '', TRUE, 'Nghỉ được phê duyệt.',                                      '${now}'),
-      ('lt_PN',  '${MID}', 'PN',  'Phép năm',         '', TRUE, 'Nghỉ phép năm theo chính sách.',                             '${now}'),
-      ('lt_O',   '${MID}', 'Ô',   'Nghỉ ốm',          '', TRUE, 'Nghỉ ốm đau.',                                             '${now}'),
-      ('lt_TS',  '${MID}', 'TS',  'Nghỉ thai sản',    '', TRUE, 'Nghỉ thai sản theo Luật.',                                  '${now}'),
-      ('lt_DS',  '${MID}', 'DS',   'Dưỡng sức',       '', TRUE, 'Nghỉ dưỡng sức.',                                         '${now}'),
-      ('lt_O2',  '${MID}', 'O',   'Nghỉ không phép',  '', TRUE, 'Vắng mặt không lý do.',                                    '${now}'),
-      ('lt_NL',  '${MID}', 'NL',  'Nghỉ lễ',          '', TRUE, 'Ngày lễ quốc gia.',                                        '${now}'),
-      ('lt_LP',  '${MID}', 'LP',  'Nghỉ chủ nhật',    '', TRUE, 'Ngày nghỉ tua luân phiên hàng tuần.',                      '${now}'),
-      ('lt_LL',  '${MID}', 'LL',  'Đi làm ngày lễ',   '', TRUE, 'Làm bù ngày lễ/tết.',                                      '${now}'),
-      ('lt_H',   '${MID}', 'H',   'Ngày hưởng lương', '', TRUE, 'Ngày không đi làm nhưng hưởng lương.',                     '${now}'),
-      ('lt_B',   '${MID}', 'B',   'Không đi làm',     '', TRUE, 'Ngày chưa vào công ty làm.',                               '${now}'),
-      ('lt_OF',  '${MID}', 'OF',  'Thôi việc',        '', TRUE, 'Nhân viên đã nghỉ việc.',                                  '${now}')
+      ('lt_X',   '${MID}', 'X',   'Làm 1 ngày',       '', TRUE,  'Ngày làm việc đầy đủ.',                                   '${now}'),
+      ('lt_X2',  '${MID}', 'X/2', 'Làm nửa ngày',     '', TRUE,  'Làm việc nửa ngày (sáng hoặc chiều).',                    '${now}'),
+      ('lt_P',   '${MID}', 'P',   'Nghỉ có phép',     '', TRUE,  'Nghỉ được phê duyệt.',                                     '${now}'),
+      ('lt_PN',  '${MID}', 'PN',  'Phép năm',         '', TRUE,  'Nghỉ phép năm theo chính sách.',                            '${now}'),
+      ('lt_O',   '${MID}', 'Ô',   'Nghỉ ốm',          '', FALSE, 'Nghỉ ốm đau.',                                             '${now}'),
+      ('lt_TS',  '${MID}', 'TS',  'Nghỉ thai sản',    '', FALSE, 'Nghỉ thai sản theo Luật.',                                 '${now}'),
+      ('lt_DS',  '${MID}', 'DS',  'Dưỡng sức',        '', TRUE,  'Nghỉ dưỡng sức.',                                         '${now}'),
+      ('lt_O2',  '${MID}', 'O',   'Nghỉ không phép',  '', FALSE, 'Vắng mặt không lý do.',                                    '${now}'),
+      ('lt_NL',  '${MID}', 'NL',  'Nghỉ lễ',          '', TRUE,  'Ngày lễ quốc gia.',                                        '${now}'),
+      ('lt_LP',  '${MID}', 'LP',  'Nghỉ chủ nhật',    '', FALSE, 'Ngày nghỉ tua luân phiên hàng tuần.',                      '${now}'),
+      ('lt_LL',  '${MID}', 'LL',  'Đi làm ngày lễ',   '', TRUE,  'Làm bù ngày lễ/tết.',                                      '${now}'),
+      ('lt_H',   '${MID}', 'H',   'Ngày hưởng lương', '', TRUE,  'Ngày không đi làm nhưng hưởng lương.',                     '${now}'),
+      ('lt_B',   '${MID}', 'B',   'Không đi làm',     '', FALSE, 'Ngày chưa vào công ty làm.',                               '${now}'),
+      ('lt_OF',  '${MID}', 'OF',  'Thôi việc',        '', FALSE, 'Nhân viên đã nghỉ việc.',                                  '${now}')
   `);
 
   /* ── special_groups (3) ─────────────── */

@@ -17,10 +17,11 @@ interface WorkerInput {
   now: string;
 }
 
-const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap } =
-  workerData as WorkerInput & { symbolMap?: Record<string, number> };
+const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap, paidDayTypes: paidArr } =
+  workerData as WorkerInput & { symbolMap?: Record<string, number>; paidDayTypes?: number[] };
 
 const accountingSet = new Set(accountingIds);
+const paidDayTypes = paidArr ? new Set(paidArr) : undefined;
 const rows: unknown[][] = [];
 
 // Nhóm NV theo phòng để theo dõi dailyRest cho cân bằng LP
@@ -37,14 +38,14 @@ for (const [, group] of deptGroups) {
   for (const emp of group) {
     if (accountingSet.has(emp.departmentId ?? '')) continue;
     const workdays = parseFloat(emp.workdays);
-    const workdaysVal = isNaN(workdays) ? 27 : workdays;
+    let workdaysVal = isNaN(workdays) ? 27 : workdays;
     if (workdaysVal === 0) continue;
     const inputArray = encodeInputArray(emp.days, symbolMap);
     const fa = inputArray.slice(0, 31);
     if (workdays >= params.workdaysThreshold)
       for (let i = 0; i < 31; i++) { if (fa[i] <= 1) fa[i] = 0; }
     const freeSlots = fa.filter(v => v === 0).length;
-    const workdaysVal = Math.round(workdays);
+    workdaysVal = Math.round(workdays);
     const paddedCount = Math.max(0, 31 - daysInMonth);
     const ZEROS = Math.max(0, workdaysVal + paddedCount);
     totalExpectedLP += Math.max(0, freeSlots - ZEROS);
@@ -59,6 +60,7 @@ for (const [, group] of deptGroups) {
       isAcct, symbolMap,
       isAcct ? undefined : dailyRest,
       isAcct ? undefined : targetRest,
+      paidDayTypes,
     );
 
     // Cập nhật dailyRest

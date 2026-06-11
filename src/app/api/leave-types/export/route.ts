@@ -7,19 +7,19 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
   const conn = await getConn();
-  const rows = await conn.all<{ code: string; name: string; description: string; note: string; dayType: number }>(
-    `SELECT code, name, description, note, COALESCE(day_type, -1) AS dayType
+  const rows = await conn.all<{ code: string; name: string; description: string; note: string; paid: boolean; dayType: number }>(
+    `SELECT code, name, description, note, paid, COALESCE(day_type, -1) AS dayType
      FROM leave_types WHERE month_id = ? ORDER BY code`,
     monthId
   );
   await conn.close();
 
-  const HEADERS = ['Mã Loại', 'Tên Loại Nghỉ', 'Mô Tả'];
-  const data = rows.map(r => [r.code, r.name, r.description ?? '']);
+  const HEADERS = ['Mã Loại', 'Tên Loại Nghỉ', 'Mô Tả', 'Tính Công'];
+  const data = rows.map(r => [r.code, r.name, r.description ?? '', r.paid ? 'Có' : 'Không']);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...data]);
-  ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 50 }];
+  ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 50 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'LoaiNghiPhep');
 
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });

@@ -4,17 +4,17 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-const HEADERS = ['Mã Loại', 'Tên Loại Nghỉ', 'Mô Tả', 'Ghi Chú'];
+const HEADERS = ['Mã Loại', 'Tên Loại Nghỉ', 'Mô Tả', 'Tính Công', 'Ghi Chú'];
 const SAMPLE_ROWS = [
-  ['PN',  'Phép năm',        'Nghỉ phép năm theo chính sách', 'Tính ngày công: Không'],
-  ['Ô',   'Nghỉ ốm',         'Nghỉ ốm đau',                   'Tính ngày công: Không'],
-  ['NL',  'Nghỉ lễ',         'Ngày lễ quốc gia',              'Tính ngày công: Không'],
+  ['PN',  'Phép năm',        'Nghỉ phép năm theo chính sách', 'Không', ''],
+  ['Ô',   'Nghỉ ốm',         'Nghỉ ốm đau',                   'Không', ''],
+  ['NL',  'Nghỉ lễ',         'Ngày lễ quốc gia',              'Không', ''],
 ];
 
 export async function GET() {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...SAMPLE_ROWS]);
-  ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 36 }, { wch: 36 }];
+  ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 36 }, { wch: 14 }, { wch: 36 }];
   XLSX.utils.book_append_sheet(wb, ws, 'LoaiNghiPhep');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   return new NextResponse(buf, {
@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
       const code = String(row['Mã Loại']      ?? '').trim();
       const name = String(row['Tên Loại Nghỉ'] ?? '').trim();
       const desc = String(row['Mô Tả']         ?? '').trim();
+      const paidRaw = String(row['Tính Công']  ?? '').trim();
+      const paid = paidRaw === '' ? true : ['Có', 'có', 'TRUE', 'true', '1', 'Yes', 'yes'].includes(paidRaw);
       const note = String(row['Ghi Chú']        ?? '').trim();
 
       if (!code || !name) { results.skipped++; results.skippedCodes.push(code || '(trống)'); continue; }
@@ -65,8 +67,8 @@ export async function POST(req: NextRequest) {
       try {
         const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
         await conn.run(
-          `INSERT INTO leave_types (id, month_id, code, name, description, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          id, monthId, code, name, desc, note, now
+          `INSERT INTO leave_types (id, month_id, code, name, description, paid, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, monthId, code, name, desc, paid, note, now
         );
         existingCodes.add(code.toUpperCase());
         results.inserted++;
