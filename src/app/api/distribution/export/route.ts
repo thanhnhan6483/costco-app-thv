@@ -458,7 +458,7 @@ export async function GET(req: NextRequest) {
         }
       }
       const empArr = Array.from(empMap.values());
-      const FIXED = 7;
+      const FIXED = 6;
       const SUMMARY = ['NGÀY CÔNG', 'PHÉP NĂM', 'NGHỈ CUỐI THÁNG NÀY', 'TĂNG CA(H)', 'GIỜ TRỄ(PH)', 'LP', 'PN', 'PHÂN BỔ TC(H)', 'PHÂN BỔ GT(PH)'];
 
       const row0 = ['STT', 'MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', 'NHÓM ĐẶC THÙ', 'NGHỈ THÁNG TRƯỚC', ...days.flatMap(d => [d, d]), ...SUMMARY];

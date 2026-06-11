@@ -371,7 +371,7 @@ export async function GET(req: NextRequest) {
       }
     }
     const empArr6 = Array.from(empMap6.values());
-    const FIXED6 = 7;
+    const FIXED6 = 6;
     const SUMMARY = ['NGÀY CÔNG', 'PHÉP NĂM', 'NGHỈ CUỐI THÁNG NÀY', 'TĂNG CA(H)', 'GIỜ TRỄ(PH)', 'LP', 'PN', 'PHÂN BỔ TC(H)', 'PHÂN BỔ GT(PH)'];
     const row0 = ['STT', 'MÃ NV', 'TÊN NHÂN VIÊN', 'PHÒNG BAN', 'NHÓM ĐẶC THÙ', 'NGHỈ THÁNG TRƯỚC', ...days.flatMap(d => [d, d]), ...SUMMARY];
     const row1 = ['', '', '', '', '', '', ...days.flatMap(d => { const l = dowIdx[d - 1] >= 0 ? DOW_SHORT[dowIdx[d - 1]] : ''; return [l, l]; }), ...Array(SUMMARY.length).fill('')];
