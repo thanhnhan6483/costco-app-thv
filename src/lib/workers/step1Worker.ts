@@ -69,7 +69,7 @@ for (const [, group] of deptGroups) {
 
     // Cập nhật dailyRest
     for (let d = 0; d < daysInMonth; d++) {
-      if (arrangement[d] === 1) dailyRest[d]++;
+      if (arrangement[d] === 1 || arrangement[d] === 2) dailyRest[d]++;
     }
 
     for (let d = 0; d < daysInMonth; d++) {

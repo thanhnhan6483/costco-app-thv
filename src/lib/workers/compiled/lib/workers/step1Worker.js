@@ -52,7 +52,7 @@ for (const [, group] of deptGroups) {
         const arrangement = (0, distributionEngine_1.step1_generateArrangement)(emp, daysInMonth, month, year, params, isAcct, symbolMap, isAcct ? undefined : dailyRest, isAcct ? undefined : targetRest, paidDayTypes);
         // Cập nhật dailyRest
         for (let d = 0; d < daysInMonth; d++) {
-            if (arrangement[d] === 1)
+            if (arrangement[d] === 1 || arrangement[d] === 2)
                 dailyRest[d]++;
         }
         for (let d = 0; d < daysInMonth; d++) {
