@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { markStepDone, DAY_COLS, loadParams, loadSpecialDeptIds } from '@/lib/stepHelpers';
+import { markStepDone, DAY_COLS, loadParams, loadSpecialDeptIds, loadMonthInfo, loadSymbolMap, loadPaidDayTypes } from '@/lib/stepHelpers';
 import { calcConsecutiveDays } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
@@ -70,6 +70,11 @@ export async function POST(req: NextRequest) {
 
   const params = await loadParams(monthId);
   const { accountingIds } = await loadSpecialDeptIds(monthId);
+  const { daysInMonth } = await loadMonthInfo(monthId);
+  const symbolMap = await loadSymbolMap(monthId);
+  const paidDayTypes = await loadPaidDayTypes(monthId);
+  const symToType = new Map(Object.entries(symbolMap));
+  const THRESHOLD = 27;
 
   const formatDDMMYYYY = (s: string): string => {
     const clean = s.trim().replace(/^["']|["']$/g, '');
@@ -94,6 +99,38 @@ export async function POST(req: NextRequest) {
     }
     return { d, m, y };
   };
+
+  const checkInputDataViolations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
+  for (const r of empRows) {
+    const workdaysVal = Math.round(Number(r.workdays) ?? 27);
+    const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
+    const isFullTime = workdaysVal >= THRESHOLD;
+    let freeSlots = 0;
+    let preExistingPaidDays = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+      const raw = (r[`day_${i}`] ?? '').toString().trim();
+      if (!raw) { freeSlots++; continue; }
+      const dt = symToType.get(raw);
+      if (dt === 0) freeSlots++;
+      else if (dt === 1 && isFullTime) freeSlots++;
+      else if (dt !== undefined && dt !== null && dt !== 0 && paidDayTypes.has(dt)) preExistingPaidDays++;
+    }
+    const totalPaidAndPn = preExistingPaidDays + phepNam;
+    if (totalPaidAndPn > workdaysVal) {
+      checkInputDataViolations.push({
+        code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+        detail: `Nghỉ tính công (${preExistingPaidDays}) + PN (${phepNam}) = ${totalPaidAndPn} > ${workdaysVal} ngày công. Không thể phân bổ đúng PBNC. Hãy giảm nghỉ tính công hoặc tăng ngày công.`,
+      });
+      continue;
+    }
+    const needed = Math.max(phepNam, workdaysVal - preExistingPaidDays);
+    if (freeSlots >= needed) continue;
+    const shortage = needed - freeSlots;
+    checkInputDataViolations.push({
+      code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+      detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công - ${preExistingPaidDays} nghỉ tính công + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống.`,
+    });
+  }
 
   const checkLastLeaveViolations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
   for (const r of empRows) {
@@ -130,6 +167,15 @@ export async function POST(req: NextRequest) {
   }
 
   const checkResults = [
+    {
+      id: 'input_data_consistency',
+      label: 'Kiểm tra dữ liệu đầu vào — đủ chỗ + hợp lệ cho phân bổ',
+      description: '1) Đủ ô trống cho X+PN. 2) paid_leave + PN không vượt quá ngày công.',
+      status: checkInputDataViolations.length === 0 ? 'ok' : 'error',
+      violations: checkInputDataViolations,
+      violationCount: checkInputDataViolations.length,
+      checkedCount: empRows.length,
+    },
     {
       id: 'last_leave_day_import',
       label: `Ngày nghỉ tháng trước chưa phải ngày cuối cùng (cách cuối tháng >${params.maxConsecutiveDays} ngày)`,
