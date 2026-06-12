@@ -150,6 +150,7 @@ export function generateOneArrangement(
   daysInMonth: number,
   dailyRest?: number[],
   targetRest?: number,
+  initialPhepNam?: number,
 ): number[] | null {
   const total = fixedArray.length;
   if (pos === total) return pnRemaining === 0 ? current : null;
@@ -159,14 +160,16 @@ export function generateOneArrangement(
     return generateOneArrangement(
       pos + 1, ones, zeros, pnRemaining, 0,
       fixedArray, [...current, fixed], params, daysInMonth,
-      dailyRest, targetRest,
+      dailyRest, targetRest, initialPhepNam,
     );
   }
 
   type Option = [number, number, number, number, number];
   const options: Option[] = [];
 
-  if (ones > 0 && pos < daysInMonth)
+  // LP chỉ được đặt trước PN (chưa đặt PN nào)
+  const pnNotPlaced = !initialPhepNam || pnRemaining === initialPhepNam;
+  if (ones > 0 && pos < daysInMonth && pnNotPlaced)
     options.push([ones - 1, zeros, pnRemaining, 0, 1]);   // LP
   if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
     options.push([ones, zeros - 1, pnRemaining, lastZeros + 1, 0]); // X
@@ -183,7 +186,7 @@ export function generateOneArrangement(
   }
 
   for (const [no, nz, npr, nlz, val] of options) {
-    const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
+    const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest, initialPhepNam);
     if (result) return result;
   }
   return null;
@@ -465,11 +468,18 @@ export function step1_generateArrangement(
     ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
     : 0;
   const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
-  const ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
-  const ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+  let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+  let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+  // Đảm bảo đủ breaker cho maxConsecutiveDays
+  const minBreakers = ZEROS > 0 ? Math.ceil(ZEROS / params.maxConsecutiveDays) - 1 : 0;
+  if (ONES + phepNam < minBreakers) {
+    const extraLP = Math.min(minBreakers - ONES - phepNam, ZEROS);
+    ONES += extraLP;
+    ZEROS -= extraLP;
+  }
   const pnRemaining = phepNam;
 
-  const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest)
+  const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest, phepNam)
     ?? fixedArray;
 
   return arrangement;
@@ -663,11 +673,17 @@ export function processEmployee(
       ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
       : 0;
     const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
-    const ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
-    const ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+    let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+    let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+    const minBreakers = ZEROS > 0 ? Math.ceil(ZEROS / params.maxConsecutiveDays) - 1 : 0;
+    if (ONES + phepNam < minBreakers) {
+      const extraLP = Math.min(minBreakers - ONES - phepNam, ZEROS);
+      ONES += extraLP;
+      ZEROS -= extraLP;
+    }
     const pnRemaining = phepNam;
 
-    arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth)
+    arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, undefined, undefined, phepNam)
       ?? fixedArray;
   }
   arrangement = arrangement!;

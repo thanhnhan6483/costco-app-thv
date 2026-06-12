@@ -102,16 +102,18 @@ function encodeInputArray(days, symbolMap, size = 31) {
  * giúp constraint maxConsecutiveDays luôn được thỏa mãn ngay từ đầu.
  * Không cần placePNAtEndOfRestPeriod sau backtracking.
  */
-function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedArray, current, params, daysInMonth, dailyRest, targetRest) {
+function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedArray, current, params, daysInMonth, dailyRest, targetRest, initialPhepNam) {
     const total = fixedArray.length;
     if (pos === total)
         return pnRemaining === 0 ? current : null;
     const fixed = fixedArray[pos];
     if (fixed !== 0) {
-        return generateOneArrangement(pos + 1, ones, zeros, pnRemaining, 0, fixedArray, [...current, fixed], params, daysInMonth, dailyRest, targetRest);
+        return generateOneArrangement(pos + 1, ones, zeros, pnRemaining, 0, fixedArray, [...current, fixed], params, daysInMonth, dailyRest, targetRest, initialPhepNam);
     }
     const options = [];
-    if (ones > 0 && pos < daysInMonth)
+    // LP chỉ được đặt trước PN (chưa đặt PN nào)
+    const pnNotPlaced = !initialPhepNam || pnRemaining === initialPhepNam;
+    if (ones > 0 && pos < daysInMonth && pnNotPlaced)
         options.push([ones - 1, zeros, pnRemaining, 0, 1]); // LP
     if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
         options.push([ones, zeros - 1, pnRemaining, lastZeros + 1, 0]); // X
@@ -128,7 +130,7 @@ function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedA
         }
     }
     for (const [no, nz, npr, nlz, val] of options) {
-        const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
+        const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest, initialPhepNam);
         if (result)
             return result;
     }
@@ -385,10 +387,17 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
         ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
         : 0;
     const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
-    const ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
-    const ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+    let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+    let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+    // Đảm bảo đủ breaker cho maxConsecutiveDays
+    const minBreakers = ZEROS > 0 ? Math.ceil(ZEROS / params.maxConsecutiveDays) - 1 : 0;
+    if (ONES + phepNam < minBreakers) {
+        const extraLP = Math.min(minBreakers - ONES - phepNam, ZEROS);
+        ONES += extraLP;
+        ZEROS -= extraLP;
+    }
     const pnRemaining = phepNam;
-    const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest)
+    const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest, phepNam)
         ?? fixedArray;
     return arrangement;
 }
@@ -570,10 +579,16 @@ function processEmployee(emp, daysInMonth, month, year, params, shift1, shift2, 
             ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
             : 0;
         const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
-        const ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
-        const ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+        let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+        let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
+        const minBreakers = ZEROS > 0 ? Math.ceil(ZEROS / params.maxConsecutiveDays) - 1 : 0;
+        if (ONES + phepNam < minBreakers) {
+            const extraLP = Math.min(minBreakers - ONES - phepNam, ZEROS);
+            ONES += extraLP;
+            ZEROS -= extraLP;
+        }
         const pnRemaining = phepNam;
-        arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth)
+        arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, undefined, undefined, phepNam)
             ?? fixedArray;
     }
     arrangement = arrangement;
