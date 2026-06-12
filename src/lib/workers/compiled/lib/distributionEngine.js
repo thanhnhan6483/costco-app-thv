@@ -98,18 +98,18 @@ function encodeInputArray(days, symbolMap, size = 31) {
 /* ── Bước 2A: generate_random_arrangement (Python port) ── */
 /**
  * Sinh arrangement với thứ tự ưu tiên: LP → PN → X.
- * LP được thử trước, PN thử sau, X cuối cùng.
+ * LP không đặt trước firstOnePos. Khi dailyRest đủ, LP được skip để dàn đều.
  */
-function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedArray, current, params, daysInMonth, dailyRest, targetRest) {
+function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedArray, current, params, daysInMonth, firstOnePos, dailyRest, targetRest) {
     const total = fixedArray.length;
     if (pos === total)
         return pnRemaining === 0 ? current : null;
     const fixed = fixedArray[pos];
     if (fixed !== 0) {
-        return generateOneArrangement(pos + 1, ones, zeros, pnRemaining, 0, fixedArray, [...current, fixed], params, daysInMonth, dailyRest, targetRest);
+        return generateOneArrangement(pos + 1, ones, zeros, pnRemaining, 0, fixedArray, [...current, fixed], params, daysInMonth, firstOnePos, dailyRest, targetRest);
     }
     const options = [];
-    if (ones > 0 && pos < daysInMonth)
+    if (ones > 0 && pos >= firstOnePos && pos < daysInMonth)
         options.push([ones - 1, zeros, pnRemaining, 0, 1]); // LP
     if (pnRemaining > 0 && pos >= params.pnStartFromDay - 1)
         options.push([ones, zeros, pnRemaining - 1, 0, 2]); // PN
@@ -118,15 +118,16 @@ function generateOneArrangement(pos, ones, zeros, pnRemaining, lastZeros, fixedA
     if (options.length > 1) {
         if (dailyRest && targetRest !== undefined) {
             const lpFirst = dailyRest[pos] < targetRest;
-            if (!lpFirst && Math.random() < 0.7)
-                options.reverse();
+            if (!lpFirst && Math.random() < 0.7 && options[0][4] === 1) {
+                options.shift(); // bỏ LP, giữ [PN, X] hoặc [PN]
+            }
         }
         else if (Math.random() < 0.5) {
             options.reverse();
         }
     }
     for (const [no, nz, npr, nlz, val] of options) {
-        const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
+        const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, firstOnePos, dailyRest, targetRest);
         if (result)
             return result;
     }
@@ -391,8 +392,9 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
         ONES += extraLP;
         ZEROS -= extraLP;
     }
+    const firstOnePos = Math.min(initialLastZeros, Math.floor(daysInMonth * 0.1));
     const pnRemaining = phepNam;
-    const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest)
+    const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, firstOnePos, dailyRest, targetRest)
         ?? fixedArray;
     return arrangement;
 }
@@ -582,8 +584,9 @@ function processEmployee(emp, daysInMonth, month, year, params, shift1, shift2, 
             ONES += extraLP;
             ZEROS -= extraLP;
         }
+        const firstOnePos = Math.min(initialLastZeros, Math.floor(daysInMonth * 0.1));
         const pnRemaining = phepNam;
-        arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, undefined, undefined)
+        arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, firstOnePos, undefined, undefined)
             ?? fixedArray;
     }
     arrangement = arrangement;
