@@ -620,8 +620,8 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkInputData: CheckResult = {
       id: 'input_data_consistency',
-      label: 'Kiểm tra dữ liệu đầu vào — đủ ô trống cho X + PN không',
-      description: 'Tổng ô trống phải ≥ max(PN, workdays - paid_leave_đã_nhập); engine cần đủ ô để đặt X và PN.',
+      label: 'Kiểm tra dữ liệu đầu vào — đủ chỗ + hợp lệ cho phân bổ',
+      description: '1) Đủ ô trống cho X+PN. 2) paid_leave + PN không vượt quá ngày công.',
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
     const symToType = new Map(Object.entries(symbolMap));
@@ -640,12 +640,20 @@ export async function GET(req: NextRequest) {
         else if (dt === 1 && isFullTime) freeSlots++;
         else if (dt !== undefined && dt !== null && dt !== 0 && paidDayTypes.has(dt)) preExistingPaidDays++;
       }
+      const totalPaidAndPn = preExistingPaidDays + phepNam;
+      if (totalPaidAndPn > workdaysVal) {
+        checkInputData.violations.push({
+          code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
+          detail: `Nghỉ tính công (${preExistingPaidDays}) + PN (${phepNam}) = ${totalPaidAndPn} > ${workdaysVal} ngày công. Không thể phân bổ đúng PBNC. Hãy giảm nghỉ tính công hoặc tăng ngày công.`,
+        });
+        continue;
+      }
       const needed = Math.max(phepNam, workdaysVal - preExistingPaidDays);
       if (freeSlots >= needed) continue;
       const shortage = needed - freeSlots;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công - ${preExistingPaidDays} ngày nghỉ tính công đã nhập + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống.`,
+        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công - ${preExistingPaidDays} nghỉ tính công + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống.`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
