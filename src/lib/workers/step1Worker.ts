@@ -40,24 +40,23 @@ for (const [, group] of deptGroups) {
     const workdays = parseFloat(emp.workdays);
     let workdaysVal = isNaN(workdays) ? 27 : workdays;
     if (workdaysVal === 0) continue;
-    const inputArray = encodeInputArray(emp.days, symbolMap);
-    const fa = inputArray.slice(0, 31);
+    const inputArray = encodeInputArray(emp.days, symbolMap, daysInMonth);
+    const fa = inputArray.slice(0, daysInMonth);
     if (workdays >= params.workdaysThreshold)
-      for (let i = 0; i < 31; i++) { if (fa[i] <= 1) fa[i] = 0; }
+      for (let i = 0; i < daysInMonth; i++) { if (fa[i] <= 1) fa[i] = 0; }
     const freeSlots = fa.filter(v => v === 0).length;
     workdaysVal = Math.round(workdays);
     const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
-    const paddedCount = Math.max(0, 31 - daysInMonth);
     const preExistingPaidDays = paidDayTypes?.size
       ? fa.filter(v => v !== 0 && paidDayTypes.has(v)).length
       : 0;
     const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
-    const ZEROS = Math.max(0, remainingWorkdays + paddedCount);
+    const ZEROS = Math.max(0, remainingWorkdays);
     totalExpectedLP += Math.max(0, freeSlots - ZEROS - phepNam);
   }
   const targetRest = totalExpectedLP > 0 ? totalExpectedLP / daysInMonth : 0;
 
-  const dailyRest = new Array(31).fill(0);
+  const dailyRest = new Array(daysInMonth).fill(0);
   for (const emp of group) {
     const isAcct = accountingSet.has(emp.departmentId ?? '');
     const arrangement = step1_generateArrangement(
@@ -73,7 +72,7 @@ for (const [, group] of deptGroups) {
       if (arrangement[d] === 1) dailyRest[d]++;
     }
 
-    for (let d = 0; d < 31; d++) {
+    for (let d = 0; d < daysInMonth; d++) {
       rows.push([`${emp.id}_${monthId}_d${d + 1}`, monthId, emp.id, d + 1, arrangement[d], now]);
     }
   }
