@@ -439,7 +439,22 @@ export function step1_generateArrangement(
   const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
 
   if (isAccountingDept) {
+    const workdaysVal = Math.round(workdays);
     let arrangement = generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
+    const paidCnt = arrangement.filter(v => paidDayTypes?.has(v)).length;
+    let xCnt = arrangement.filter(v => v === 0).length;
+    let pbnc = xCnt + paidCnt;
+    if (pbnc > workdaysVal) {
+      let excess = pbnc - workdaysVal;
+      for (let i = daysInMonth - 1; i >= 0 && excess > 0; i--) {
+        if (arrangement[i] === 0) { arrangement[i] = 1; excess--; }
+      }
+    } else if (pbnc < workdaysVal) {
+      let deficit = workdaysVal - pbnc;
+      for (let i = daysInMonth - 1; i >= 0 && deficit > 0; i--) {
+        if (arrangement[i] === 1) { arrangement[i] = 0; deficit--; }
+      }
+    }
     if (phepNam > 0) arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
     return arrangement;
   }
@@ -665,7 +680,22 @@ export function processEmployee(
 
   let arrangement: number[] | null = null;
   if (isAccountingDept) {
+    const workdaysVal = Math.round(workdays);
     arrangement = generateCalendarArray(month, year, inputArray, params);
+    const paidCnt = arrangement.filter(v => paidDayTypes?.has(v)).length;
+    let xCnt = arrangement.filter(v => v === 0).length;
+    let pbnc = xCnt + paidCnt;
+    if (pbnc > workdaysVal) {
+      let excess = pbnc - workdaysVal;
+      for (let i = daysInMonth - 1; i >= 0 && excess > 0; i--) {
+        if (arrangement[i] === 0) { arrangement[i] = 1; excess--; }
+      }
+    } else if (pbnc < workdaysVal) {
+      let deficit = workdaysVal - pbnc;
+      for (let i = daysInMonth - 1; i >= 0 && deficit > 0; i--) {
+        if (arrangement[i] === 1) { arrangement[i] = 0; deficit--; }
+      }
+    }
     if (phepNam > 0) arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
   } else {
     const freeSlots = fixedArray.filter(v => v === 0).length;
