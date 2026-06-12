@@ -359,7 +359,30 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
     const inputArray = encodeInputArray(emp.days, symbolMap); // length 31
     const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
     if (isAccountingDept) {
+        const workdaysVal = Math.round(workdays);
         let arrangement = generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
+        const validArr = arrangement.slice(0, daysInMonth);
+        const paidCnt = validArr.filter(v => paidDayTypes?.has(v)).length;
+        let xCnt = validArr.filter(v => v === 0).length;
+        let pbnc = xCnt + paidCnt;
+        if (pbnc > workdaysVal) {
+            let excess = pbnc - workdaysVal;
+            for (let i = daysInMonth - 1; i >= 0 && excess > 0; i--) {
+                if (arrangement[i] === 0) {
+                    arrangement[i] = 1;
+                    excess--;
+                }
+            }
+        }
+        else if (pbnc < workdaysVal) {
+            let deficit = workdaysVal - pbnc;
+            for (let i = daysInMonth - 1; i >= 0 && deficit > 0; i--) {
+                if (arrangement[i] === 1) {
+                    arrangement[i] = 0;
+                    deficit--;
+                }
+            }
+        }
         if (phepNam > 0)
             arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
         return arrangement;
@@ -564,7 +587,30 @@ function processEmployee(emp, daysInMonth, month, year, params, shift1, shift2, 
     }
     let arrangement = null;
     if (isAccountingDept) {
+        const workdaysVal = Math.round(workdays);
         arrangement = generateCalendarArray(month, year, inputArray, params);
+        const validArr = arrangement.slice(0, daysInMonth);
+        const paidCnt = validArr.filter(v => paidDayTypes?.has(v)).length;
+        let xCnt = validArr.filter(v => v === 0).length;
+        let pbnc = xCnt + paidCnt;
+        if (pbnc > workdaysVal) {
+            let excess = pbnc - workdaysVal;
+            for (let i = daysInMonth - 1; i >= 0 && excess > 0; i--) {
+                if (arrangement[i] === 0) {
+                    arrangement[i] = 1;
+                    excess--;
+                }
+            }
+        }
+        else if (pbnc < workdaysVal) {
+            let deficit = workdaysVal - pbnc;
+            for (let i = daysInMonth - 1; i >= 0 && deficit > 0; i--) {
+                if (arrangement[i] === 1) {
+                    arrangement[i] = 0;
+                    deficit--;
+                }
+            }
+        }
         if (phepNam > 0)
             arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
     }

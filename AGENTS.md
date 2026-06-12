@@ -149,6 +149,10 @@
 - Khi user chỉ muốn agent chỉnh nhanh dữ liệu (ví dụ menu, settings, featured item), mặc định hiểu là sửa trực tiếp qua data functions hiện có, không mở rộng scope sang refactor hệ thống.
 - Evidence bắt buộc khi bàn giao tác vụ data thật: function đã dùng, record đã chạm, field đã đổi, before/after ngắn gọn, và bước verify đã thực hiện.
 
+# Worker Rebuild Convention
+- Mọi thay đổi trong `src/lib/distributionEngine.ts` hoặc `src/lib/workers/step1Worker.ts` bắt buộc chạy `npm run build:worker` trước commit để đồng bộ compiled JS cho worker thread.
+- `predev` và `prebuild` hook đã tự động chạy build:worker, nhưng commit riêng lẻ phải chạy tay.
+
 # 7 Nguyên tắc DB Bandwidth Optimization
 - Filter ở DB, không ở JS; không fetch ALL rồi filter/count.
 - Không N+1; batch load + Map O(1).

@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run build:worker",
     "dev": "next dev --webpack",
     "build": "next build --webpack",
+    "prebuild": "npm run build:worker",
     "start": "next start",
     "lint": "eslint",
     "build:worker": "tsc -p src/lib/workers/tsconfig.worker.json"
