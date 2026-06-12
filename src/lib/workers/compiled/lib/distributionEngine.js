@@ -435,8 +435,11 @@ function step1_generateArrangement(emp, daysInMonth, month, year, params, isAcco
                 break;
         }
     }
-    if (!arrangement)
+    if (!arrangement) {
         arrangement = fixedArray;
+        if (phepNam > 0)
+            arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+    }
     return arrangement;
 }
 /** Step 4 — Chia ca cho 1 ngày (dùng khi chỉ có 1 ca) */

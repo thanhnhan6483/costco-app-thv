@@ -39,7 +39,11 @@ for (const [, group] of deptGroups) {
         workdaysVal = Math.round(workdays);
         const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
         const paddedCount = Math.max(0, 31 - daysInMonth);
-        const ZEROS = Math.max(0, workdaysVal + paddedCount);
+        const preExistingPaidDays = paidDayTypes?.size
+            ? fa.filter(v => v !== 0 && paidDayTypes.has(v)).length
+            : 0;
+        const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
+        const ZEROS = Math.max(0, remainingWorkdays + paddedCount);
         totalExpectedLP += Math.max(0, freeSlots - ZEROS - phepNam);
     }
     const targetRest = totalExpectedLP > 0 ? totalExpectedLP / daysInMonth : 0;

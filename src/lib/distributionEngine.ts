@@ -509,7 +509,10 @@ export function step1_generateArrangement(
       if (arrangement) break;
     }
   }
-  if (!arrangement) arrangement = fixedArray;
+  if (!arrangement) {
+    arrangement = fixedArray;
+    if (phepNam > 0) arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+  }
 
   return arrangement;
 }
