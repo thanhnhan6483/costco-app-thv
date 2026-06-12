@@ -203,6 +203,7 @@ function placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam = 1)
                     arr[lastLP] = 0;
                     arr[i] = 1;
                     idx = lastLP;
+                    lastLP = i;
                     break;
                 }
             }
