@@ -242,6 +242,7 @@ export async function GET(req: NextRequest) {
   let conn;
   try {
     conn = await getConn();
+    const paidDayTypes = await loadPaidDayTypes(monthId);
     const [{ total }] = await conn.all<{ total: number }>(
       `SELECT COUNT(DISTINCT employee_id) AS total FROM distribution_results WHERE month_id = ?`, monthId
     );
@@ -273,7 +274,10 @@ export async function GET(req: NextRequest) {
        if (!map.has(r.code)) map.set(r.code, { code: r.code, name: r.empName, deptName: r.deptName ?? '', ngayNghiCuoiThangTruoc: r.ngayNghiCuoiThangTruoc ?? '', workdays: r.workdays ?? '', phepNam: r.phepNam ?? '', days: [] });
       map.get(r.code)!.days.push({ day: Number(r.day), dayType: Number(r.day_type) });
     }
-    return NextResponse.json(buildPagedResponse(Array.from(map.values()), Number(total), page, limit));
+    return NextResponse.json({
+      ...buildPagedResponse(Array.from(map.values()), Number(total), page, limit),
+      paidDayTypes: [...paidDayTypes],
+    });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   } finally {

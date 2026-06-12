@@ -197,7 +197,7 @@ const DT_SYMBOL: Record<number, string> = {
 };
 
 type StepStatus = Record<string, boolean>;
-interface StepPage { data: unknown[]; page: number; limit: number; total: number; totalPages: number; }
+interface StepPage { data: unknown[]; page: number; limit: number; total: number; totalPages: number; paidDayTypes?: number[]; }
 type StepData = Record<number, StepPage>;
 type StepCache = Record<number, Record<string, StepPage>>;
 
@@ -652,6 +652,7 @@ export default function AutoAlloc() {
             visMap={{ 1: vis1, 2: vis2, 3: vis3, 4: vis4, 5: vis5, 6: vis6 }}
             validateResult={validate2Status.result}
             recheckKey={recheckKey}
+            paidDayTypes={stepData[activeStep]?.paidDayTypes as number[] | undefined}
           />
         </div>
       </div>
@@ -1113,13 +1114,15 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
     const [mm, yyyy] = monthLabel.split('/');
     return [...new Set((rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : ''; }).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
   }, [rows, monthLabel]);
+  const paidSet = useMemo(() => new Set(paidDayTypes ?? []), [paidDayTypes]);
   const countX = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0).length; };
   const countLP = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 1).length; };
   const countPnDay = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 2).length; };
+  const countPaid = (r: any) => { const days: { day: number; dayType: number }[] = r.days ?? []; return Array.from({ length: daysInMonth }, (_, i) => Number(days.find(x => x.day === i + 1)?.dayType ?? -1)).filter(d => d === 0 || paidSet.has(d)).length; };
   const enrichedRows = useMemo(() => {
     const [mm, yyyy] = monthLabel.split('/');
-    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r) }; });
-  }, [rows, monthLabel]);
+    return (rows as any[]).map(r => { const days: { day: number; dayType: number }[] = r.days ?? []; const d = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number((days.find(x => x.day === i) as any)?.dayType ?? -1); return dt >= 0 && dt !== 0; }); return { ...r, _nghiCuoi: d ? `${String(d).padStart(2, '0')}/${mm}/${yyyy}` : '', _xCnt: countX(r), _lpCnt: countLP(r), _pnDayCnt: countPnDay(r), _paidCnt: countPaid(r) }; });
+  }, [rows, monthLabel, paidSet]);
   const baseFiltered = useGridFilter(enrichedRows, fCode, fName, fDept);
   const filtered = useMemo(() => {
     let r = filterCodes ? baseFiltered.filter((r: any) => filterCodes.has(r.code)) : baseFiltered;
@@ -1284,7 +1287,7 @@ function DayTypeGrid({ rows, monthId, monthLabel, onSaved, locked, filterCodes, 
                 {vis.lp && <td className={styles.statCell}>{r._lpCnt ?? 0}</td>}
                 {vis.x && <td className={styles.statCell} style={{ color: '#15803d' }}>{r._xCnt ?? 0}</td>}
                 {vis.pn && <td className={styles.statCell} style={{ color: '#6d28d9' }}>{r._pnDayCnt ?? 0}</td>}
-                {vis.pbnc && <td className={styles.statCell} style={{ color: '#b45309' }}>{((r._xCnt ?? 0) + (r._pnDayCnt ?? 0))}</td>}
+                {vis.pbnc && <td className={styles.statCell} style={{ color: '#b45309' }}>{r._paidCnt ?? 0}</td>}
                 {vis.nghiCuoi && (() => {
                   const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = getEffectiveDT(r.code, i, days.find(x => x.day === i)?.dayType ?? -1); return dt >= 0 && dt !== 0; });
                   const [mm, yyyy] = monthLabel.split('/');
@@ -2325,11 +2328,11 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey, visMap }: {
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey, visMap, paidDayTypes }: {
   step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
   validateOpen?: boolean; onValidateOpen?: () => void; onValidateStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void;
   validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; validateResult?: ValidateResult | null; recheckKey?: number;
-  visMap: Record<number, Record<string, boolean>>;
+  visMap: Record<number, Record<string, boolean>>; paidDayTypes?: number[];
 }) {
   const [filterCodes, setFilterCodes] = useState<Set<string> | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode | null>(null);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadMonthInfo } from '@/lib/stepHelpers';
+import { loadMonthInfo, loadPaidDayTypes } from '@/lib/stepHelpers';
 export const runtime = 'nodejs';
 
 const DT_LABEL: Record<number, string> = {
@@ -123,6 +123,7 @@ export async function GET(req: NextRequest) {
   const conn = await getConn();
   try {
     const { daysInMonth } = await loadMonthInfo(monthId);
+    const paidDayTypes = await loadPaidDayTypes(monthId);
     const XLSX = await import('xlsx-js-style');
     const wb = XLSX.utils.book_new();
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -215,8 +216,9 @@ export async function GET(req: NextRequest) {
         const pnDayCnt = dts.filter(v => v === 2).length;
         const lastRestDay = Array.from({ length: daysInMonth }, (_, i) => i + 1).reverse().find(i => { const dt = Number(r[`d${i}`] ?? -1); return dt >= 0 && dt !== 0; });
         const nghiCuoi = lastRestDay ? `${String(lastRestDay).padStart(2, '0')}/${String(mm2).padStart(2, '0')}/${yyyy2}` : '';
+        const paidCnt = dts.filter(v => v === 0 || paidDayTypes.has(v)).length;
         return [idx + 1, r.code, r.name, r.deptName, fmtDate(String(r.ngayNghiCuoiThangTruoc ?? '')), ...dts.map(dt => dt >= 0 ? (DT_LABEL[dt] ?? '') : ''),
-          r.workdays != null ? Math.round(Number(r.workdays)) : '', r.phepNam, dts.filter(v => v === 1).length, xCnt, pnDayCnt, xCnt + pnDayCnt, nghiCuoi];
+          r.workdays != null ? Math.round(Number(r.workdays)) : '', r.phepNam, dts.filter(v => v === 1).length, xCnt, pnDayCnt, paidCnt, nghiCuoi];
       });
 
       const ws2 = XLSX.utils.aoa_to_sheet([header2, dowRow2, ...data2]);

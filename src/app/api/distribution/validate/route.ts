@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { loadParams, loadMonthInfo, loadSymbolMap, loadSpecialDeptIds } from '@/lib/stepHelpers';
+import { loadParams, loadMonthInfo, loadSymbolMap, loadSpecialDeptIds, loadPaidDayTypes } from '@/lib/stepHelpers';
 import { DEFAULT_SYMBOL_MAP } from '@/lib/distributionEngine';
 export const runtime = 'nodejs';
 
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     const params = await loadParams(monthId);
     const { daysInMonth, month, year } = await loadMonthInfo(monthId);
     const symbolMap = await loadSymbolMap(monthId);
+    const paidDayTypes = await loadPaidDayTypes(monthId);
 
     // Danh sách rule đang active — dùng để quyết định có chạy check hay không
     const activeRuleRows = await conn.all<{ paramKey: string }>(
@@ -841,25 +842,26 @@ export async function GET(req: NextRequest) {
     results.push(checkPnCount);
 
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-       Check: Phân bổ ngày công (PBNC = X+PN = NGÀY CÔNG)
-       PBNC = tổng X_count + PN_count trong kết quả phân bổ
+       Check: Phân bổ ngày công (PBNC = X+PN+paid_leave = NGÀY CÔNG)
+       PBNC = tổng X + PN + paid_leave_types (NL, P, H...)
        phải bằng NGÀY CÔNG (workdays) từ dữ liệu nhập vào
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkPbnc: CheckResult = {
       id: 'pbnc_check',
-      label: 'Kiểm tra Phân bổ ngày công (PBNC = X+PN = NGÀY CÔNG)',
-      description: 'PBNC (X_count + PN_count) trong kết quả phân bổ phải bằng NGÀY CÔNG từ dữ liệu nhập',
+      label: 'Kiểm tra Phân bổ ngày công (PBNC = X+PN+paid_leave = NGÀY CÔNG)',
+      description: 'PBNC (X + PN + paid_leave) trong kết quả phân bổ phải bằng NGÀY CÔNG từ dữ liệu nhập',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     for (const emp of emps) {
       const deptName = deptMap.get(emp.deptId)?.name ?? '—';
-      const xCount = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && d.dayType === 0).length;
-      const pnCount = emp.days.filter(d => d.day >= 1 && d.day <= daysInMonth && d.dayType === 2).length;
-      const pbnc = xCount + pnCount;
-      if (pbnc !== emp.inputWorkdays) {
+      const paidCount = emp.days.filter(d =>
+        d.day >= 1 && d.day <= daysInMonth &&
+        (d.dayType === 0 || paidDayTypes.has(d.dayType))
+      ).length;
+      if (paidCount !== emp.inputWorkdays) {
         checkPbnc.violations.push({
           code: emp.code, name: emp.name, deptName, day: 0,
-          detail: `PBNC = ${xCount}X + ${pnCount}PN = ${pbnc}, NGÀY CÔNG nhập = ${emp.inputWorkdays} — chênh lệch ${Math.abs(pbnc - emp.inputWorkdays)}`,
+          detail: `PBNC = ${paidCount} (X+PN+paid_leave), NGÀY CÔNG nhập = ${emp.inputWorkdays} — chênh lệch ${Math.abs(paidCount - emp.inputWorkdays)}`,
         });
       }
     }
