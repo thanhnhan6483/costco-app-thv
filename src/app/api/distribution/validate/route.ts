@@ -643,7 +643,7 @@ export async function GET(req: NextRequest) {
       const shortage = needed - freeSlots;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Thiếu ${shortage} ô trống. Chỉ có ${freeSlots} ô trống, cần xếp ${needed} chổ (${workdaysVal}X + ${phepNam}PN). Cần kiểm tra lại Ngày Công, Phép Năm hoặc nghỉ cố định (NP, Ô, TS,...) đang chiếm ô`,
+        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống. Hãy kiểm tra lại Ngày Công, Phép Năm hoặc giảm bớt các ngày nghỉ (NL, TS, Ô,...) đang chiếm ô.`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
