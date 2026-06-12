@@ -2412,7 +2412,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
 
   if (step === 1) return stepWrapper(
     <>      {validateWrapper(<ValidatePanel key={`${step}_${validateResult?.checkedAt ?? 'init'}`} ref={validateRef} monthId={monthId} onlyIds={['input_data_consistency', 'last_leave_day_import', 'accounting_ngay_nghi_cuoi_thang_truoc']} title="Kiểm tra dữ liệu import" subtitle="Kiểm tra NGHỈ THÁNG TRƯỚC có đúng là ngày cuối cùng + kế toán không nghỉ T7/CN" btnId="btn-validate-step1" onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} onFilterChange={handleFilterChange} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <ImportGrid rows={rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} vis={visMap[1]} />)}</>
+      {gridWrapper(dataEl ?? <ImportGrid rows={allRows ?? rows} monthLabel={monthLabel} monthId={monthId} step1Filter={step1Filter} onSaved={onRefresh ?? onLoad} locked={locked} filterCodes={filterCodes} vis={visMap[1]} />)}</>
   );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
