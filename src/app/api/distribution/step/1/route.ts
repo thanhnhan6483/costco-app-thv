@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
-import { markStepDone, DAY_COLS, loadMonthInfo, loadSymbolMap, loadParams, loadSpecialDeptIds } from '@/lib/stepHelpers';
+import { markStepDone, DAY_COLS, loadParams, loadSpecialDeptIds } from '@/lib/stepHelpers';
 import { calcConsecutiveDays } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 export const runtime = 'nodejs';
@@ -56,9 +56,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json();
 
-  // Kiểm tra input_data_consistency trước khi cho phép xác nhận
-  const symbolMap = await loadSymbolMap(monthId);
-  const { daysInMonth } = await loadMonthInfo(monthId);
   const conn = await getConn();
   const empRows = await conn.all<Record<string, string>>(
     `SELECT e.code, e.name, d.name AS deptName,
@@ -98,31 +95,6 @@ export async function POST(req: NextRequest) {
     return { d, m, y };
   };
 
-  const symToType = new Map(Object.entries(symbolMap));
-  const inputViolations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
-
-  const THRESHOLD = params.workdaysThreshold;
-  for (const r of empRows) {
-    const workdaysVal = Math.round(Number(r.workdays) ?? 27);
-    const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
-    const needed = workdaysVal + phepNam;
-    const isFullTime = workdaysVal >= THRESHOLD;
-    let freeSlots = 0;
-    for (let i = 1; i <= daysInMonth; i++) {
-      const raw = (r[`day_${i}`] ?? '').toString().trim();
-      if (!raw) { freeSlots++; continue; }
-      const dt = symToType.get(raw);
-      if (dt === 0) freeSlots++;
-      else if (dt === 1 && isFullTime) freeSlots++;
-    }
-    if (freeSlots >= needed) continue;
-    const shortage = needed - freeSlots;
-    inputViolations.push({
-      code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống. Hãy kiểm tra lại Ngày Công, Phép Năm hoặc giảm bớt các ngày nghỉ (NL, TS, Ô,...) đang chiếm ô.`,
-    });
-  }
-
   const checkLastLeaveViolations: Array<{ code: string; name: string; deptName: string; day: number; detail: string }> = [];
   for (const r of empRows) {
     const ngayNghiRaw = (r.ngay_nghi_cuoi_thang_truoc ?? '').trim();
@@ -158,15 +130,6 @@ export async function POST(req: NextRequest) {
   }
 
   const checkResults = [
-    {
-      id: 'input_data_consistency',
-      label: 'Kiểm tra dữ liệu đầu vào — đủ ô trống cho X + PN không',
-      description: 'Tổng ô trống (31 positions) phải ≥ workdays + PN; ngày trống trong tháng phải ≥ workdays.',
-      status: inputViolations.length === 0 ? 'ok' : 'error',
-      violations: inputViolations,
-      violationCount: inputViolations.length,
-      checkedCount: empRows.length,
-    },
     {
       id: 'last_leave_day_import',
       label: `Ngày nghỉ tháng trước chưa phải ngày cuối cùng (cách cuối tháng >${params.maxConsecutiveDays} ngày)`,
