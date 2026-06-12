@@ -37,9 +37,10 @@ for (const [, group] of deptGroups) {
             }
         const freeSlots = fa.filter(v => v === 0).length;
         workdaysVal = Math.round(workdays);
+        const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
         const paddedCount = Math.max(0, 31 - daysInMonth);
         const ZEROS = Math.max(0, workdaysVal + paddedCount);
-        totalExpectedLP += Math.max(0, freeSlots - ZEROS);
+        totalExpectedLP += Math.max(0, freeSlots - ZEROS - phepNam);
     }
     const targetRest = totalExpectedLP > 0 ? totalExpectedLP / daysInMonth : 0;
     const dailyRest = new Array(31).fill(0);

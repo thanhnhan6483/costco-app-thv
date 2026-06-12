@@ -471,8 +471,10 @@ export function step1_generateArrangement(
     : 0;
   const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
   // ZEROS = X, ONES = LP, pnRemaining = PN — tổng vừa đủ freeSlots
-  // Không dùng paddedCount: LP/PN tự động lấp padded positions, X chỉ đúng remainingWorkdays
-  let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+  // paddedCount (31-daysInMonth) positions bắt buộc là X do pos >= daysInMonth
+  // nên LP/PN không thể đặt vào đó → ZEROS phải bao gồm paddedCount
+  const paddedCount = Math.max(0, 31 - daysInMonth);
+  let ZEROS = Math.min(remainingWorkdays + paddedCount, Math.max(0, freeSlots - phepNam));
   let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
   let pnRemaining = phepNam;
 
@@ -485,7 +487,7 @@ export function step1_generateArrangement(
   for (let extra = 1; !arrangement && extra <= 5; extra++) {
     ONES = ONES + 1;
     ZEROS = Math.max(0, freeSlots - ONES - phepNam);
-    if (ZEROS < remainingWorkdays) break;
+    if (ZEROS < remainingWorkdays + paddedCount) break;
     for (let attempt = 0; attempt < 3; attempt++) {
       arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest);
       if (arrangement) break;
@@ -672,7 +674,8 @@ export function processEmployee(
       ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
       : 0;
     const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
-    let ZEROS = Math.min(remainingWorkdays, Math.max(0, freeSlots - phepNam));
+    const paddedCount = Math.max(0, 31 - daysInMonth);
+    let ZEROS = Math.min(remainingWorkdays + paddedCount, Math.max(0, freeSlots - phepNam));
     let ONES = Math.max(0, freeSlots - ZEROS - phepNam);
     const pnRemaining = phepNam;
 
@@ -683,7 +686,7 @@ export function processEmployee(
     for (let extra = 1; !arrangement && extra <= 5; extra++) {
       ONES = ONES + 1;
       ZEROS = Math.max(0, freeSlots - ONES - phepNam);
-      if (ZEROS < remainingWorkdays) break;
+      if (ZEROS < remainingWorkdays + paddedCount) break;
       for (let attempt = 0; attempt < 3; attempt++) {
         arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth);
         if (arrangement) break;
