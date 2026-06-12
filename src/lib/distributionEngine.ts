@@ -133,13 +133,14 @@ export function encodeInputArray(days: string[], symbolMap?: Record<string, numb
 
 /* ── Bước 2A: generate_random_arrangement (Python port) ── */
 /**
- * Sinh arrangement chỉ với LP (1) và X (0).
- * PN (2) được đặt sau bởi placePNafterLP, luôn sau LP cuối.
+ * Sinh arrangement với thứ tự ưu tiên: LP → PN → X.
+ * LP được thử trước, PN thử sau, X cuối cùng.
  */
 export function generateOneArrangement(
   pos: number,
   ones: number,
   zeros: number,
+  pnRemaining: number,
   lastZeros: number,
   fixedArray: number[],
   current: number[],
@@ -149,24 +150,26 @@ export function generateOneArrangement(
   targetRest?: number,
 ): number[] | null {
   const total = fixedArray.length;
-  if (pos === total) return current;
+  if (pos === total) return pnRemaining === 0 ? current : null;
 
   const fixed = fixedArray[pos];
   if (fixed !== 0) {
     return generateOneArrangement(
-      pos + 1, ones, zeros, 0,
+      pos + 1, ones, zeros, pnRemaining, 0,
       fixedArray, [...current, fixed], params, daysInMonth,
       dailyRest, targetRest,
     );
   }
 
-  type Option = [number, number, number, number];
+  type Option = [number, number, number, number, number];
   const options: Option[] = [];
 
   if (ones > 0 && pos < daysInMonth)
-    options.push([ones - 1, zeros, 0, 1]);   // LP
+    options.push([ones - 1, zeros, pnRemaining, 0, 1]);   // LP
+  if (pnRemaining > 0 && pos >= params.pnStartFromDay - 1)
+    options.push([ones, zeros, pnRemaining - 1, 0, 2]);   // PN
   if (zeros > 0 && lastZeros < params.maxConsecutiveDays)
-    options.push([ones, zeros - 1, lastZeros + 1, 0]); // X
+    options.push([ones, zeros - 1, pnRemaining, lastZeros + 1, 0]); // X
 
   if (options.length > 1) {
     if (dailyRest && targetRest !== undefined) {
@@ -177,34 +180,11 @@ export function generateOneArrangement(
     }
   }
 
-  for (const [no, nz, nlz, val] of options) {
-    const result = generateOneArrangement(pos + 1, no, nz, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
+  for (const [no, nz, npr, nlz, val] of options) {
+    const result = generateOneArrangement(pos + 1, no, nz, npr, nlz, fixedArray, [...current, val], params, daysInMonth, dailyRest, targetRest);
     if (result) return result;
   }
   return null;
-}
-
-/** Đặt PN (2) vào các ô X (0) sau LP cuối cùng, tôn trọng pnStartFromDay */
-export function placePNafterLP(
-  arrangement: number[],
-  phepNam: number,
-  pnStartFromDay: number,
-  daysInMonth: number,
-): number[] {
-  if (phepNam === 0) return arrangement;
-  const lastLp = arrangement.lastIndexOf(1);
-  const startFrom = Math.max(lastLp + 1, pnStartFromDay - 1);
-  const result = [...arrangement];
-  let placed = 0;
-  for (let i = startFrom; i < daysInMonth && placed < phepNam; i++) {
-    if (result[i] === 0) { result[i] = 2; placed++; }
-  }
-  if (placed < phepNam) {
-    for (let i = daysInMonth - 1; i >= pnStartFromDay - 1 && placed < phepNam; i--) {
-      if (result[i] === 0) { result[i] = 2; placed++; }
-    }
-  }
-  return result;
 }
 
 /**
@@ -492,9 +472,9 @@ export function step1_generateArrangement(
     ZEROS -= extraLP;
   }
 
-  const lpArrangement = generateOneArrangement(0, ONES, ZEROS + phepNam, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest)
+  const pnRemaining = phepNam;
+  const arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, dailyRest, targetRest)
     ?? fixedArray;
-  const arrangement = placePNafterLP(lpArrangement, phepNam, params.pnStartFromDay, daysInMonth);
 
   return arrangement;
 }
@@ -696,9 +676,9 @@ export function processEmployee(
       ZEROS -= extraLP;
     }
 
-    const lpArrangement = generateOneArrangement(0, ONES, ZEROS + phepNam, initialLastZeros, fixedArray, [], params, daysInMonth, undefined, undefined)
+    const pnRemaining = phepNam;
+    arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, undefined, undefined)
       ?? fixedArray;
-    arrangement = placePNafterLP(lpArrangement, phepNam, params.pnStartFromDay, daysInMonth);
   }
   arrangement = arrangement!;
   const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
