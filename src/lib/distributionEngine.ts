@@ -441,8 +441,9 @@ export function step1_generateArrangement(
   if (isAccountingDept) {
     const workdaysVal = Math.round(workdays);
     let arrangement = generateCalendarArray(month, year, inputArray.slice(0, daysInMonth), params);
-    const paidCnt = arrangement.filter(v => paidDayTypes?.has(v)).length;
-    let xCnt = arrangement.filter(v => v === 0).length;
+    const validArr = arrangement.slice(0, daysInMonth);
+    const paidCnt = validArr.filter(v => paidDayTypes?.has(v)).length;
+    let xCnt = validArr.filter(v => v === 0).length;
     let pbnc = xCnt + paidCnt;
     if (pbnc > workdaysVal) {
       let excess = pbnc - workdaysVal;
@@ -682,8 +683,9 @@ export function processEmployee(
   if (isAccountingDept) {
     const workdaysVal = Math.round(workdays);
     arrangement = generateCalendarArray(month, year, inputArray, params);
-    const paidCnt = arrangement.filter(v => paidDayTypes?.has(v)).length;
-    let xCnt = arrangement.filter(v => v === 0).length;
+    const validArr = arrangement.slice(0, daysInMonth);
+    const paidCnt = validArr.filter(v => paidDayTypes?.has(v)).length;
+    let xCnt = validArr.filter(v => v === 0).length;
     let pbnc = xCnt + paidCnt;
     if (pbnc > workdaysVal) {
       let excess = pbnc - workdaysVal;
