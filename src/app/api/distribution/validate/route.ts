@@ -621,7 +621,7 @@ export async function GET(req: NextRequest) {
     const checkInputData: CheckResult = {
       id: 'input_data_consistency',
       label: 'Kiểm tra dữ liệu đầu vào — đủ ô trống cho X + PN không',
-      description: 'Tổng ô trống (31 positions) phải ≥ workdays + PN; ngày trống trong tháng phải ≥ workdays.',
+      description: 'Tổng ô trống phải ≥ max(PN, workdays - paid_leave_đã_nhập); engine cần đủ ô để đặt X và PN.',
       status: 'ok', violations: [], violationCount: 0, checkedCount: empImportRows.length,
     };
     const symToType = new Map(Object.entries(symbolMap));
@@ -629,21 +629,23 @@ export async function GET(req: NextRequest) {
     for (const r of empImportRows) {
       const workdaysVal = Math.round(Number(r.workdays) ?? 27);
       const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
-      const needed = workdaysVal + phepNam;
       const isFullTime = workdaysVal >= THRESHOLD;
       let freeSlots = 0;
+      let preExistingPaidDays = 0;
       for (let i = 1; i <= daysInMonth; i++) {
         const raw = (r[`day_${i}`] ?? '').toString().trim();
         if (!raw) { freeSlots++; continue; }
         const dt = symToType.get(raw);
         if (dt === 0) freeSlots++;
         else if (dt === 1 && isFullTime) freeSlots++;
+        else if (dt !== undefined && dt !== null && dt !== 0 && paidDayTypes.has(dt)) preExistingPaidDays++;
       }
+      const needed = Math.max(phepNam, workdaysVal - preExistingPaidDays);
       if (freeSlots >= needed) continue;
       const shortage = needed - freeSlots;
       checkInputData.violations.push({
         code: r.code, name: r.name, deptName: r.deptName ?? '—', day: 0,
-        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống. Hãy kiểm tra lại Ngày Công, Phép Năm hoặc giảm bớt các ngày nghỉ (NL, TS, Ô,...) đang chiếm ô.`,
+        detail: `Thiếu ${shortage} ô — cần ${needed} chổ (${workdaysVal} ngày công - ${preExistingPaidDays} ngày nghỉ tính công đã nhập + ${phepNam} PN) nhưng chỉ có ${freeSlots} ô trống.`,
       });
     }
     checkInputData.violationCount = checkInputData.violations.length;
