@@ -469,7 +469,7 @@ export function step1_generateArrangement(
   const preExistingPaidDays = paidDayTypes?.size
     ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
     : 0;
-  const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
+  const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
   // ZEROS = X, ONES = LP, pnRemaining = PN — tổng vừa đủ freeSlots
   // paddedCount (31-daysInMonth) positions bắt buộc là X do pos >= daysInMonth
   // nên LP/PN không thể đặt vào đó → ZEROS phải bao gồm paddedCount
@@ -673,7 +673,7 @@ export function processEmployee(
     const preExistingPaidDays = paidDayTypes?.size
       ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
       : 0;
-    const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays);
+    const remainingWorkdays = Math.max(0, workdaysVal - preExistingPaidDays - phepNam);
     const paddedCount = Math.max(0, 31 - daysInMonth);
     let ZEROS = Math.min(remainingWorkdays + paddedCount, Math.max(0, freeSlots - phepNam));
     let ONES = Math.max(0, freeSlots - ZEROS - phepNam);

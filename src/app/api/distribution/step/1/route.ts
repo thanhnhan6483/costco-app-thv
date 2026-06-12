@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
   for (const r of empRows) {
     const workdaysVal = Math.round(Number(r.workdays) ?? 27);
     const phepNam = Math.max(0, Math.round(Number(r.phep_nam) ?? 0));
-    const needed = workdaysVal + phepNam;
+    const needed = workdaysVal;
     const isFullTime = workdaysVal >= THRESHOLD;
     let freeSlots = 0;
     for (let i = 1; i <= daysInMonth; i++) {
