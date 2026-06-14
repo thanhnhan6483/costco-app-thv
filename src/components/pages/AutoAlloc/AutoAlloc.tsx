@@ -1961,7 +1961,6 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
   function ValidatePanelInner({ monthId, onlyIds, title, subtitle, btnId, onFixed, autoRun, onFilterChange, onValidated, onStatusChange, initialResult, version }, ref) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<ValidateResult | null>(initialResult ?? null);
-    const [fixingLp, setFixingLp] = useState(false);
     const [fixingLpAfterPn, setFixingLpAfterPn] = useState(false);
     const [fixingShift, setFixingShift] = useState(false);
     const [fixingShiftAssigned, setFixingShiftAssigned] = useState(false);
@@ -2014,7 +2013,6 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
       } catch (e) { setError(String(e)); } finally { setLoading(false); }
     };
 
-    const fixLp = () => doFix('Cân bằng LP', '/api/distribution/fix-rest-balance', { monthId }, setFixingLp, d => ({ fixed: d.fixed }));
     const fixShift = () => doFix('Cân bằng ca', '/api/distribution/fix-shift-balance', { monthId }, setFixingShift, d => ({ fixed: d.fixed }));
     const fixShiftAssigned = () => doFix('Chia ca lại', '/api/distribution/step/4', { monthId }, setFixingShiftAssigned, d => ({ fixed: d.fixed ?? 0 }));
     const fixOtLate = () => doFix('Phân bổ lại OT/Trễ', '/api/distribution/step/5', { monthId }, setFixingOtLate, d => ({ fixed: d.fixed ?? 0 }));
@@ -2075,9 +2073,6 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
                   )}
                   {check.id === 'pn_end_of_rest' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLpAfterPn(); }} disabled={fixingLpAfterPn || loading} type="button">{fixingLpAfterPn ? '...' : '🔄 Cập nhật'}</button>
-                  )}
-                  {check.id === 'lp_balance' && check.violationCount > 0 && (
-                    <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixLp(); }} disabled={fixingLp || loading} type="button">{fixingLp ? '...' : '⚖️ Cân bằng LP'}</button>
                   )}
                   {check.id === 'shift_assigned' && check.violationCount > 0 && (
                     <button className={styles.btnFixInline} onClick={e => { e.stopPropagation(); fixShiftAssigned(); }} disabled={fixingShiftAssigned || loading} type="button">{fixingShiftAssigned ? '...' : '🔧 Chia ca lại'}</button>
