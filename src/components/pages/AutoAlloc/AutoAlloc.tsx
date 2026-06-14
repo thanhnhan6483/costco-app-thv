@@ -235,6 +235,15 @@ export default function AutoAlloc() {
     try { return JSON.parse(sessionStorage.getItem(vsMapKey) ?? '{}'); } catch { return {}; }
   });
   useEffect(() => {
+    const key = `validateStatusMap_${activeMonthId}`;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) ?? '{}');
+      setValidateStatusMap(saved);
+    } catch {
+      setValidateStatusMap({});
+    }
+  }, [activeMonthId]);
+  useEffect(() => {
     // loading=true là trạng thái tạm, không lưu
     const toSave: typeof validateStatusMap = {};
     for (const [k, v] of Object.entries(validateStatusMap)) {
