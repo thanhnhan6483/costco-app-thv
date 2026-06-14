@@ -203,48 +203,41 @@ export function placePNAtEndOfRestPeriod(
 ): number[] {
   const arr = [...arrangement];
 
-  // Step 1: Convert all existing PN back to LP (safety net)
+  // Convert all existing PN back to LP (safety net)
   for (let i = 0; i < daysInMonth; i++) {
     if (arr[i] === 2) arr[i] = 1;
   }
 
-  // Step 2: Place PN round-robin across LP streaks để dàn đều
-  for (let pn = 0; pn < phepNam; pn++) {
-    const streaks: { start: number; end: number; length: number }[] = [];
-    let i = 0;
-    while (i < daysInMonth) {
-      if (arr[i] === 1) {
-        const s = i;
-        while (i < daysInMonth && arr[i] === 1) i++;
-        streaks.push({ start: s, end: i - 1, length: i - s });
-      } else {
-        i++;
-      }
-    }
-    if (streaks.length === 0) break;
+  // Find all LP positions, sorted ascending
+  const lpPos: number[] = [];
+  for (let i = 0; i < daysInMonth; i++) {
+    if (arr[i] === 1) lpPos.push(i);
+  }
 
-    // Sort: longest first, tie → later streak first
-    streaks.sort((a, b) => b.length - a.length || b.end - a.end);
+  const totalLP = lpPos.length;
+  const toConvert = Math.min(phepNam, totalLP);
+  if (toConvert === 0) return arr;
 
-    // Round-robin: PN thứ k lấy streak thứ (k % streaks.length)
-    const idx = pn % streaks.length;
-    const best = streaks[idx];
-    let targetEnd = best.end;
+  // Keep first (totalLP - toConvert) as LP, convert last toConvert to PN
+  const lastKeepIdx = totalLP > toConvert ? lpPos[totalLP - toConvert - 1] : -1;
 
-    // Edge: LP at last day → swap với X gần nhất trước nó
-    if (targetEnd === daysInMonth - 1) {
-      for (let j = targetEnd - 1; j >= 0; j--) {
+  // Process from rightmost LP: all PN at the end, no LP after any PN
+  for (let k = 0; k < toConvert; k++) {
+    let pos = lpPos[totalLP - 1 - k];
+
+    if (pos === daysInMonth - 1) {
+      // Last day of month: swap with nearest X after lastKeepIdx
+      for (let j = pos - 1; j > lastKeepIdx; j--) {
         if (arr[j] === 0) {
-          arr[targetEnd] = 0;
+          arr[pos] = 0;
           arr[j] = 1;
-          targetEnd = j;
+          pos = j;
           break;
         }
       }
     }
 
-    // Convert LP → PN
-    arr[targetEnd] = 2;
+    arr[pos] = 2;
   }
 
   return arr;
