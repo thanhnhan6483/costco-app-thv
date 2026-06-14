@@ -40,7 +40,7 @@ for (const [deptId, group] of deptGroups) {
         const fa = (0, distributionEngine_1.encodeInputArray)(emp.days, symbolMap, daysInMonth);
         const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
         const initGap = (0, distributionEngine_1.calcConsecutiveDays)(emp.ngayNghiCuoiThangTruoc);
-        lpCounts.push(lp);
+        lpCounts.push(lp + phepNam);
         fixedArrays.push(fa);
         initGaps.push(initGap);
         empPhepNam.push(phepNam);
