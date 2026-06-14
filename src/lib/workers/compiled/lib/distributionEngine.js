@@ -372,20 +372,17 @@ function greedyAssignLP(lpCount, fixedArray, daysInMonth, initialLastZeros, firs
         for (const d of eligible) {
             if (placed.has(d))
                 continue;
-            // Gap constraint with existing LP
+            // Gap constraint: chỉ check gapBefore (LP tương lai sẽ tự phá gapAfter)
             const sorted = [...placed].sort((a, b) => a - b);
-            let prev = 0, next = daysInMonth + 1;
+            let prev = 0;
             for (const p of sorted) {
                 if (p < d)
                     prev = Math.max(prev, p);
-                if (p > d) {
-                    next = Math.min(next, p);
+                if (p > d)
                     break;
-                }
             }
             const gapBefore = d - prev - 1 + (prev === 0 ? initialLastZeros : 0);
-            const gapAfter = next - d - 1;
-            if (gapBefore > maxConsecutiveDays || gapAfter > maxConsecutiveDays)
+            if (gapBefore > maxConsecutiveDays)
                 continue;
             const score = quota[d] - dailyLP[d];
             if (score > bestScore) {
