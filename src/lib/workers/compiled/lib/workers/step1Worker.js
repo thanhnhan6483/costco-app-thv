@@ -51,8 +51,8 @@ for (const [deptId, group] of deptGroups) {
                 fixedWorking[d + 1]++;
         }
     }
-    // Phase 2: Day-first assign LP (randomized, PN-aware, balance-aware)
-    const { positions: allLPPositions } = (0, distributionEngine_1.dayFirstAssignLP)(lpCounts, fixedArrays, initGaps, daysInMonth, mcd, fixedWorking, totalNonX, empPhepNam, params.pnStartFromDay ?? 15);
+    // Phase 2: Day-first assign LP (randomized, balance-aware)
+    const { positions: allLPPositions } = (0, distributionEngine_1.dayFirstAssignLP)(lpCounts, fixedArrays, initGaps, daysInMonth, mcd, fixedWorking, totalNonX);
     // Phase 3: Build arrangement (LP → PN → push rows)
     for (let ei = 0; ei < group.length; ei++) {
         const emp = group[ei];
@@ -63,7 +63,7 @@ for (const [deptId, group] of deptGroups) {
         for (const p of pos)
             arr[p - 1] = 1;
         if (phepNam > 0) {
-            const pnArr = (0, distributionEngine_1.placePNAtEndOfRestPeriod)(arr, daysInMonth, params, phepNam);
+            const pnArr = (0, distributionEngine_1.placePNAtEndOfRestPeriod)(arr, daysInMonth, phepNam);
             for (let i = 0; i < daysInMonth; i++)
                 arr[i] = pnArr[i];
         }

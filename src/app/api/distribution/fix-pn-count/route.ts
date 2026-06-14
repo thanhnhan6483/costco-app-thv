@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < daysInMonth; i++) {
           if (arr[i] === 2) arr[i] = 1; // PN → LP tạm (CHỈ thay đổi PN)
         }
-        const fixed = placePNAtEndOfRestPeriod(arr, daysInMonth, params, emp.phepNam);
+        const fixed = placePNAtEndOfRestPeriod(arr, daysInMonth, emp.phepNam);
         // Ghi lại tất cả thay đổi so với arr gốc
         for (let i = 0; i < daysInMonth; i++) {
           const origDayType = days.find(d => d.day === i + 1)?.dayType ?? -1;

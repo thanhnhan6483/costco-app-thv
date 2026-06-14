@@ -191,20 +191,17 @@ export function generateOneArrangement(
 }
 
 /**
- * Đặt PN vào cuối kỳ nghỉ (theo đúng rule):
- * Tìm chuỗi LP liên tiếp DÀI NHẤT bắt đầu từ pnStartFromDay,
- * lấy ngày CUỐI của chuỗi đó → đổi từ LP (1) thành PN (2).
- * Nếu nhiều chuỗi bằng nhau, ưu tiên chuỗi cuối tháng.
- * Nếu LP ở ngày cuối tháng → swap với X gần cuối để tạo chỗ.
+ * Đặt PN vào cuối kỳ nghỉ:
+ * Tìm chuỗi LP liên tiếp DÀI NHẤT, lấy ngày CUỐI → đổi LP (1) thành PN (2).
+ * Nhiều chuỗi bằng nhau → ưu tiên cuối tháng.
+ * LP ở ngày cuối tháng → swap với X gần cuối.
  */
 export function placePNAtEndOfRestPeriod(
   arrangement: number[],
   daysInMonth: number,
-  params: AllocParams,
   phepNam = 1,
 ): number[] {
   const arr = [...arrangement];
-  const startIdx = params.pnStartFromDay - 1;
 
   // Step 1: Convert all existing PN back to LP (safety net)
   for (let i = 0; i < daysInMonth; i++) {
@@ -213,9 +210,8 @@ export function placePNAtEndOfRestPeriod(
 
   // Step 2: Place PN round-robin across LP streaks để dàn đều
   for (let pn = 0; pn < phepNam; pn++) {
-    // Find all consecutive LP streaks — ưu tiên từ pnStartFromDay
     const streaks: { start: number; end: number; length: number }[] = [];
-    let i = startIdx;
+    let i = 0;
     while (i < daysInMonth) {
       if (arr[i] === 1) {
         const s = i;
@@ -223,19 +219,6 @@ export function placePNAtEndOfRestPeriod(
         streaks.push({ start: s, end: i - 1, length: i - s });
       } else {
         i++;
-      }
-    }
-    // Fallback: nếu không có streak từ pnStartFromDay, tìm tất cả
-    if (streaks.length === 0) {
-      i = 0;
-      while (i < daysInMonth) {
-        if (arr[i] === 1) {
-          const s = i;
-          while (i < daysInMonth && arr[i] === 1) i++;
-          streaks.push({ start: s, end: i - 1, length: i - s });
-        } else {
-          i++;
-        }
       }
     }
     if (streaks.length === 0) break;
@@ -430,24 +413,14 @@ export function calcEmployeeLP(
   return Math.max(0, freeSlots - workdaysVal + preExistingPaidDays);
 }
 
-/** Phân bổ đều LP ra các ngày → quota[1..daysInMonth] */
-export function calcDeptQuota(
-  totalLP: number,
-  daysInMonth: number,
-): number[] {
-  const q = new Array(daysInMonth + 1).fill(0);
-  const base = Math.floor(totalLP / daysInMonth);
-  const rem = totalLP % daysInMonth;
-  for (let d = 1; d <= daysInMonth; d++) q[d] = base + (d <= rem ? 1 : 0);
-  return q;
-}
-
-/** Day-first LP distribution (randomized, PN-aware, balance-aware)
+/** Day-first LP distribution (randomized, balance-aware)
  *  Department → Day → Employee:
  *  - Mỗi ngày chọn NV urgent (gap==maxConsecutiveDays) trước
- *  - Candidate shuffle theo gap level + PN priority + shuffle
- *  - Quota điều chỉnh theo totalNonX + fixedWorking để cân bằng
- *  - Backfill: shuffle NV order, PN-pending ưu tiên zone [pnStartFromDay..end]
+ *  - Candidate shuffle theo gap level
+ *  - Forward pass: quota = totalLP/daysInMonth, bỏ qua PN priority
+ *  - Backfill: balanceBonus × 1000 + gapBefore
+ *  - Safety net: nếu backfill không tìm được ngày hợp lệ,
+ *    force-đặt vào slot trống đầu tiên (ưu tiên giữ gap ≤ max)
  */
 export function dayFirstAssignLP(
   lpCounts: number[],
@@ -457,8 +430,6 @@ export function dayFirstAssignLP(
   maxConsecutiveDays: number,
   fixedWorking: number[],
   totalNonX: number,
-  empPhepNam: number[],
-  pnStartFromDay: number,
 ): { positions: number[][]; dailyLP: number[] } {
   const N = lpCounts.length;
   const lastPos = new Array(N).fill(0);
@@ -467,7 +438,6 @@ export function dayFirstAssignLP(
   const dailyLP = new Array(daysInMonth + 1).fill(0);
   const URGENT = maxConsecutiveDays;
   const avgTarget = Math.round(totalNonX / daysInMonth);
-  const pnInZone = new Array(N).fill(0);
 
   // Quota: chia đều totalLP ra các ngày
   const totalLP = remaining.reduce((a, b) => a + b, 0);
@@ -497,7 +467,6 @@ export function dayFirstAssignLP(
     // Urgent trước (constraint, bắt buộc)
     for (const i of urgent) {
       positions[i].push(d); lastPos[i] = d; remaining[i]--; dailyLP[d]++;
-      if (d >= pnStartFromDay) pnInZone[i]++;
     }
 
     // Quota: LP chia đều / ngày
@@ -513,39 +482,18 @@ export function dayFirstAssignLP(
       for (const g of [...byGap.keys()].sort((a, b) => b - a)) {
         const group = byGap.get(g)!;
         shuffle(group);
-        // PN-pending first (trong PN zone), chỉ shuffle — không sort remaining
-        if (d >= pnStartFromDay) {
-          group.sort((a, b) => {
-            const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
-            const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
-            if (pnA !== pnB) return pnB - pnA;
-            return 0;
-          });
-        }
         ordered.push(...group);
       }
       const pick = Math.min(need, ordered.length);
       for (let k = 0; k < pick; k++) {
         const i = ordered[k];
         positions[i].push(d); lastPos[i] = d; remaining[i]--; dailyLP[d]++;
-        if (d >= pnStartFromDay) pnInZone[i]++;
       }
     }
   }
 
   // ── Backfill ──────────────────────────────────
-  // Shuffle NV, PN-pending first
-  const bfOrder = Array.from({ length: N }, (_, i) => i)
-    .filter(i => remaining[i] > 0);
-  shuffle(bfOrder);
-  bfOrder.sort((a, b) => {
-    const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
-    const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
-    if (pnA !== pnB) return pnB - pnA;
-    return 0;
-  });
-
-  for (const i of bfOrder) {
+  for (let i = 0; i < N; i++) {
     while (remaining[i] > 0) {
       let bestDay = -1, bestScore = -1;
       const existing = positions[i].sort((a, b) => a - b);
@@ -563,18 +511,26 @@ export function dayFirstAssignLP(
         const gapBefore = d - prev - 1 + (prev === 0 ? initGap : 0);
         if (gapBefore > maxConsecutiveDays) continue;
 
-        // Score: balance (primary) × 1000 + gapBefore (secondary)
         const balanceBonus = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
         const score = balanceBonus * 1000 + gapBefore;
         if (score > bestScore) { bestScore = score; bestDay = d; }
       }
 
+      // Nếu không tìm được ngày hợp lệ, force-đặt vào slot trống đầu tiên
+      if (bestDay === -1) {
+        for (let d = 1; d <= daysInMonth; d++) {
+          if (fixedArrays[i][d - 1] !== 0) continue;
+          if (existing.includes(d)) continue;
+          bestDay = d;
+          break;
+        }
+      }
       if (bestDay === -1) break;
+
       positions[i].push(bestDay);
       lastPos[i] = bestDay;
       remaining[i]--;
       dailyLP[bestDay]++;
-      if (bestDay >= pnStartFromDay) pnInZone[i]++;
     }
   }
 
@@ -635,7 +591,7 @@ export function step1_generateArrangement(
       for (let i = daysInMonth - 1; i >= 0 && reserved < phepNam; i--) {
         if (arrangement[i] === 0) { arrangement[i] = 1; reserved++; }
       }
-      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, phepNam);
     }
     return arrangement;
   }
@@ -692,7 +648,7 @@ export function step1_generateArrangement(
   }
   // Place PN at end of longest LP streak (the correct position)
   if (phepNam > 0) {
-    arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+    arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, phepNam);
   }
   return arrangement;
 }
@@ -885,7 +841,7 @@ export function processEmployee(
       for (let i = daysInMonth - 1; i >= 0 && reserved < phepNam; i--) {
         if (arrangement[i] === 0) { arrangement[i] = 1; reserved++; }
       }
-      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, phepNam);
     }
   } else {
     const freeSlots = fixedArray.filter(v => v === 0).length;
@@ -913,7 +869,7 @@ export function processEmployee(
     arrangement = generateOneArrangement(0, ONES, ZEROS, pnRemaining, initialLastZeros, fixedArray, [], params, daysInMonth, firstOnePos, dailyRest, targetRest)
       ?? fixedArray;
     if (phepNam > 0) {
-      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam);
+      arrangement = placePNAtEndOfRestPeriod(arrangement, daysInMonth, phepNam);
     }
   }
   arrangement = arrangement!;

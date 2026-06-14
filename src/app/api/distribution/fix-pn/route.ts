@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     let fixed = 0;
     for (const emp of toFix) {
-      const fixed_arr = placePNAtEndOfRestPeriod(emp.arrangement, daysInMonth, params, emp.phepNam);
+      const fixed_arr = placePNAtEndOfRestPeriod(emp.arrangement, daysInMonth, emp.phepNam);
 
       for (let i = 0; i < daysInMonth; i++) {
         const day = i + 1;
