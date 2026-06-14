@@ -363,7 +363,7 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
     const remaining = [...lpCounts];
     const positions = Array.from({ length: N }, () => []);
     const dailyLP = new Array(daysInMonth + 1).fill(0);
-    const URGENT = maxConsecutiveDays - 1;
+    const URGENT = maxConsecutiveDays;
     const avgTarget = Math.round(totalNonX / daysInMonth);
     for (let d = 1; d <= daysInMonth; d++) {
         const urgent = [];
@@ -430,7 +430,7 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
                         break;
                 }
                 const gapBefore = d - prev - 1 + (prev === 0 ? initGap : 0);
-                if (gapBefore >= maxConsecutiveDays)
+                if (gapBefore > maxConsecutiveDays)
                     continue;
                 let next = daysInMonth + 1;
                 for (const p of existing) {
