@@ -44,7 +44,7 @@ type Filters = {
   departmentId: string;
   shiftType: string;
 };
-type SortKey = 'name' | 'departmentName' | 'shiftType' | 'windowStart' | 'clockIn' | 'clockOut' | 'windowEnd';
+type SortKey = 'name' | 'departmentName' | 'shiftType' | 'windowStart' | 'clockIn' | 'clockOut' | 'windowEnd' | 'otCalc';
 type SortDir = 'asc' | 'desc';
 
 const BLANK = {
@@ -591,6 +591,7 @@ export default function Shifts() {
                 <SortTh label="Giờ Vào"      sortKey="clockIn"       current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
                 <SortTh label="Giờ Tan"       sortKey="clockOut"      current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
                 <SortTh label="Giờ Tan (KT)" sortKey="windowEnd"     current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thTime} />
+                <SortTh label="Cách Tính OT" sortKey="otCalc"       current={sortKey} dir={sortDir} onSort={handleSort} className={ss.thOtCalc} />
                 <th className={ss.thAction}>Thao Tác</th>
               </tr>
               <tr className={s.filterRow}>
@@ -615,12 +616,12 @@ export default function Shifts() {
                   </select>
                 </th>
                 <th /><th /><th /><th />
-                <th />
+                <th /><th />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
+                <tr>                <td colSpan={9} className={s.noResult}>Không có kết quả. <button className={s.linkBtn} onClick={clearFilters}>Xóa bộ lọc</button></td></tr>
               ) : filtered.map((r, i) => {
                 const dept = r.departmentId ? deptById[r.departmentId] : null;
                 return (
@@ -635,6 +636,7 @@ export default function Shifts() {
                     <td className={`${s.timeCell} ${ss.timeMain}`}>{formatTime(r.clockIn)}</td>
                     <td className={`${s.timeCell} ${ss.timeMain}`}>{formatTime(r.clockOut)}</td>
                     <td className={s.timeCell}>{formatTime(r.windowEnd) || <span className={s.noNote}>—</span>}</td>
+                    <td className={ss.tdOtCalc}>{r.otCalc === 'Tính từ giờ vào (trừ)' ? '⏰ Giờ vào' : '⏰ Giờ ra'}</td>
                     <td>
                       <div className={s.actions}>
                         <button className={s.btnIconEdit} onClick={() => openEdit(r)} title="Chỉnh sửa" disabled={activeMonthLocked}><IconEdit /></button>
