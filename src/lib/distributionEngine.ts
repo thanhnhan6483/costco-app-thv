@@ -358,13 +358,14 @@ export function distributeLate(
   arrangement: number[],
   totalMinutes: number,
   params: AllocParams,
+  excludeIndices?: Set<number>,
 ): number[] {
   const result: number[] = arrangement.map(v => (v !== 0 ? -1 : 0));
   let remaining = totalMinutes;
   // Rải đều: shuffle thay vì tuần tự
   const eligible: number[] = [];
   for (let i = params.lateStartFromDay - 1; i < result.length; i++) {
-    if (result[i] === 0) eligible.push(i);
+    if (result[i] === 0 && !(excludeIndices?.has(i))) eligible.push(i);
   }
   for (let i = eligible.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -690,15 +691,17 @@ export function step4_assignShiftsBatch(
   });
 }
 
-/** Step 5 — Phân phối OT & Trễ cho từng ngày */
+/** Step 5 — Phân phối OT & Trễ cho từng ngày (mutual exclusion: OT trước, late skip ngày có OT) */
 export function step5_distributeOTLate(
   arrangement: number[],
   otHours: number,
   lateMinutes: number,
   params: AllocParams,
 ): { otH: number; lateM: number }[] {
-  const otArr   = otHours    > 0 ? distributeOT(arrangement, otHours, params)    : arrangement.map(v => v !== 0 ? -1 : 0);
-  const lateArr = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+  const otArr = otHours > 0 ? distributeOT(arrangement, otHours, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+  const otDays = new Set<number>();
+  for (let i = 0; i < otArr.length; i++) if (otArr[i] > 0) otDays.add(i);
+  const lateArr = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params, otDays) : arrangement.map(v => v !== 0 ? -1 : 0);
   return arrangement.map((_, i) => ({
     otH:   otArr[i]   > 0 ? otArr[i]   : 0,
     lateM: lateArr[i] > 0 ? lateArr[i] : 0,
@@ -741,7 +744,13 @@ export function step6_generateTime(
       checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
     }
   }
-  if (lateMins > 0) checkIn  = addMins(shift.clockIn, lateMins + 15);
+  if (lateMins > 0) {
+    if (otHours > 0 && shift.otCalc === 'Tính từ giờ vào (trừ)') {
+      checkIn = addMins(shift.clockIn, -otHours * 60 - randInt(0, 10) + lateMins + 15);
+    } else {
+      checkIn = addMins(shift.clockIn, lateMins + 15);
+    }
+  }
   if (groupWorkHours !== null) {
     const reduction = 8 - groupWorkHours;
     if (reduction > 0) checkOut = addMins(checkOut, -reduction * 60);
@@ -791,7 +800,14 @@ export function generateDayResults(
         result.otHours = ot;
       }
       const late = lateArray[d];
-      if (late > 0 && late !== -1) { checkIn = addMins(useShift.clockIn, late + 15); result.lateMins = late; }
+      if (late > 0 && late !== -1) {
+        if (ot > 0 && useShift.otCalc === 'Tính từ giờ vào (trừ)') {
+          checkIn = addMins(useShift.clockIn, -ot * 60 - randInt(0, 10) + late + 15);
+        } else {
+          checkIn = addMins(useShift.clockIn, late + 15);
+        }
+        result.lateMins = late;
+      }
       if (groupWorkHours !== null) { const r = 8 - groupWorkHours; if (r > 0) checkOut = addMins(checkOut, -r * 60); }
       result.checkIn = checkIn; result.checkOut = checkOut;
     } else if (dayType === 1) { result.checkIn = '00:00'; result.checkOut = '00:00';
@@ -888,7 +904,9 @@ export function processEmployee(
     }
   }
   arrangement = arrangement!;
-  const otArray   = otHours    > 0 ? distributeOT(arrangement, otHours, params)       : arrangement.map(v => v !== 0 ? -1 : 0);
-  const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+  const otArray = otHours > 0 ? distributeOT(arrangement, otHours, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+  const otDays = new Set<number>();
+  for (let i = 0; i < otArray.length; i++) if (otArray[i] > 0) otDays.add(i);
+  const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params, otDays) : arrangement.map(v => v !== 0 ? -1 : 0);
   return generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1, shift2, groupWorkHours, params);
 }

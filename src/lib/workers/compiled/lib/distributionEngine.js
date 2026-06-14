@@ -281,13 +281,13 @@ function distributeOT(arrangement, totalHours, params) {
     return result;
 }
 /* ── Bước 4: Phân bổ Trễ ────────────────────────── */
-function distributeLate(arrangement, totalMinutes, params) {
+function distributeLate(arrangement, totalMinutes, params, excludeIndices) {
     const result = arrangement.map(v => (v !== 0 ? -1 : 0));
     let remaining = totalMinutes;
     // Rải đều: shuffle thay vì tuần tự
     const eligible = [];
     for (let i = params.lateStartFromDay - 1; i < result.length; i++) {
-        if (result[i] === 0)
+        if (result[i] === 0 && !(excludeIndices?.has(i)))
             eligible.push(i);
     }
     for (let i = eligible.length - 1; i > 0; i--) {
@@ -590,10 +590,14 @@ function step4_assignShiftsBatch(days, shift1, shift2, isCommonShift = false) {
         return { day: d.day, shiftCode: randInt(1, 2) === 1 ? 'C1' : 'C2' };
     });
 }
-/** Step 5 — Phân phối OT & Trễ cho từng ngày */
+/** Step 5 — Phân phối OT & Trễ cho từng ngày (mutual exclusion: OT trước, late skip ngày có OT) */
 function step5_distributeOTLate(arrangement, otHours, lateMinutes, params) {
     const otArr = otHours > 0 ? distributeOT(arrangement, otHours, params) : arrangement.map(v => v !== 0 ? -1 : 0);
-    const lateArr = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+    const otDays = new Set();
+    for (let i = 0; i < otArr.length; i++)
+        if (otArr[i] > 0)
+            otDays.add(i);
+    const lateArr = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params, otDays) : arrangement.map(v => v !== 0 ? -1 : 0);
     return arrangement.map((_, i) => ({
         otH: otArr[i] > 0 ? otArr[i] : 0,
         lateM: lateArr[i] > 0 ? lateArr[i] : 0,
@@ -603,6 +607,7 @@ const DEFAULT_SHIFT = {
     departmentId: null, shiftType: '',
     windowStart: '07:05', clockIn: '07:45',
     clockOut: '16:25', windowEnd: '16:40',
+    otCalc: 'Tính từ giờ ra (cộng)',
 };
 /** Step 6 — Sinh giờ IN/OUT cho 1 ngày */
 function step6_generateTime(dayType, otHours, lateMins, shiftCode, shift1, shift2, groupWorkHours, // null = bình thường; số = giờ làm nhóm ĐT
@@ -618,10 +623,22 @@ params) {
             : shift1 ?? shift2 ?? DEFAULT_SHIFT;
     let checkIn = randomTime(shift.windowStart, shift.clockIn);
     let checkOut = randomTime(shift.clockOut, shift.windowEnd);
-    if (otHours > 0)
-        checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
-    if (lateMins > 0)
-        checkIn = addMins(shift.clockIn, lateMins + 15);
+    if (otHours > 0) {
+        if (shift.otCalc === 'Tính từ giờ vào (trừ)') {
+            checkIn = addMins(shift.clockIn, -otHours * 60 - randInt(0, 10));
+        }
+        else {
+            checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
+        }
+    }
+    if (lateMins > 0) {
+        if (otHours > 0 && shift.otCalc === 'Tính từ giờ vào (trừ)') {
+            checkIn = addMins(shift.clockIn, -otHours * 60 - randInt(0, 10) + lateMins + 15);
+        }
+        else {
+            checkIn = addMins(shift.clockIn, lateMins + 15);
+        }
+    }
     if (groupWorkHours !== null) {
         const reduction = 8 - groupWorkHours;
         if (reduction > 0)
@@ -636,6 +653,7 @@ function generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1
         departmentId: null, shiftType: '',
         windowStart: '07:05', clockIn: '07:30',
         clockOut: '16:30', windowEnd: '16:35',
+        otCalc: 'Tính từ giờ ra (cộng)',
     };
     for (let d = 0; d < daysInMonth; d++) {
         const dayType = arrangement[d];
@@ -660,12 +678,22 @@ function generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1
             let checkOut = randomTime(useShift.clockOut, useShift.windowEnd);
             const ot = otArray[d];
             if (ot > 0 && ot !== -1) {
-                checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10));
+                if (useShift.otCalc === 'Tính từ giờ vào (trừ)') {
+                    checkIn = addMins(useShift.clockIn, -ot * 60 - randInt(0, 10));
+                }
+                else {
+                    checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10));
+                }
                 result.otHours = ot;
             }
             const late = lateArray[d];
             if (late > 0 && late !== -1) {
-                checkIn = addMins(useShift.clockIn, late + 15);
+                if (ot > 0 && useShift.otCalc === 'Tính từ giờ vào (trừ)') {
+                    checkIn = addMins(useShift.clockIn, -ot * 60 - randInt(0, 10) + late + 15);
+                }
+                else {
+                    checkIn = addMins(useShift.clockIn, late + 15);
+                }
                 result.lateMins = late;
             }
             if (groupWorkHours !== null) {
@@ -771,6 +799,10 @@ function processEmployee(emp, daysInMonth, month, year, params, shift1, shift2, 
     }
     arrangement = arrangement;
     const otArray = otHours > 0 ? distributeOT(arrangement, otHours, params) : arrangement.map(v => v !== 0 ? -1 : 0);
-    const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params) : arrangement.map(v => v !== 0 ? -1 : 0);
+    const otDays = new Set();
+    for (let i = 0; i < otArray.length; i++)
+        if (otArray[i] > 0)
+            otDays.add(i);
+    const lateArray = lateMinutes > 0 ? distributeLate(arrangement, lateMinutes, params, otDays) : arrangement.map(v => v !== 0 ? -1 : 0);
     return generateDayResults(daysInMonth, arrangement, otArray, lateArray, shift1, shift2, groupWorkHours, params);
 }
