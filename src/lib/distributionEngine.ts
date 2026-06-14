@@ -27,6 +27,7 @@ export interface AllocParams {
   specialGroupHourReduction: number;
   skipEqualRestDeptCodes: string[];
   maxDayOffDifference: number;
+  maxShiftDifference: number;
 }
 
 export interface EmployeeInput {

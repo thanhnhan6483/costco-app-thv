@@ -43,6 +43,7 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
     specialGroupHourReduction: m['special_group_work_hour_reduction'] ?? 1,
     skipEqualRestDeptCodes:    skipCodes,
     maxDayOffDifference:       m['max_day_off_difference']        ?? 1,
+    maxShiftDifference:        m['max_shift_difference']         ?? 1,
   };
 }
 

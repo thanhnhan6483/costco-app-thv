@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
+import { loadParams } from '@/lib/stepHelpers';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const { monthId } = await req.json() as { monthId: string };
   if (!monthId) return NextResponse.json({ error: 'Thiếu monthId' }, { status: 400 });
 
+  const params = await loadParams(monthId);
   const conn = await getConn();
   try {
     const rows = await conn.all<{ empId: string; deptId: string; day: number; shiftCode: string }>(
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
     for (const [, dayMap] of deptDay) {
       for (const [day, stat] of dayMap) {
         // Chỉ xử lý khi có cả 2 ca và chênh > 1
-        while (Math.abs(stat.c1.length - stat.c2.length) > 1) {
+        while (Math.abs(stat.c1.length - stat.c2.length) > params.maxShiftDifference) {
           if (stat.c1.length > stat.c2.length) {
             const empId = stat.c1.pop()!;
             stat.c2.push(empId);

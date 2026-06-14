@@ -377,8 +377,8 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkShiftBalance: CheckResult = {
       id: 'shift_balance',
-      label: 'Cân bằng ca trong phòng (chênh ≤ 1 NV)',
-      description: 'Số NV Ca1 và Ca2 trong cùng phòng mỗi ngày chênh ≤ 1',
+      label: `Cân bằng ca trong phòng (chênh ≤ ${params.maxShiftDifference} NV)`,
+      description: `Số NV Ca1 và Ca2 trong cùng phòng mỗi ngày chênh ≤ ${params.maxShiftDifference}`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     const deptDayShift = new Map<string, Map<number, { c1: number; c2: number }>>();
@@ -400,7 +400,7 @@ export async function GET(req: NextRequest) {
       for (const [day, stat] of dayMap) {
         if (stat.c1 === 0 || stat.c2 === 0) continue;
         const diff = Math.abs(stat.c1 - stat.c2);
-        if (diff > 1) deptViolDays.push(`Ngày ${day}: Ca1=${stat.c1}, Ca2=${stat.c2} (chênh ${diff})`);
+        if (diff > params.maxShiftDifference) deptViolDays.push(`Ngày ${day}: Ca1=${stat.c1}, Ca2=${stat.c2} (chênh ${diff})`);
       }
       if (deptViolDays.length > 0) {
         checkShiftBalance.violations.push({ code: '—', name: `📊 ${deptName}`, deptName, day: 0, detail: `${deptViolDays.length} ngày vi phạm` });
@@ -696,7 +696,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkQt8: CheckResult = {
       id: 'ot_balance',
-      label: `OT cân bằng trong phòng (chênh ≤ ${params.maxOtBalanceDiffMinutes} phút)`,
+      label: `Tăng ca cân bằng trong phòng (chênh ≤ ${params.maxOtBalanceDiffMinutes} phút)`,
       description: `Chênh lệch OT giữa NV cùng phòng ≤ ${params.maxOtBalanceDiffMinutes} phút/ngày`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
@@ -858,7 +858,7 @@ export async function GET(req: NextRequest) {
        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     const checkPbnc: CheckResult = {
       id: 'pbnc_check',
-      label: 'Kiểm tra Phân bổ ngày công (PBNC = X+PN+paid_leave = NGÀY CÔNG)',
+      label: 'Kiểm tra Phân bổ ngày công (PBNC = (X+PN+Nghỉ) = NGÀY CÔNG)',
       description: 'PBNC (X + PN + paid_leave) trong kết quả phân bổ phải bằng NGÀY CÔNG từ dữ liệu nhập',
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };

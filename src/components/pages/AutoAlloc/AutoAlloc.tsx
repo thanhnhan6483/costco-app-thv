@@ -2435,7 +2435,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} vis={visMap[2]} paidDayTypes={paidDayTypes} />)}</>
   );
   if (step === 3) return stepWrapper(
-    <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle="Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng" btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
+    <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['shift_assigned', 'shift_balance']} title="Kiểm tra chia ca" subtitle={`Kiểm tra ngày làm đã gán ca và cân bằng ca trong phòng (chênh ≤ ${allocParams?.['max_shift_difference'] ?? 1} NV)`} btnId="btn-validate-step3" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <ShiftGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} vis={visMap[3]} />)}</>
   );
   if (step === 4) return stepWrapper(
