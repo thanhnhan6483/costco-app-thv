@@ -12,6 +12,11 @@ exports.placePNAtEndOfRestPeriod = placePNAtEndOfRestPeriod;
 exports.generateCalendarArray = generateCalendarArray;
 exports.distributeOT = distributeOT;
 exports.distributeLate = distributeLate;
+exports.calcEmployeeLP = calcEmployeeLP;
+exports.calcDeptQuota = calcDeptQuota;
+exports.greedyAssignLP = greedyAssignLP;
+exports.checkLPGaps = checkLPGaps;
+exports.buildArrangement = buildArrangement;
 exports.step1_generateArrangement = step1_generateArrangement;
 exports.step4_assignShift = step4_assignShift;
 exports.step4_assignShiftsBatch = step4_assignShiftsBatch;
@@ -313,6 +318,131 @@ function distributeLate(arrangement, totalMinutes, params) {
         remaining -= amount;
     }
     return result;
+}
+/* ══════════════════════════════════════════════════════
+   Quota-based Greedy — thuật toán mới
+   ══════════════════════════════════════════════════════ */
+/** Tính số LP cần cho 1 nhân viên (bỏ qua PN, paidDayTypes) */
+function calcEmployeeLP(emp, daysInMonth, params, paidDayTypes, symbolMap) {
+    const workdays = parseFloat(String(emp.workdays)) || 27;
+    const workdaysVal = Math.round(workdays);
+    if (workdaysVal === 0)
+        return 0;
+    const fixedArray = encodeInputArray(emp.days, symbolMap, daysInMonth);
+    if (workdays >= params.workdaysThreshold) {
+        for (let i = 0; i < daysInMonth; i++) {
+            if (fixedArray[i] <= 1)
+                fixedArray[i] = 0;
+        }
+    }
+    const freeSlots = fixedArray.filter(v => v === 0).length;
+    const preExistingPaidDays = paidDayTypes?.size
+        ? fixedArray.filter(v => v !== 0 && paidDayTypes.has(v)).length
+        : 0;
+    return Math.max(0, freeSlots - workdaysVal + preExistingPaidDays);
+}
+/** Phân bổ đều LP ra các ngày → quota[1..daysInMonth] */
+function calcDeptQuota(totalLP, daysInMonth) {
+    const q = new Array(daysInMonth + 1).fill(0);
+    const base = Math.floor(totalLP / daysInMonth);
+    const rem = totalLP % daysInMonth;
+    for (let d = 1; d <= daysInMonth; d++)
+        q[d] = base + (d <= rem ? 1 : 0);
+    return q;
+}
+/** Greedy: mỗi NV chọn ngày score = quota[day] - dailyLP[day] cao nhất */
+function greedyAssignLP(lpCount, fixedArray, daysInMonth, initialLastZeros, firstOnePos, maxConsecutiveDays, quota, dailyLP) {
+    const pos = [];
+    if (lpCount <= 0)
+        return pos;
+    const eligible = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+        if (fixedArray[d - 1] !== 0)
+            continue;
+        if (d === daysInMonth)
+            continue;
+        if (d < firstOnePos)
+            continue;
+        eligible.push(d);
+    }
+    const placed = new Set();
+    let lastOnePos = firstOnePos;
+    for (let i = 0; i < lpCount; i++) {
+        let bestDay = -1, bestScore = -Infinity;
+        for (const d of eligible) {
+            if (placed.has(d))
+                continue;
+            // Gap constraint with existing LP
+            const sorted = [...placed].sort((a, b) => a - b);
+            let prev = 0, next = daysInMonth + 1;
+            for (const p of sorted) {
+                if (p < d)
+                    prev = Math.max(prev, p);
+                if (p > d) {
+                    next = Math.min(next, p);
+                    break;
+                }
+            }
+            const gapBefore = d - prev - 1 + (prev === 0 ? initialLastZeros : 0);
+            const gapAfter = next - d - 1;
+            if (gapBefore > maxConsecutiveDays || gapAfter > maxConsecutiveDays)
+                continue;
+            const score = quota[d] - dailyLP[d];
+            if (score > bestScore) {
+                bestScore = score;
+                bestDay = d;
+            }
+        }
+        if (bestDay === -1 && lastOnePos > 0) {
+            // Fallback: thả lỏng firstOnePos → thêm eligible
+            for (let d = 1; d < lastOnePos; d++) {
+                if (fixedArray[d - 1] !== 0 || d === daysInMonth)
+                    continue;
+                if (!eligible.includes(d)) {
+                    eligible.push(d);
+                }
+            }
+            lastOnePos = 0;
+            continue;
+        }
+        if (bestDay === -1)
+            break;
+        placed.add(bestDay);
+        dailyLP[bestDay]++;
+        pos.push(bestDay);
+    }
+    return pos;
+}
+/** Kiểm tra gap constraint cho 1 bộ LP positions */
+function checkLPGaps(lpPositions, daysInMonth, initialLastZeros, maxConsecutiveDays) {
+    const sorted = [...lpPositions].sort((a, b) => a - b);
+    let prev = 0;
+    for (const d of sorted) {
+        const gap = d - prev - 1 + (prev === 0 ? initialLastZeros : 0);
+        if (gap > maxConsecutiveDays)
+            return false;
+        prev = d;
+    }
+    if (daysInMonth - prev > maxConsecutiveDays)
+        return false;
+    return true;
+}
+/** Xây arrangement hoàn chỉnh từ LP positions + PN placement */
+function buildArrangement(fixedArray, lpPositions, daysInMonth, params, phepNam) {
+    const arr = [...fixedArray];
+    for (const p of lpPositions)
+        arr[p - 1] = 1;
+    if (phepNam > 0) {
+        const pnArr = placePNAtEndOfRestPeriod(arr, daysInMonth, params, phepNam);
+        for (let i = 0; i < daysInMonth; i++)
+            arr[i] = pnArr[i];
+    }
+    // Fill X: tất cả ô còn 0 → X
+    for (let i = 0; i < daysInMonth; i++) {
+        if (arr[i] === 0)
+            arr[i] = 0; // X
+    }
+    return arr;
 }
 /* ══════════════════════════════════════════════════════
    Step functions — mỗi bước có thể gọi độc lập

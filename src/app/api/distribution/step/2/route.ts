@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConn } from '@/lib/db';
 import { loadParams, loadSpecialDeptIds, markStepDone, loadMonthInfo, loadSymbolMap, loadPaidDayTypes, DAY_COLS } from '@/lib/stepHelpers';
-import { EmployeeInput, calcConsecutiveDays } from '@/lib/distributionEngine';
+import { EmployeeInput } from '@/lib/distributionEngine';
 import { parsePage, buildPagedResponse } from '@/lib/paginate';
 import { Worker } from 'worker_threads';
 import { cpus } from 'os';
@@ -85,106 +85,6 @@ export async function POST(req: NextRequest) {
     ));
     const allRows = workerResults.flat();
     console.log(`[step1] workers done: ${Date.now() - t_start}ms, rows: ${allRows.length}`);
-
-    // ── Cân bằng LP nội bộ (trước khi INSERT) ──
-    {
-      const maxConsec = params.maxConsecutiveDays;
-      type Row = [string, string, string, number, number, string];
-      // Build emp → { deptId, days: Map<day, {idx, dt}> }
-      const empDeptMap = new Map(empInputs.map(e => [e.id, e.departmentId ?? 'none']));
-      const empData = new Map<string, { deptId: string; days: Map<number, { idx: number; dt: number }> }>();
-      for (let i = 0; i < allRows.length; i++) {
-        const row = allRows[i] as Row;
-        const empId = row[2];
-        if (!empData.has(empId)) {
-          empData.set(empId, { deptId: empDeptMap.get(empId) ?? 'none', days: new Map() });
-        }
-        empData.get(empId)!.days.set(row[3], { idx: i, dt: row[4] });
-      }
-      // Init run per employee
-      const empInitRun = new Map<string, number>();
-      for (const emp of empInputs) empInitRun.set(emp.id, calcConsecutiveDays(emp.ngayNghiCuoiThangTruoc));
-      // First PN per employee (lp_before_pn guard)
-      const empFirstPn = new Map<string, number>();
-      for (const [empId, data] of empData) {
-        let fp = 0;
-        for (let d = 1; d <= daysInMonth; d++) { if (data.days.get(d)?.dt === 2) { fp = d; break; } }
-        if (fp > 0) empFirstPn.set(empId, fp);
-      }
-      // Group by dept (bỏ qua skipEqualRestDeptCodes - dùng skipDeptIds đã load ở trên)
-      const deptEmps = new Map<string, string[]>();
-      for (const [empId, data] of empData) {
-        const d = data.deptId;
-        if (skipDeptIds.includes(d)) continue;
-        if (!deptEmps.has(d)) deptEmps.set(d, []);
-        deptEmps.get(d)!.push(empId);
-      }
-
-      const canSwapToWork = (empId: string, day: number): boolean => {
-        const days = empData.get(empId)?.days; if (!days) return false;
-        let rBefore = 0, startDay = 1;
-        for (let d = day - 1; d >= 1; d--) { if (days.get(d)?.dt === 0) rBefore++; else { startDay = d + 1; break; } }
-        let rAfter = 0;
-        for (let d = day + 1; d <= daysInMonth; d++) { if (days.get(d)?.dt === 0) rAfter++; else break; }
-        const total = rBefore + 1 + rAfter;
-        const init = startDay === 1 ? (empInitRun.get(empId) ?? 0) : 0;
-        return (init + total) <= maxConsec;
-      };
-      const canSwapToRest = (empId: string, day: number): boolean => {
-        const fp = empFirstPn.get(empId); return !fp || day < fp;
-      };
-
-      let totalFixed = 0;
-      for (const [, members] of deptEmps) {
-        if (members.length < 3) continue;
-        const dailyRest = new Array(daysInMonth + 1).fill(0);
-        for (const empId of members) {
-          const days = empData.get(empId)!.days;
-          for (let d = 1; d <= daysInMonth; d++) { const dt = days.get(d)?.dt; if (dt !== undefined && dt !== 0) dailyRest[d]++; }
-        }
-        const specialDays = new Set<number>();
-        for (let d = 1; d <= daysInMonth; d++) { if (dailyRest[d] >= members.length) specialDays.add(d); }
-        const checkedDays = daysInMonth - specialDays.size;
-        if (checkedDays === 0) continue;
-        let totalRest = 0;
-        for (let d = 1; d <= daysInMonth; d++) { if (!specialDays.has(d)) totalRest += dailyRest[d]; }
-        const avg = totalRest / checkedDays;
-
-        for (let round = 0; round < 30; round++) {
-          const overDays: number[] = [];
-          const underDays: number[] = [];
-          for (let d = 1; d <= daysInMonth; d++) {
-            if (specialDays.has(d)) continue;
-            if (dailyRest[d] > Math.floor(avg) + 1) overDays.push(d);
-            if (dailyRest[d] < Math.ceil(avg) - 1) underDays.push(d);
-          }
-          if (overDays.length === 0 || underDays.length === 0) break;
-
-          let anySwap = false;
-          for (const overDay of overDays) {
-            if (dailyRest[overDay] <= Math.floor(avg) + 1) continue;
-            for (const underDay of underDays) {
-              if (dailyRest[underDay] >= Math.ceil(avg) - 1) continue;
-              const emp = members.find(e => {
-                const days = empData.get(e)!.days;
-                return days.get(overDay)?.dt === 1 && days.get(underDay)?.dt === 0
-                  && canSwapToWork(e, overDay) && canSwapToRest(e, underDay);
-              });
-              if (!emp) continue;
-              const days = empData.get(emp)!.days;
-              days.get(overDay)!.dt = 0; allRows[days.get(overDay)!.idx][4] = 0;
-              days.get(underDay)!.dt = 1; allRows[days.get(underDay)!.idx][4] = 1;
-              dailyRest[overDay]--; dailyRest[underDay]++;
-              totalFixed++; anySwap = true;
-              break;
-            }
-            if (anySwap) break;
-          }
-          if (!anySwap) break;
-        }
-      }
-      if (totalFixed > 0) console.log(`[step1] fixed ${totalFixed} LP balance violations inline`);
-    }
 
     // ── Post-verify: kiểm tra X = workdays && PN = phepNam ──
     {
