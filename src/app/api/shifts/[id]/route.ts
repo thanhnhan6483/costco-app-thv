@@ -10,10 +10,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await conn.run(`
       UPDATE shifts SET
         name=?, department_id=?, shift_type=?,
-        window_start=?, clock_in=?, clock_out=?, window_end=?
+        window_start=?, clock_in=?, clock_out=?, window_end=?, ot_calc=?
       WHERE id=?
     `, b.name, b.departmentId ?? null, b.shiftType ?? 'Ca 1',
-       b.windowStart ?? '', b.clockIn, b.clockOut, b.windowEnd ?? '', id);
+       b.windowStart ?? '', b.clockIn, b.clockOut, b.windowEnd ?? '',
+       b.otCalc ?? 'Tính từ giờ ra (cộng)', id);
     await conn.close();
     return NextResponse.json({ ok: true });
   } catch (e) { console.error(e); return NextResponse.json({ error: 'DB error' }, { status: 500 }); }

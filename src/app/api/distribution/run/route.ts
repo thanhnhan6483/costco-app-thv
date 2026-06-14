@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     const rawShifts = await conn.all<RawShift>(
       `SELECT id, department_id AS departmentId, shift_type AS shiftType,
               window_start AS windowStart, clock_in AS clockIn,
-              clock_out AS clockOut, window_end AS windowEnd
+              clock_out AS clockOut, window_end AS windowEnd,
+              ot_calc AS otCalc
        FROM shifts WHERE month_id = ?`, monthId
     );
     // Group: deptId → { ca1, ca2 }
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
         clockIn: s.clockIn,
         clockOut: s.clockOut,
         windowEnd: s.windowEnd || s.clockOut,
+        otCalc: s.otCalc || 'Tính từ giờ ra (cộng)',
       };
       if (!s.shiftType || s.shiftType === 'Ca 1') entry.ca1 = info;
       else if (s.shiftType === 'Ca 2') entry.ca2 = info;

@@ -11,6 +11,7 @@ export interface ShiftInfo {
   clockIn: string;         // standard check-in  e.g. '07:30'
   clockOut: string;        // standard check-out e.g. '16:30'
   windowEnd: string;       // latest check-out   e.g. '16:35'
+  otCalc: string;          // 'Tính từ giờ ra (cộng)' | 'Tính từ giờ vào (trừ)'
 }
 
 export interface AllocParams {
@@ -708,6 +709,7 @@ const DEFAULT_SHIFT: ShiftInfo = {
   departmentId: null, shiftType: '',
   windowStart: '07:05', clockIn: '07:45',
   clockOut: '16:25', windowEnd: '16:40',
+  otCalc: 'Tính từ giờ ra (cộng)',
 };
 
 /** Step 6 — Sinh giờ IN/OUT cho 1 ngày */
@@ -732,7 +734,13 @@ export function step6_generateTime(
   let checkIn  = randomTime(shift.windowStart, shift.clockIn);
   let checkOut = randomTime(shift.clockOut, shift.windowEnd);
 
-  if (otHours > 0)  checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
+  if (otHours > 0) {
+    if (shift.otCalc === 'Tính từ giờ vào (trừ)') {
+      checkIn = addMins(shift.clockIn, -otHours * 60 - randInt(0, 10));
+    } else {
+      checkOut = addMins(shift.clockOut, otHours * 60 + randInt(0, 10));
+    }
+  }
   if (lateMins > 0) checkIn  = addMins(shift.clockIn, lateMins + 15);
   if (groupWorkHours !== null) {
     const reduction = 8 - groupWorkHours;
@@ -759,6 +767,7 @@ export function generateDayResults(
     departmentId: null, shiftType: '',
     windowStart: '07:05', clockIn: '07:30',
     clockOut: '16:30', windowEnd: '16:35',
+    otCalc: 'Tính từ giờ ra (cộng)',
   };
   for (let d = 0; d < daysInMonth; d++) {
     const dayType = arrangement[d];
@@ -773,7 +782,14 @@ export function generateDayResults(
       let checkIn  = randomTime(useShift.windowStart, useShift.clockIn);
       let checkOut = randomTime(useShift.clockOut, useShift.windowEnd);
       const ot = otArray[d];
-      if (ot > 0 && ot !== -1) { checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10)); result.otHours = ot; }
+      if (ot > 0 && ot !== -1) {
+        if (useShift.otCalc === 'Tính từ giờ vào (trừ)') {
+          checkIn = addMins(useShift.clockIn, -ot * 60 - randInt(0, 10));
+        } else {
+          checkOut = addMins(useShift.clockOut, ot * 60 + randInt(0, 10));
+        }
+        result.otHours = ot;
+      }
       const late = lateArray[d];
       if (late > 0 && late !== -1) { checkIn = addMins(useShift.clockIn, late + 15); result.lateMins = late; }
       if (groupWorkHours !== null) { const r = 8 - groupWorkHours; if (r > 0) checkOut = addMins(checkOut, -r * 60); }

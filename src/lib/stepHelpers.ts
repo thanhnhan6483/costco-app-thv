@@ -9,6 +9,7 @@ export const DAY_COLS = Array.from({ length: 31 }, (_, i) => `day_${i + 1}`);
 export interface RawShift {
   id: string; departmentId: string | null; shiftType: string;
   windowStart: string; clockIn: string; clockOut: string; windowEnd: string;
+  otCalc: string;
 }
 
 /** Load alloc_params từ DB */
@@ -50,27 +51,29 @@ export async function loadParams(monthId: string): Promise<AllocParams> {
 /** Load shifts map: deptId → {ca1, ca2}, key 'DEFAULT' = ca chung toàn công ty (department_id IS NULL) */
 export async function loadShiftMap(monthId: string) {
   const conn = await getConn();
-  const rawShifts = await conn.all<RawShift>(
-    `SELECT id, department_id AS departmentId, shift_type AS shiftType,
-            window_start AS windowStart, clock_in AS clockIn,
-            clock_out AS clockOut, window_end AS windowEnd
-     FROM shifts WHERE month_id = ?`, monthId
-  );
-  await conn.close();
+    const rawShifts = await conn.all<RawShift>(
+      `SELECT id, department_id AS departmentId, shift_type AS shiftType,
+              window_start AS windowStart, clock_in AS clockIn,
+              clock_out AS clockOut, window_end AS windowEnd,
+              ot_calc AS otCalc
+       FROM shifts WHERE month_id = ?`, monthId
+    );
+    await conn.close();
 
-  const map = new Map<string, { ca1: ShiftInfo | null; ca2: ShiftInfo | null }>();
-  for (const s of rawShifts) {
-    const key = s.departmentId ?? 'DEFAULT'; // NULL dept_id → ca chung
-    if (!map.has(key)) map.set(key, { ca1: null, ca2: null });
-    const entry = map.get(key)!;
-    const info: ShiftInfo = {
-      departmentId: s.departmentId,
-      shiftType: s.shiftType?.includes('2') ? 'C2' : s.shiftType?.includes('1') ? 'C1' : 'C',
-      windowStart: s.windowStart || s.clockIn,
-      clockIn: s.clockIn,
-      clockOut: s.clockOut,
-      windowEnd: s.windowEnd || s.clockOut,
-    };
+    const map = new Map<string, { ca1: ShiftInfo | null; ca2: ShiftInfo | null }>();
+    for (const s of rawShifts) {
+      const key = s.departmentId ?? 'DEFAULT'; // NULL dept_id → ca chung
+      if (!map.has(key)) map.set(key, { ca1: null, ca2: null });
+      const entry = map.get(key)!;
+      const info: ShiftInfo = {
+        departmentId: s.departmentId,
+        shiftType: s.shiftType?.includes('2') ? 'C2' : s.shiftType?.includes('1') ? 'C1' : 'C',
+        windowStart: s.windowStart || s.clockIn,
+        clockIn: s.clockIn,
+        clockOut: s.clockOut,
+        windowEnd: s.windowEnd || s.clockOut,
+        otCalc: s.otCalc || 'Tính từ giờ ra (cộng)',
+      };
     if (!s.shiftType || s.shiftType === 'Ca 1') entry.ca1 = info;
     else if (s.shiftType === 'Ca 2') entry.ca2 = info;
   }

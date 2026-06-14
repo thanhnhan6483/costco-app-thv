@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
              s.clock_in      AS clockIn,
              s.clock_out     AS clockOut,
              s.window_end    AS windowEnd,
+             s.ot_calc       AS otCalc,
              s.created_at    AS createdAt
       FROM shifts s
       LEFT JOIN departments d ON d.id = s.department_id AND d.month_id = s.month_id
@@ -38,10 +39,11 @@ export async function POST(req: NextRequest) {
     const conn = await getConn();
     await conn.run(`
       INSERT INTO shifts (id, month_id, name, department_id, shift_type,
-        window_start, clock_in, clock_out, window_end, created_at)
-      VALUES (?,?,?,?,?, ?,?,?,?,?)
+        window_start, clock_in, clock_out, window_end, ot_calc, created_at)
+      VALUES (?,?,?,?,?, ?,?,?,?,?,?)
     `, b.id, mid, b.name, b.departmentId ?? null, b.shiftType ?? 'Ca 1',
-       b.windowStart ?? '', b.clockIn, b.clockOut, b.windowEnd ?? '', b.createdAt);
+       b.windowStart ?? '', b.clockIn, b.clockOut, b.windowEnd ?? '',
+       b.otCalc ?? 'Tính từ giờ ra (cộng)', b.createdAt);
     await conn.close();
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e) { console.error(e); return NextResponse.json({ error: 'DB error' }, { status: 500 }); }

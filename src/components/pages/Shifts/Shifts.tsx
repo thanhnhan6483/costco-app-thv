@@ -35,6 +35,7 @@ interface Shift {
   clockIn: string | number;
   clockOut: string | number;
   windowEnd: string | number;
+  otCalc: string;
   createdAt: string;
 }
 
@@ -49,6 +50,7 @@ type SortDir = 'asc' | 'desc';
 const BLANK = {
   name: '', departmentId: '', shiftType: 'Ca 1',
   windowStart: '', clockIn: '', clockOut: '', windowEnd: '',
+  otCalc: 'Tính từ giờ ra (cộng)',
 };
 
 const SHIFT_TYPES = ['Ca 1', 'Ca 2', 'Chung'];
@@ -202,6 +204,7 @@ export default function Shifts() {
       clockIn: formatTime(r.clockIn),
       clockOut: formatTime(r.clockOut),
       windowEnd: formatTime(r.windowEnd),
+      otCalc: r.otCalc,
     });
     setEditId(r.id); setShowForm(true);
   };
@@ -446,6 +449,19 @@ export default function Shifts() {
                   <label className={s.label}>Giờ tan làm (kết thúc)</label>
                   <input type="time" className={s.input} value={form.windowEnd} onChange={e => setField('windowEnd', e.target.value)} />
                   <span className={s.fieldHint}>Muộn nhất tính công</span>
+                </div>
+              </div>
+
+              <div className={ss.sectionDivider}>⏱ Cách tính tăng ca</div>
+
+              <div className={ss.row4col}>
+                <div className={s.field}>
+                  <label className={s.label}>Áp dụng tăng ca vào</label>
+                  <select className={s.select} value={form.otCalc} onChange={e => setField('otCalc', e.target.value)}>
+                    <option value="Tính từ giờ ra (cộng)">Tính từ giờ ra (cộng)</option>
+                    <option value="Tính từ giờ vào (trừ)">Tính từ giờ vào (trừ)</option>
+                  </select>
+                  <span className={s.fieldHint}>Cộng: OT → giờ tan làm muộn hơn. Trừ: OT → giờ vào làm sớm hơn.</span>
                 </div>
               </div>
 
