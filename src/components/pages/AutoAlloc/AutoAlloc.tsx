@@ -2449,7 +2449,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} step4Done={Boolean((status as any)?.step4Done)} />)}</> 
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} step4Done={done} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
