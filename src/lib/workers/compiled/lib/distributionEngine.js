@@ -407,6 +407,49 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
             }
         }
     }
+    // Phase 2b: Backfill — đặt LP còn thiếu (bỏ quota, maximize min-gap)
+    for (let i = 0; i < N; i++) {
+        while (remaining[i] > 0) {
+            let bestDay = -1, bestScore = -1;
+            const existing = positions[i].sort((a, b) => a - b);
+            const initGap = initGaps[i];
+            for (let d = 1; d <= daysInMonth; d++) {
+                if (fixedArrays[i][d - 1] !== 0)
+                    continue;
+                if (existing.includes(d))
+                    continue;
+                let prev = 0;
+                for (const p of existing) {
+                    if (p < d)
+                        prev = Math.max(prev, p);
+                    if (p > d)
+                        break;
+                }
+                const gapBefore = d - prev - 1 + (prev === 0 ? initGap : 0);
+                if (gapBefore >= maxConsecutiveDays)
+                    continue;
+                let next = daysInMonth + 1;
+                for (const p of existing) {
+                    if (p > d) {
+                        next = Math.min(next, p);
+                        break;
+                    }
+                }
+                const gapAfter = next - d - 1;
+                const score = Math.min(gapBefore, gapAfter);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestDay = d;
+                }
+            }
+            if (bestDay === -1)
+                break;
+            positions[i].push(bestDay);
+            lastPos[i] = bestDay;
+            remaining[i]--;
+            dailyLP[bestDay]++;
+        }
+    }
     return { positions, dailyLP };
 }
 /* ══════════════════════════════════════════════════════
