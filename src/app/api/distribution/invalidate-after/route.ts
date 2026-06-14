@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     // Lọc các bước cần reset (displayNum > afterDisplayStep)
     const colsToReset = STEP_ORDER
       .filter(s => s.displayNum > afterDisplayStep)
+      .filter(s => !(s.displayNum === 6 && afterDisplayStep >= 5))
       .map(s => s.col);
 
     if (colsToReset.length === 0) {
