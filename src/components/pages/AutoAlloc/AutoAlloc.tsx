@@ -257,6 +257,17 @@ export default function AutoAlloc() {
   const [step1Filter, setStep1Filter] = useState<'pn_before_15' | 'pn_mismatch' | null>(null);
   const validateRef = useRef<{ run: () => void }>(null);
   const [recheckKey, setRecheckKey] = useState(0);
+  const [allocParams, setAllocParams] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetch(`/api/alloc-rules?month=${activeMonthId}`).then(r => r.json()).then((d: any) => {
+      const list: any[] = Array.isArray(d) ? d : (d.value ?? []);
+      const map: Record<string, number> = {};
+      for (const item of list) {
+        if (item.paramValue != null) map[item.paramKey] = Number(item.paramValue);
+      }
+      setAllocParams(map);
+    }).catch(() => {});
+  }, [activeMonthId]);
 
   const [vis1, setVis1] = useColumnVisibility('step1', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, ot: true, late: true });
   const [vis2, setVis2] = useColumnVisibility('step2', { deptName: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, lp: true, x: true, pn: true, pbnc: true, nghiCuoi: true });
@@ -662,6 +673,7 @@ export default function AutoAlloc() {
             validateResult={validate2Status.result}
             recheckKey={recheckKey}
             paidDayTypes={stepData[activeStep]?.paidDayTypes as number[] | undefined}
+            allocParams={allocParams}
           />
         </div>
       </div>
@@ -2338,11 +2350,11 @@ function DeptSummaryGrid({ monthId, monthLabel }: { monthId: string; monthLabel:
 }
 
 /* === StepView === */
-function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey, visMap, paidDayTypes }: {
+function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, showCa, locked, validateOpen, onValidateOpen, onValidateStatusChange, validateRef, step1Filter, validateResult, recheckKey, visMap, paidDayTypes, allocParams }: {
   step: number; data: unknown[] | undefined; onLoad: () => void; onRefresh?: () => void; done: boolean; monthId: string; monthLabel: string; showCa?: boolean; locked?: boolean;
   validateOpen?: boolean; onValidateOpen?: () => void; onValidateStatusChange?: (s: { loading: boolean; result: ValidateResult | null }) => void;
   validateRef?: React.Ref<{ run: () => void }>; step1Filter?: 'pn_before_15' | 'pn_mismatch' | null; validateResult?: ValidateResult | null; recheckKey?: number;
-  visMap: Record<number, Record<string, boolean>>; paidDayTypes?: number[];
+  visMap: Record<number, Record<string, boolean>>; paidDayTypes?: number[]; allocParams?: Record<string, number>;
 }) {
   const [filterCodes, setFilterCodes] = useState<Set<string> | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode | null>(null);
@@ -2425,7 +2437,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 2) return stepWrapper(
     <><AllocConfigPanel monthId={monthId} />
-      {validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle="Kiểm tra 7 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, PBNC = X+PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±1)" btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
+      {validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['consecutive_days', 'cross_month_consecutive', 'pn_start_day', 'pn_count', 'pbnc_check', 'lp_balance', 'lp_before_pn']} title="Kiểm tra quy tắc ngày công" subtitle={`Kiểm tra 7 quy tắc: Giới hạn ngày làm liên tục, liên tháng, vị trí PN, số ngày PN, PBNC = X+PN, LP trước PN, cân bằng ngày nghỉ trong phòng (±${allocParams?.['max_day_off_difference'] ?? 1})`} btnId="btn-validate-step2" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onValidated={onValidateOpen} onStatusChange={onValidateStatusChange} initialResult={validateResult} version={dataVersion} />)}
       {gridWrapper(dataEl ?? <DayTypeGrid rows={allRows ?? rows} monthId={monthId} monthLabel={monthLabel} onSaved={async () => { await refreshAllRows(); (onRefresh ?? onLoad)(); }} locked={locked} filterCodes={filterCodes} filterMode={filterMode} vis={visMap[2]} paidDayTypes={paidDayTypes} />)}</>
   );
   if (step === 3) return stepWrapper(

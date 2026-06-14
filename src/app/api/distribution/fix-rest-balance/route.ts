@@ -165,15 +165,15 @@ export async function POST(req: NextRequest) {
         underDaySet.clear();
         for (let d = 1; d <= daysInMonth; d++) {
           if (specialDays.has(d)) continue;
-          if (dailyRest[d] > Math.floor(avg) + 1) overDays.push(d);
-          if (dailyRest[d] < Math.ceil(avg) - 1) underDaySet.add(d);
+          if (dailyRest[d] > Math.floor(avg) + params.maxDayOffDifference) overDays.push(d);
+          if (dailyRest[d] < Math.ceil(avg) - params.maxDayOffDifference) underDaySet.add(d);
         }
         if (overDays.length === 0 || underDaySet.size === 0) break;
 
         // Phase 1: Sequential smoothing — direct swap gần nhất
         for (const overDay of [...overDays]) {
           if (underDaySet.size === 0) break;
-          if (dailyRest[overDay] <= Math.floor(avg) + 1) continue;
+          if (dailyRest[overDay] <= Math.floor(avg) + params.maxDayOffDifference) continue;
 
           let bestUnder = -1, bestDist = Infinity;
           for (const ud of underDaySet) {
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
           changes.push({ empId: emp.empId, day: bestUnder, dayType: 1 });
           totalFixedDays++;
 
-          if (dailyRest[bestUnder] >= Math.ceil(avg) - 1) underDaySet.delete(bestUnder);
+          if (dailyRest[bestUnder] >= Math.ceil(avg) - params.maxDayOffDifference) underDaySet.delete(bestUnder);
         }
 
         // Phase 2: BFS tìm augmenting path ngắn nhất từ overDay → underDay
@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
       for (let d = 1; d <= daysInMonth; d++) {
         if (specialDays.has(d)) continue;
         const dev = dailyRest[d] - avg;
-        if (dev > 1 || dev < -1) totalViolatingDays++;
+        if (dev > params.maxDayOffDifference || dev < -params.maxDayOffDifference) totalViolatingDays++;
       }
     }
 
