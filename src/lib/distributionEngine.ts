@@ -429,15 +429,12 @@ export function calcDeptQuota(
   return q;
 }
 
-/** Day-first LP distribution: duyệt ngày, chọn NV urgent/candidate
- *  Mỗi ngày d, mỗi NV có gap = (số ngày rest kể từ LP cuối/tháng trước).
- *  - gap < maxConsecutiveDays → candidate
- *  - gap == maxConsecutiveDays - 1 → urgent (phải đặt hôm nay)
- *  Assign urgent trước (constraint), sau đó fill quota từ candidate
- *  (ưu tiên gap gần deadline + còn nhiều LP).
- *
- *  Quota được điều chỉnh theo totalNonX + fixedWorking để cân bằng
- *  số NV làm việc (non-X) mỗi ngày.
+/** Day-first LP distribution (randomized, PN-aware, balance-aware)
+ *  Department → Day → Employee:
+ *  - Mỗi ngày chọn NV urgent (gap==maxConsecutiveDays) trước
+ *  - Candidate shuffle theo gap level + PN priority + shuffle
+ *  - Quota điều chỉnh theo totalNonX + fixedWorking để cân bằng
+ *  - Backfill: shuffle NV order, PN-pending ưu tiên zone [pnStartFromDay..end]
  */
 export function dayFirstAssignLP(
   lpCounts: number[],
@@ -447,6 +444,8 @@ export function dayFirstAssignLP(
   maxConsecutiveDays: number,
   fixedWorking: number[],
   totalNonX: number,
+  empPhepNam: number[],
+  pnStartFromDay: number,
 ): { positions: number[][]; dailyLP: number[] } {
   const N = lpCounts.length;
   const lastPos = new Array(N).fill(0);
@@ -455,7 +454,14 @@ export function dayFirstAssignLP(
   const dailyLP = new Array(daysInMonth + 1).fill(0);
   const URGENT = maxConsecutiveDays;
   const avgTarget = Math.round(totalNonX / daysInMonth);
+  const pnInZone = new Array(N).fill(0);
 
+  function getGap(i: number, d: number): number {
+    const last = lastPos[i];
+    return last === 0 ? d - 1 + initGaps[i] : d - last - 1;
+  }
+
+  // ── Forward pass ──────────────────────────────
   for (let d = 1; d <= daysInMonth; d++) {
     const urgent: number[] = [];
     const candidates: number[] = [];
@@ -463,50 +469,65 @@ export function dayFirstAssignLP(
     for (let i = 0; i < N; i++) {
       if (remaining[i] <= 0) continue;
       if (fixedArrays[i][d - 1] !== 0) continue;
-
-      const last = lastPos[i];
-      const gap = last === 0
-        ? d - 1 + initGaps[i]
-        : d - last - 1;
-
-      if (gap === URGENT) {
-        urgent.push(i);
-      } else if (gap < URGENT) {
-        candidates.push(i);
-      }
+      const gap = getGap(i, d);
+      if (gap === URGENT) urgent.push(i);
+      else if (gap < URGENT) candidates.push(i);
     }
 
-    // Urgent trước — constraint > optimization
+    // Urgent trước (constraint, bắt buộc)
     for (const i of urgent) {
-      positions[i].push(d);
-      lastPos[i] = d;
-      remaining[i]--;
-      dailyLP[d]++;
+      positions[i].push(d); lastPos[i] = d; remaining[i]--; dailyLP[d]++;
+      if (d >= pnStartFromDay) pnInZone[i]++;
     }
 
-    // Adjusted quota: số LP cần thêm ngày d để đạt avgTarget
+    // Candidate — group by gap, shuffle, PN-pending first within gap
     const need = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
     if (need > 0 && candidates.length > 0) {
-      candidates.sort((a, b) => {
-        const gapA = lastPos[a] === 0 ? d - 1 + initGaps[a] : d - lastPos[a] - 1;
-        const gapB = lastPos[b] === 0 ? d - 1 + initGaps[b] : d - lastPos[b] - 1;
-        if (gapB !== gapA) return gapB - gapA;
-        return remaining[b] - remaining[a];
-      });
-
-      const pick = Math.min(need, candidates.length);
+      const byGap = new Map<number, number[]>();
+      for (const i of candidates) {
+        const g = getGap(i, d);
+        if (!byGap.has(g)) byGap.set(g, []);
+        byGap.get(g)!.push(i);
+      }
+      const ordered: number[] = [];
+      for (const g of [...byGap.keys()].sort((a, b) => b - a)) {
+        const group = byGap.get(g)!;
+        shuffle(group);
+        // PN-pending first, then remaining DESC (stable sort preserves shuffle for ties)
+        if (d >= pnStartFromDay) {
+          group.sort((a, b) => {
+            const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
+            const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
+            if (pnA !== pnB) return pnB - pnA;
+            return remaining[b] - remaining[a];
+          });
+        } else {
+          group.sort((a, b) => remaining[b] - remaining[a]);
+        }
+        ordered.push(...group);
+      }
+      const pick = Math.min(need, ordered.length);
       for (let k = 0; k < pick; k++) {
-        const i = candidates[k];
-        positions[i].push(d);
-        lastPos[i] = d;
-        remaining[i]--;
-        dailyLP[d]++;
+        const i = ordered[k];
+        positions[i].push(d); lastPos[i] = d; remaining[i]--; dailyLP[d]++;
+        if (d >= pnStartFromDay) pnInZone[i]++;
       }
     }
   }
 
-  // Backfill — đặt LP còn thiếu (maximize min-gap + balance)
-  for (let i = 0; i < N; i++) {
+  // ── Backfill ──────────────────────────────────
+  // Shuffle NV + PN-pending first
+  const bfOrder = Array.from({ length: N }, (_, i) => i)
+    .filter(i => remaining[i] > 0);
+  shuffle(bfOrder);
+  bfOrder.sort((a, b) => {
+    const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
+    const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
+    if (pnA !== pnB) return pnB - pnA;
+    return remaining[b] - remaining[a];
+  });
+
+  for (const i of bfOrder) {
     while (remaining[i] > 0) {
       let bestDay = -1, bestScore = -1;
       const existing = positions[i].sort((a, b) => a - b);
@@ -530,9 +551,9 @@ export function dayFirstAssignLP(
         }
         const gapAfter = next - d - 1;
 
-        // Score: gap-spacing (primary) + balance bonus
         const balanceBonus = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
-        const score = Math.min(gapBefore, gapAfter) * 100 + balanceBonus;
+        const pnZoneBonus = (d >= pnStartFromDay && empPhepNam[i] > pnInZone[i]) ? 50 : 0;
+        const score = Math.min(gapBefore, gapAfter) * 100 + balanceBonus + pnZoneBonus;
         if (score > bestScore) { bestScore = score; bestDay = d; }
       }
 
@@ -541,6 +562,7 @@ export function dayFirstAssignLP(
       lastPos[i] = bestDay;
       remaining[i]--;
       dailyLP[bestDay]++;
+      if (bestDay >= pnStartFromDay) pnInZone[i]++;
     }
   }
 
