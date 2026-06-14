@@ -14,9 +14,7 @@ exports.distributeOT = distributeOT;
 exports.distributeLate = distributeLate;
 exports.calcEmployeeLP = calcEmployeeLP;
 exports.calcDeptQuota = calcDeptQuota;
-exports.greedyAssignLP = greedyAssignLP;
-exports.checkLPGaps = checkLPGaps;
-exports.buildArrangement = buildArrangement;
+exports.dayFirstAssignLP = dayFirstAssignLP;
 exports.step1_generateArrangement = step1_generateArrangement;
 exports.step4_assignShift = step4_assignShift;
 exports.step4_assignShiftsBatch = step4_assignShiftsBatch;
@@ -349,96 +347,67 @@ function calcDeptQuota(totalLP, daysInMonth) {
         q[d] = base + (d <= rem ? 1 : 0);
     return q;
 }
-/** Greedy: mỗi NV chọn ngày score = quota[day] - dailyLP[day] cao nhất */
-function greedyAssignLP(lpCount, fixedArray, daysInMonth, initialLastZeros, firstOnePos, maxConsecutiveDays, quota, dailyLP) {
-    const pos = [];
-    if (lpCount <= 0)
-        return pos;
-    const eligible = [];
+/** Day-first LP distribution: duyệt ngày, chọn NV urgent/candidate
+ *  Mỗi ngày d, mỗi NV có gap = (số ngày rest kể từ LP cuối/tháng trước).
+ *  - gap < maxConsecutiveDays → candidate
+ *  - gap == maxConsecutiveDays - 1 → urgent (phải đặt hôm nay)
+ *  Assign urgent trước (constraint), sau đó fill quota từ candidate
+ *  (ưu tiên gap gần deadline + còn nhiều LP)
+ */
+function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConsecutiveDays, quota) {
+    const N = lpCounts.length;
+    const lastPos = new Array(N).fill(0);
+    const remaining = [...lpCounts];
+    const positions = Array.from({ length: N }, () => []);
+    const dailyLP = new Array(daysInMonth + 1).fill(0);
+    const URGENT = maxConsecutiveDays - 1;
     for (let d = 1; d <= daysInMonth; d++) {
-        if (fixedArray[d - 1] !== 0)
-            continue;
-        if (d === daysInMonth)
-            continue;
-        if (d < firstOnePos)
-            continue;
-        eligible.push(d);
-    }
-    const placed = new Set();
-    let lastOnePos = firstOnePos;
-    for (let i = 0; i < lpCount; i++) {
-        let bestDay = -1, bestScore = -Infinity;
-        for (const d of eligible) {
-            if (placed.has(d))
+        const urgent = [];
+        const candidates = [];
+        for (let i = 0; i < N; i++) {
+            if (remaining[i] <= 0)
                 continue;
-            // Gap constraint: chỉ check gapBefore (LP tương lai sẽ tự phá gapAfter)
-            const sorted = [...placed].sort((a, b) => a - b);
-            let prev = 0;
-            for (const p of sorted) {
-                if (p < d)
-                    prev = Math.max(prev, p);
-                if (p > d)
-                    break;
+            if (fixedArrays[i][d - 1] !== 0)
+                continue;
+            const last = lastPos[i];
+            const gap = last === 0
+                ? d - 1 + initGaps[i]
+                : d - last - 1;
+            if (gap === URGENT) {
+                urgent.push(i);
             }
-            const gapBefore = d - prev - 1 + (prev === 0 ? initialLastZeros : 0);
-            if (gapBefore > maxConsecutiveDays)
-                continue;
-            const score = quota[d] - dailyLP[d];
-            if (score > bestScore) {
-                bestScore = score;
-                bestDay = d;
+            else if (gap < URGENT) {
+                candidates.push(i);
             }
         }
-        if (bestDay === -1 && lastOnePos > 0) {
-            // Fallback: thả lỏng firstOnePos → thêm eligible
-            for (let d = 1; d < lastOnePos; d++) {
-                if (fixedArray[d - 1] !== 0 || d === daysInMonth)
-                    continue;
-                if (!eligible.includes(d)) {
-                    eligible.push(d);
-                }
-            }
-            lastOnePos = 0;
-            continue;
+        // Urgent trước — constraint > optimization
+        for (const i of urgent) {
+            positions[i].push(d);
+            lastPos[i] = d;
+            remaining[i]--;
+            dailyLP[d]++;
         }
-        if (bestDay === -1)
-            break;
-        placed.add(bestDay);
-        dailyLP[bestDay]++;
-        pos.push(bestDay);
+        // Fill quota từ candidate
+        const need = quota[d] - dailyLP[d];
+        if (need > 0 && candidates.length > 0) {
+            candidates.sort((a, b) => {
+                const gapA = lastPos[a] === 0 ? d - 1 + initGaps[a] : d - lastPos[a] - 1;
+                const gapB = lastPos[b] === 0 ? d - 1 + initGaps[b] : d - lastPos[b] - 1;
+                if (gapB !== gapA)
+                    return gapB - gapA;
+                return remaining[b] - remaining[a];
+            });
+            const pick = Math.min(need, candidates.length);
+            for (let k = 0; k < pick; k++) {
+                const i = candidates[k];
+                positions[i].push(d);
+                lastPos[i] = d;
+                remaining[i]--;
+                dailyLP[d]++;
+            }
+        }
     }
-    return pos;
-}
-/** Kiểm tra gap constraint cho 1 bộ LP positions */
-function checkLPGaps(lpPositions, daysInMonth, initialLastZeros, maxConsecutiveDays) {
-    const sorted = [...lpPositions].sort((a, b) => a - b);
-    let prev = 0;
-    for (const d of sorted) {
-        const gap = d - prev - 1 + (prev === 0 ? initialLastZeros : 0);
-        if (gap > maxConsecutiveDays)
-            return false;
-        prev = d;
-    }
-    if (daysInMonth - prev > maxConsecutiveDays)
-        return false;
-    return true;
-}
-/** Xây arrangement hoàn chỉnh từ LP positions + PN placement */
-function buildArrangement(fixedArray, lpPositions, daysInMonth, params, phepNam) {
-    const arr = [...fixedArray];
-    for (const p of lpPositions)
-        arr[p - 1] = 1;
-    if (phepNam > 0) {
-        const pnArr = placePNAtEndOfRestPeriod(arr, daysInMonth, params, phepNam);
-        for (let i = 0; i < daysInMonth; i++)
-            arr[i] = pnArr[i];
-    }
-    // Fill X: tất cả ô còn 0 → X
-    for (let i = 0; i < daysInMonth; i++) {
-        if (arr[i] === 0)
-            arr[i] = 0; // X
-    }
-    return arr;
+    return { positions, dailyLP };
 }
 /* ══════════════════════════════════════════════════════
    Step functions — mỗi bước có thể gọi độc lập
