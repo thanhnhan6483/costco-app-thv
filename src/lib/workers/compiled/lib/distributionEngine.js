@@ -416,18 +416,19 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
                     continue;
                 if (existing.includes(d))
                     continue;
-                let prev = 0;
+                let prev = 0, next = daysInMonth + 1;
                 for (const p of existing) {
                     if (p < d)
                         prev = Math.max(prev, p);
-                    if (p > d)
-                        break;
+                    if (p > d && next > p)
+                        next = p;
                 }
                 const gapBefore = d - prev - 1 + (prev === 0 ? initGap : 0);
                 if (gapBefore > maxConsecutiveDays)
                     continue;
                 const balanceBonus = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
-                const score = balanceBonus * 1000 + gapBefore;
+                const gapAfter = next - d - 1;
+                const score = balanceBonus * 1000 + Math.min(gapBefore, gapAfter);
                 if (score > bestScore) {
                     bestScore = score;
                     bestDay = d;
