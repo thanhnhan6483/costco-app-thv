@@ -1648,8 +1648,10 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (!step4Done) {
                     if (dt === 0) {
-                      bg = DT_CELL_BG[0]; clr = DT_TEXT[0];
-                      label = <span>{d?.shiftCode || 'C'}</span>;
+                      const sc = d?.shiftCode || '';
+                      if (sc === 'C1') { bg = OT_BG; clr = OT_CLR; label = 'C1'; }
+                      else if (sc === 'C2') { bg = LATE_BG; clr = LATE_CLR; label = 'C2'; }
+                      else { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = 'C'; }
                     } else if (dt >= 0) {
                       bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af';
                       label = <span>{DT_SYMBOL[dt] ?? ''}</span>;
@@ -2447,7 +2449,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} step4Done={Boolean(status?.step4Done)} />)}</> 
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} step4Done={Boolean((status as any)?.step4Done)} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
