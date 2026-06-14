@@ -30,14 +30,8 @@ export async function POST(req: NextRequest) {
     const params = await loadParams(monthId);
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
     const { accountingIds } = await loadSpecialDeptIds(monthId);
-    // Load deptId→code map để áp dụng skipEqualRestDeptCodes
-    const deptCodeRows = await conn.all<{ id: string; code: string }>(
-      `SELECT id, code FROM departments WHERE month_id = ?`, monthId
-    );
-    const deptCodeMap = new Map(deptCodeRows.map(d => [d.code.toUpperCase(), d.id]));
-    const skipDeptIds = params.skipEqualRestDeptCodes
-      .map((c: string) => deptCodeMap.get(c.toUpperCase()))
-      .filter(Boolean) as string[];
+    // All departments use day-first algorithm (skipEqualRestDeptCodes chỉ dùng cho validate)
+    const skipDeptIds: string[] = [];
 
     const symbolMap = await loadSymbolMap(monthId);
     const paidDayTypes = await loadPaidDayTypes(monthId);

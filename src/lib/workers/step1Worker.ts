@@ -13,16 +13,14 @@ interface WorkerInput {
   year: number;
   params: AllocParams;
   accountingIds: string[];
-  skipDeptIds: string[];
   monthId: string;
   now: string;
 }
 
-const { emps, daysInMonth, month, year, params, accountingIds, skipDeptIds, monthId, now, symbolMap, paidDayTypes: paidArr } =
+const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap, paidDayTypes: paidArr } =
   workerData as WorkerInput & { symbolMap?: Record<string, number>; paidDayTypes?: number[] };
 
 const accountingSet = new Set(accountingIds);
-const skipDeptSet = new Set(skipDeptIds);
 const paidDayTypes = paidArr ? new Set(paidArr) : undefined;
 const rows: unknown[][] = [];
 const mcd = params.maxConsecutiveDays ?? 6;
@@ -35,8 +33,8 @@ for (const emp of emps) {
 }
 
 for (const [deptId, group] of deptGroups) {
-  if (accountingSet.has(deptId) || skipDeptSet.has(deptId)) {
-    // Fallback cũ cho accounting / skip dept
+  if (accountingSet.has(deptId)) {
+    // Fallback cũ cho accounting
     for (const emp of group) {
       const isAcct = accountingSet.has(emp.departmentId ?? '');
       const arr = step1_generateArrangement(emp, daysInMonth, month, year, params, isAcct, symbolMap, undefined, undefined, paidDayTypes);

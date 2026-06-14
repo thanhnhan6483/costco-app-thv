@@ -2,9 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const worker_threads_1 = require("worker_threads");
 const distributionEngine_1 = require("../distributionEngine");
-const { emps, daysInMonth, month, year, params, accountingIds, skipDeptIds, monthId, now, symbolMap, paidDayTypes: paidArr } = worker_threads_1.workerData;
+const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap, paidDayTypes: paidArr } = worker_threads_1.workerData;
 const accountingSet = new Set(accountingIds);
-const skipDeptSet = new Set(skipDeptIds);
 const paidDayTypes = paidArr ? new Set(paidArr) : undefined;
 const rows = [];
 const mcd = params.maxConsecutiveDays ?? 6;
@@ -16,8 +15,8 @@ for (const emp of emps) {
     deptGroups.get(d).push(emp);
 }
 for (const [deptId, group] of deptGroups) {
-    if (accountingSet.has(deptId) || skipDeptSet.has(deptId)) {
-        // Fallback cũ cho accounting / skip dept
+    if (accountingSet.has(deptId)) {
+        // Fallback cũ cho accounting
         for (const emp of group) {
             const isAcct = accountingSet.has(emp.departmentId ?? '');
             const arr = (0, distributionEngine_1.step1_generateArrangement)(emp, daysInMonth, month, year, params, isAcct, symbolMap, undefined, undefined, paidDayTypes);
