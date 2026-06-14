@@ -443,8 +443,8 @@ export async function GET(req: NextRequest) {
     results.push(checkTime);
     const check8: CheckResult = {
       id: 'lp_balance',
-      label: `Cân bằng ngày nghỉ trong phòng (chênh ≤ ±1 ngày)`,
-      description: 'Số NV nghỉ mỗi ngày không chênh quá ±1 so với trung bình phòng',
+      label: `Cân bằng ngày nghỉ trong phòng (chênh ≤ ±${params.maxDayOffDifference} ngày)`,
+      description: `Số NV nghỉ mỗi ngày không chênh quá ±${params.maxDayOffDifference} so với trung bình phòng`,
       status: 'ok', violations: [], violationCount: 0, checkedCount: totalEmps,
     };
     // Nhóm NV theo phòng ban (bỏ qua skipEqualRestDeptCodes)
