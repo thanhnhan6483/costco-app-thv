@@ -211,41 +211,44 @@ export function placePNAtEndOfRestPeriod(
     if (arr[i] === 2) arr[i] = 1;
   }
 
-  // Step 2: Place each PN at the end of the longest LP streak
+  // Step 2: Place PN round-robin across LP streaks để dàn đều
   for (let pn = 0; pn < phepNam; pn++) {
     // Find all consecutive LP streaks from pnStartFromDay onward
-    let longestStart = -1, longestEnd = -1, longestLen = 0;
+    const streaks: { start: number; end: number; length: number }[] = [];
     let i = startIdx;
     while (i < daysInMonth) {
       if (arr[i] === 1) {
         const s = i;
         while (i < daysInMonth && arr[i] === 1) i++;
-        const len = i - s;
-        const e = i - 1;
-        // Longer streak wins; tie → later streak wins (cuối tháng ưu tiên)
-        if (len > longestLen || (len === longestLen && e > longestEnd)) {
-          longestStart = s; longestEnd = e; longestLen = len;
-        }
+        streaks.push({ start: s, end: i - 1, length: i - s });
       } else {
         i++;
       }
     }
-    if (longestStart === -1) break; // No LP streak → cannot place PN
+    if (streaks.length === 0) break;
 
-    // Edge: LP at last day → swap with nearest X before it
-    if (longestEnd === daysInMonth - 1) {
-      for (let j = longestEnd - 1; j >= 0; j--) {
+    // Sort: longest first, tie → later streak first
+    streaks.sort((a, b) => b.length - a.length || b.end - a.end);
+
+    // Round-robin: PN thứ k lấy streak thứ (k % streaks.length)
+    const idx = pn % streaks.length;
+    const best = streaks[idx];
+    let targetEnd = best.end;
+
+    // Edge: LP at last day → swap với X gần nhất trước nó
+    if (targetEnd === daysInMonth - 1) {
+      for (let j = targetEnd - 1; j >= 0; j--) {
         if (arr[j] === 0) {
-          arr[longestEnd] = 0;  // last-day LP → X
-          arr[j] = 1;           // X → LP (extend streak)
-          longestEnd = j;       // new streak end (moved earlier)
+          arr[targetEnd] = 0;
+          arr[j] = 1;
+          targetEnd = j;
           break;
         }
       }
     }
 
-    // Convert the last LP of the longest streak to PN
-    arr[longestEnd] = 2;
+    // Convert LP → PN
+    arr[targetEnd] = 2;
   }
 
   return arr;
