@@ -8,11 +8,11 @@ export async function GET(req: NextRequest) {
   const monthId = req.nextUrl.searchParams.get('month') ?? DEFAULT_MONTH_ID;
   const conn = await getConn();
   const rows = await conn.all<{
-    name: string; departmentCode: string | null; shiftType: string;
+    name: string; departmentName: string | null; shiftType: string;
     clockIn: string; clockOut: string; windowStart: string; windowEnd: string;
     otCalc: string;
   }>(
-    `SELECT s.name, d.code AS departmentCode, s.shift_type AS shiftType,
+    `SELECT s.name, d.name AS departmentName, s.shift_type AS shiftType,
             s.clock_in AS clockIn, s.clock_out AS clockOut,
             s.window_start AS windowStart, s.window_end AS windowEnd,
             s.ot_calc AS otCalc
@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
   );
   await conn.close();
 
-  const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)', 'Cách Tính OT'];
-  const data = rows.map(r => [r.name, r.departmentCode ?? '', r.shiftType, r.windowStart ?? '', r.clockIn, r.clockOut, r.windowEnd ?? '', r.otCalc ?? 'Tính từ giờ ra (cộng)']);
+  const HEADERS = ['Tên Ca', 'Tên Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)', 'Cách Tính OT'];
+  const data = rows.map(r => [r.name, r.departmentName ?? '', r.shiftType, r.windowStart ?? '', r.clockIn, r.clockOut, r.windowEnd ?? '', r.otCalc ?? 'Tính từ giờ ra (cộng)']);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...data]);
