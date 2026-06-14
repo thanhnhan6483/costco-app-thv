@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
  *   display 3 → step3_done
  *   display 4 → step4_done
  *   display 5 → step5_done
+ *   display 6 → step6_done
  */
 
 // Thứ tự display step → tên cột trong distribution_status
@@ -23,6 +24,7 @@ const STEP_ORDER: { displayNum: number; col: string }[] = [
   { displayNum: 3, col: 'step3_done' },
   { displayNum: 4, col: 'step4_done' },
   { displayNum: 5, col: 'step5_done' },
+  { displayNum: 6, col: 'step6_done' },
 ];
 
 export async function POST(req: NextRequest) {
