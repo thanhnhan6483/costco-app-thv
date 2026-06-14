@@ -348,7 +348,11 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
     const remLP = totalLP % daysInMonth;
     const quota = new Array(daysInMonth + 1).fill(0);
     for (let d = 1; d <= daysInMonth; d++)
-        quota[d] = baseLP + (d <= remLP ? 1 : 0);
+        quota[d] = baseLP;
+    for (let k = 0; k < remLP; k++) {
+        const day = 1 + Math.floor(k * daysInMonth / remLP);
+        quota[day]++;
+    }
     function getGap(i, d) {
         const last = lastPos[i];
         return last === 0 ? d - 1 + initGaps[i] : d - last - 1;

@@ -437,7 +437,11 @@ export function dayFirstAssignLP(
   const baseLP = Math.floor(totalLP / daysInMonth);
   const remLP = totalLP % daysInMonth;
   const quota = new Array(daysInMonth + 1).fill(0);
-  for (let d = 1; d <= daysInMonth; d++) quota[d] = baseLP + (d <= remLP ? 1 : 0);
+  for (let d = 1; d <= daysInMonth; d++) quota[d] = baseLP;
+  for (let k = 0; k < remLP; k++) {
+    const day = 1 + Math.floor(k * daysInMonth / remLP);
+    quota[day]++;
+  }
 
   function getGap(i: number, d: number): number {
     const last = lastPos[i];
