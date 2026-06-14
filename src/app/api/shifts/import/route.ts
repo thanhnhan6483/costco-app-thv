@@ -4,17 +4,17 @@ import { getConn, DEFAULT_MONTH_ID } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)'];
+const HEADERS = ['Tên Ca', 'Mã Phòng Ban', 'Loại Ca', 'Giờ Vào (BD)', 'Giờ Vào', 'Giờ Tan', 'Giờ Tan (KT)', 'Cách Tính OT'];
 const SAMPLE_ROWS = [
-  ['Ca Sáng Kinh Doanh', 'KD', 'Ca 1', '07:20', '07:30', '16:30', '16:35'],
-  ['Ca Chiều Bảo Vệ',    'BV', 'Ca 2', '13:50', '14:00', '22:00', '22:10'],
-  ['Ca Chung Công Ty',   '',   'Chung','07:20', '07:30', '16:30', '16:35'],
+  ['Ca Sáng Kinh Doanh', 'KD', 'Ca 1', '07:20', '07:30', '16:30', '16:35', 'Tính từ giờ ra (cộng)'],
+  ['Ca Chiều Bảo Vệ',    'BV', 'Ca 2', '13:50', '14:00', '22:00', '22:10', 'Tính từ giờ vào (trừ)'],
+  ['Ca Chung Công Ty',   '',   'Chung','07:20', '07:30', '16:30', '16:35', 'Tính từ giờ ra (cộng)'],
 ];
 
 export async function GET() {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...SAMPLE_ROWS]);
-  ws['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+  ws['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
   XLSX.utils.book_append_sheet(wb, ws, 'CaLamViec');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   return new NextResponse(buf, {
@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
       const clockIn    = toHHMM(row['Giờ Vào']);
       const clockOut   = toHHMM(row['Giờ Tan']);
       const winEnd     = toHHMM(row['Giờ Tan (KT)']);
+      const otCalc     = String(row['Cách Tính OT'] ?? '').trim() || 'Tính từ giờ ra (cộng)';
 
       if (!name || !clockIn || !clockOut) {
         results.skipped++; results.skippedCodes.push(name || '(trống)'); continue;
@@ -86,9 +87,9 @@ export async function POST(req: NextRequest) {
         const deptId = deptCode ? (deptMap.get(deptCode) ?? null) : null;
         const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
         await conn.run(
-          `INSERT INTO shifts (id, month_id, name, department_id, shift_type, window_start, clock_in, clock_out, window_end, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          id, monthId, name, deptId, shiftType, winStart, clockIn, clockOut, winEnd, now
+          `INSERT INTO shifts (id, month_id, name, department_id, shift_type, window_start, clock_in, clock_out, window_end, ot_calc, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, monthId, name, deptId, shiftType, winStart, clockIn, clockOut, winEnd, otCalc, now
         );
         results.inserted++;
       } catch (e: unknown) {
