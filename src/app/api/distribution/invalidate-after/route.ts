@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
         `UPDATE distribution_status SET ${setClauses}, updated_at = ? WHERE month_id = ?`,
         new Date().toISOString().slice(0, 19), monthId
       );
+
+      // Xoá dữ liệu các bước phụ thuộc
+      const dataClearCols: string[] = [];
+      if (afterDisplayStep < 4) dataClearCols.push('ot_hours = 0', 'late_mins = 0');
+      if (afterDisplayStep < 5) dataClearCols.push("check_in = ''", "check_out = ''");
+      if (dataClearCols.length > 0) {
+        await conn.run(
+          `UPDATE distribution_results SET ${dataClearCols.join(', ')} WHERE month_id = ?`,
+          monthId
+        );
+      }
     }
 
     await conn.close();
