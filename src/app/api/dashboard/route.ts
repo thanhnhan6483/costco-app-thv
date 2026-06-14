@@ -132,6 +132,6 @@ export async function GET(req: NextRequest) {
     console.error('[dashboard API]', e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   } finally {
-    await conn.close();
+    if (conn) try { await conn.close(); } catch {}
   }
 }

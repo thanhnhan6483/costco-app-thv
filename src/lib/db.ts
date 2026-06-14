@@ -7,6 +7,7 @@
  *     Dữ liệu cũ (không có month_id) sẽ được gắn vào tháng 'month_master' (01/2026).
  */
 import path from 'path';
+import fs from 'fs';
 import { Database, Connection } from 'duckdb-async';
 import { DEFAULT_MONTH_ID } from './constants';
 import bcrypt from 'bcryptjs';
@@ -30,10 +31,14 @@ async function getDb(): Promise<Database> {
   if (dbInitPromise) return dbInitPromise;
 
   dbInitPromise = (async () => {
+    // Xoá WAL cũ để tránh replay chậm nếu lần trước Ctrl+C chưa kịp checkpoint
+    const walPath = DB_PATH + '.wal';
+    try { fs.unlinkSync(walPath); } catch { /* file không tồn tại — ok */ }
+
     const db = await Database.create(DB_PATH);
     try {
       await initSchema(db);
-      // Flush WAL vào file chính để tránh lỗi IO khi khởi động lại
+      // Flush WAL vào file chính
       const conn = await db.connect();
       await conn.run('CHECKPOINT');
       await conn.close();
