@@ -153,7 +153,7 @@ function placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam = 1)
     }
     // Step 2: Place PN round-robin across LP streaks để dàn đều
     for (let pn = 0; pn < phepNam; pn++) {
-        // Find all consecutive LP streaks from pnStartFromDay onward
+        // Find all consecutive LP streaks — ưu tiên từ pnStartFromDay
         const streaks = [];
         let i = startIdx;
         while (i < daysInMonth) {
@@ -165,6 +165,21 @@ function placePNAtEndOfRestPeriod(arrangement, daysInMonth, params, phepNam = 1)
             }
             else {
                 i++;
+            }
+        }
+        // Fallback: nếu không có streak từ pnStartFromDay, tìm tất cả
+        if (streaks.length === 0) {
+            i = 0;
+            while (i < daysInMonth) {
+                if (arr[i] === 1) {
+                    const s = i;
+                    while (i < daysInMonth && arr[i] === 1)
+                        i++;
+                    streaks.push({ start: s, end: i - 1, length: i - s });
+                }
+                else {
+                    i++;
+                }
             }
         }
         if (streaks.length === 0)
