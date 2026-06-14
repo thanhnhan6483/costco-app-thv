@@ -493,16 +493,16 @@ export function dayFirstAssignLP(
       for (const g of [...byGap.keys()].sort((a, b) => b - a)) {
         const group = byGap.get(g)!;
         shuffle(group);
-        // PN-pending first, then remaining DESC (stable sort preserves shuffle for ties)
+        // PN-pending first, then remaining ASC (tránh dồn NV nhiều LP nhất)
         if (d >= pnStartFromDay) {
           group.sort((a, b) => {
             const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
             const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
             if (pnA !== pnB) return pnB - pnA;
-            return remaining[b] - remaining[a];
+            return remaining[a] - remaining[b];
           });
         } else {
-          group.sort((a, b) => remaining[b] - remaining[a]);
+          group.sort((a, b) => remaining[a] - remaining[b]);
         }
         ordered.push(...group);
       }
@@ -524,7 +524,7 @@ export function dayFirstAssignLP(
     const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
     const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
     if (pnA !== pnB) return pnB - pnA;
-    return remaining[b] - remaining[a];
+    return remaining[a] - remaining[b];
   });
 
   for (const i of bfOrder) {
