@@ -1739,7 +1739,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
 }
 
 /* === TimeGrid (Step 5) === */
-function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean; filterCodes?: Set<string> | null; vis: Record<string, boolean>; }) {
+function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis, done }: { rows: Record<string, unknown>[]; monthLabel: string; showCa: boolean; filterCodes?: Set<string> | null; vis: Record<string, boolean>; done: boolean; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const IN_BG = '#f0fdf4', IN_CLR = '#15803d';
@@ -1793,7 +1793,11 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis }: { rows: Record
                   const ci = d?.checkIn ?? '';
                   const co = d?.checkOut ?? '';
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
-                  if (ci && (dt === 0 || dt === 1)) {
+                  if (!done && d && dt === 0 && (d.otHours > 0 || d.lateMins > 0)) {
+                    bg = d.otHours > 0 ? OT_BG : LATE_BG;
+                    clr = d.otHours > 0 ? '#1d4ed8' : '#c2410c';
+                    label = <span style={{ fontWeight: 600, fontSize: '0.7rem' }}>{d.otHours > 0 ? `${d.otHours}h` : `${d.lateMins}p`}</span>;
+                  } else if (ci && (dt === 0 || dt === 1)) {
                     if (dt === 0) {
                       bg = d && d.otHours > 0 ? OT_BG : d && d.lateMins > 0 ? LATE_BG : IN_BG;
                     } else {
@@ -2453,7 +2457,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} vis={visMap[5]} />)}</>
+      {gridWrapper(dataEl ?? <TimeGrid rows={allRows ?? rows} monthLabel={monthLabel} showCa={showCa ?? false} filterCodes={filterCodes} vis={visMap[5]} done={done} />)}</>
   );
   if (step === 6) return dataEl ?? <FinalGrid rows={allRows ?? rows} monthLabel={monthLabel} vis={visMap[6]} />;
 
