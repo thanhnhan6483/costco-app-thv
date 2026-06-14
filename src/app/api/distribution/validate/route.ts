@@ -493,7 +493,7 @@ export async function GET(req: NextRequest) {
       for (let day = 1; day <= daysInMonth; day++) {
         if (specialDays.has(day)) continue;
         const deviation = dailyRest[day] - avg;
-        if (deviation > 1 || deviation < -1) {
+        if (deviation > params.maxDayOffDifference || deviation < -params.maxDayOffDifference) {
           violatingDays.push({ day, restCount: dailyRest[day], deviation });
         }
       }
