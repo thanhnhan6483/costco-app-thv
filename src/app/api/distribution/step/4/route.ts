@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
     const rows = await conn.all(
       `SELECT e.code, e.name AS empName, d.name AS deptName, e.workdays,
               e.overtime_hours AS overtimeHours, e.late_minutes AS lateMinutes,
-              dr.day, dr.day_type AS dayType, dr.ot_hours AS otH, dr.late_mins AS lateM
+              dr.day, dr.day_type AS dayType, dr.shift_code AS shiftCode, dr.ot_hours AS otH, dr.late_mins AS lateM
        FROM distribution_results dr
        JOIN employees e ON dr.employee_id = e.id
        LEFT JOIN departments d ON e.department_id = d.id
@@ -266,7 +266,7 @@ export async function GET(req: NextRequest) {
         totalOT: 0, totalLate: 0, days: [],
       });
       const emp = map.get(r.code);
-      emp.days.push({ day: r.day, dayType: r.dayType, otH: Math.round((Number(r.otH) || 0) * 100) / 100, lateM: Math.round((Number(r.lateM) || 0) * 100) / 100 });
+      emp.days.push({ day: r.day, dayType: r.dayType, shiftCode: r.shiftCode ?? '', otH: Math.round((Number(r.otH) || 0) * 100) / 100, lateM: Math.round((Number(r.lateM) || 0) * 100) / 100 });
       emp.totalOT   += Number(r.otH)   || 0;
       emp.totalLate += Number(r.lateM) || 0;
     }

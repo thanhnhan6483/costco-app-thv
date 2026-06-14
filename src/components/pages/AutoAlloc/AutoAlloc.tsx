@@ -1449,7 +1449,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
 }
 
 /* === OtLateGrid (Step 4) === */
-  function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved, vis }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void; vis: Record<string, boolean>; }) {
+  function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved, vis, step4Done }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void; vis: Record<string, boolean>; step4Done?: boolean; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
   const [fCode, setFCode] = useState('');
@@ -1631,7 +1631,7 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
             </InlineFilterRow>
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
-            const days: { day: number; dayType: number; otH: number; lateM: number }[] = r.days ?? [];
+            const days: { day: number; dayType: number; shiftCode: string; otH: number; lateM: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
@@ -1646,12 +1646,20 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
                   const ot = getEffectiveOt(r.code, i + 1, origOt);
                   const late = getEffectiveLate(r.code, i + 1, origLate);
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
-                  if (dt === 0 && ot > 0 && late > 0) {
+                  if (!step4Done) {
+                    if (dt === 0) {
+                      bg = DT_CELL_BG[0]; clr = DT_TEXT[0];
+                      label = <span>{d?.shiftCode || 'C'}</span>;
+                    } else if (dt >= 0) {
+                      bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af';
+                      label = <span>{DT_SYMBOL[dt] ?? ''}</span>;
+                    }
+                  } else if (dt === 0 && ot > 0 && late > 0) {
                     bg = '#f5f3ff'; clr = '#6d28d9';
                     label = <><div style={{ lineHeight: 1.2 }}><span style={{ color: OT_CLR }}>{ot.toFixed(2)}h</span></div><div style={{ lineHeight: 1.2 }}><span style={{ color: LATE_CLR }}>{late.toFixed(0)}ph</span></div></>;
                   } else if (dt === 0 && ot > 0) { bg = OT_BG; clr = OT_CLR; label = <>{ot.toFixed(2)}h</>; }
                   else if (dt === 0 && late > 0) { bg = LATE_BG; clr = LATE_CLR; label = <>{late.toFixed(0)}ph</>; }
-                  else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>X</span>; }
+                  else if (dt === 0) { bg = DT_CELL_BG[0]; clr = DT_TEXT[0]; label = <span style={{ opacity: 0.4 }}>{d?.shiftCode || 'X'}</span>; }
                   else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   const hasVal = ot > 0 || late > 0;
                   return (
@@ -2439,7 +2447,7 @@ function StepView({ step, data, onLoad, onRefresh, done, monthId, monthLabel, sh
   );
   if (step === 4) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} title="Kiểm tra Tăng ca/Đi trễ" subtitle="Kiểm tra 3 quy tắc quan trọng: OT tối thiểu/ngày, OT cân bằng trong phòng, OT giữa 2 ngày nghỉ" btnId="btn-validate-step4" onFixed={onRefresh ?? onLoad} onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
-      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} />)}</> 
+      {gridWrapper(dataEl ?? <OtLateGrid rows={allRows ?? rows} monthLabel={monthLabel} filterCodes={filterCodes} monthId={monthId} onSaved={() => { refreshAllRows(); (onRefresh ?? onLoad)(); }} vis={visMap[4]} step4Done={Boolean(status?.step4Done)} />)}</> 
   );
   if (step === 5) return stepWrapper(
     <>{validateWrapper(<ValidatePanel key={`${step}_${monthId}`} ref={validateRef} monthId={monthId} onlyIds={['check_time']} title="Kiểm tra giờ vào/ra" subtitle="Kiểm tra ngày làm có giờ vào/ra hợp lệ" btnId="btn-validate-step5" onFilterChange={handleFilterChange} onStatusChange={onValidateStatusChange} onValidated={onValidateOpen} initialResult={validateResult} version={dataVersion} />)}
