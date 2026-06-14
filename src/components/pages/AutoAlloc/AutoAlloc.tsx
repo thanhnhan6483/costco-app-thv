@@ -1794,9 +1794,16 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis, done }: { rows: 
                   const co = d?.checkOut ?? '';
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (!done && d && dt === 0 && (d.otHours > 0 || d.lateMins > 0)) {
-                    bg = d.otHours > 0 ? OT_BG : LATE_BG;
-                    clr = d.otHours > 0 ? '#1d4ed8' : '#c2410c';
-                    label = <span style={{ fontWeight: 600, fontSize: '0.7rem' }}>{d.otHours > 0 ? `${d.otHours}h` : `${d.lateMins}p`}</span>;
+                    if (d.otHours > 0 && d.lateMins > 0) {
+                      bg = '#f5f3ff'; clr = '#6d28d9';
+                      label = <><div style={{ lineHeight: 1.2 }}><span style={{ color: OT_CLR }}>{Number(d.otHours).toFixed(2)}h</span></div><div style={{ lineHeight: 1.2 }}><span style={{ color: LATE_CLR }}>{Number(d.lateMins).toFixed(0)}ph</span></div></>;
+                    } else if (d.otHours > 0) {
+                      bg = OT_BG; clr = OT_CLR;
+                      label = <>{Number(d.otHours).toFixed(2)}h</>;
+                    } else {
+                      bg = LATE_BG; clr = LATE_CLR;
+                      label = <>{Number(d.lateMins).toFixed(0)}ph</>;
+                    }
                   } else if (ci && (dt === 0 || dt === 1)) {
                     if (dt === 0) {
                       bg = d && d.otHours > 0 ? OT_BG : d && d.lateMins > 0 ? LATE_BG : IN_BG;
