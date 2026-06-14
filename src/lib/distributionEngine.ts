@@ -456,6 +456,13 @@ export function dayFirstAssignLP(
   const avgTarget = Math.round(totalNonX / daysInMonth);
   const pnInZone = new Array(N).fill(0);
 
+  // Quota: chia đều totalLP ra các ngày
+  const totalLP = remaining.reduce((a, b) => a + b, 0);
+  const baseLP = Math.floor(totalLP / daysInMonth);
+  const remLP = totalLP % daysInMonth;
+  const quota = new Array(daysInMonth + 1).fill(0);
+  for (let d = 1; d <= daysInMonth; d++) quota[d] = baseLP + (d <= remLP ? 1 : 0);
+
   function getGap(i: number, d: number): number {
     const last = lastPos[i];
     return last === 0 ? d - 1 + initGaps[i] : d - last - 1;
@@ -480,8 +487,8 @@ export function dayFirstAssignLP(
       if (d >= pnStartFromDay) pnInZone[i]++;
     }
 
-    // Candidate — group by gap, shuffle, PN-pending first within gap
-    const need = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
+    // Quota: LP chia đều / ngày
+    const need = Math.max(0, quota[d] - dailyLP[d]);
     if (need > 0 && candidates.length > 0) {
       const byGap = new Map<number, number[]>();
       for (const i of candidates) {
@@ -493,16 +500,14 @@ export function dayFirstAssignLP(
       for (const g of [...byGap.keys()].sort((a, b) => b - a)) {
         const group = byGap.get(g)!;
         shuffle(group);
-        // PN-pending first, then remaining ASC (tránh dồn NV nhiều LP nhất)
+        // PN-pending first (trong PN zone), chỉ shuffle — không sort remaining
         if (d >= pnStartFromDay) {
           group.sort((a, b) => {
             const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
             const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
             if (pnA !== pnB) return pnB - pnA;
-            return remaining[a] - remaining[b];
+            return 0;
           });
-        } else {
-          group.sort((a, b) => remaining[a] - remaining[b]);
         }
         ordered.push(...group);
       }
@@ -516,7 +521,7 @@ export function dayFirstAssignLP(
   }
 
   // ── Backfill ──────────────────────────────────
-  // Shuffle NV + PN-pending first
+  // Shuffle NV, PN-pending first
   const bfOrder = Array.from({ length: N }, (_, i) => i)
     .filter(i => remaining[i] > 0);
   shuffle(bfOrder);
@@ -524,7 +529,7 @@ export function dayFirstAssignLP(
     const pnA = empPhepNam[a] > pnInZone[a] ? 1 : 0;
     const pnB = empPhepNam[b] > pnInZone[b] ? 1 : 0;
     if (pnA !== pnB) return pnB - pnA;
-    return remaining[a] - remaining[b];
+    return 0;
   });
 
   for (const i of bfOrder) {
@@ -545,15 +550,9 @@ export function dayFirstAssignLP(
         const gapBefore = d - prev - 1 + (prev === 0 ? initGap : 0);
         if (gapBefore > maxConsecutiveDays) continue;
 
-        let next = daysInMonth + 1;
-        for (const p of existing) {
-          if (p > d) { next = Math.min(next, p); break; }
-        }
-        const gapAfter = next - d - 1;
-
+        // Score: balance (primary) × 1000 + gapBefore (secondary)
         const balanceBonus = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
-        const pnZoneBonus = (d >= pnStartFromDay && empPhepNam[i] > pnInZone[i]) ? 50 : 0;
-        const score = Math.min(gapBefore, gapAfter) * 100 + balanceBonus + pnZoneBonus;
+        const score = balanceBonus * 1000 + gapBefore;
         if (score > bestScore) { bestScore = score; bestDay = d; }
       }
 
