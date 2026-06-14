@@ -267,7 +267,7 @@ export default function AutoAlloc() {
       }
       setAllocParams(map);
     }).catch(() => {});
-  }, [activeMonthId]);
+  }, [activeMonthId, recheckKey]);
 
   const [vis1, setVis1] = useColumnVisibility('step1', { deptName: true, specialGroup: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, ot: true, late: true });
   const [vis2, setVis2] = useColumnVisibility('step2', { deptName: true, ngayNghiCuoiThangTruoc: true, workdays: true, phepNam: true, lp: true, x: true, pn: true, pbnc: true, nghiCuoi: true });
@@ -1973,14 +1973,8 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
     const activeFilterRef = useRef(activeFilter);
     activeFilterRef.current = activeFilter;
     const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
-    const lastFetchVersion = useRef<number | undefined>(undefined);
 
     const run = useCallback(async () => {
-      if (version !== undefined && lastFetchVersion.current === version && result) {
-        onStatusChange?.({ loading: false, result });
-        return;
-      }
-      lastFetchVersion.current = version;
       setLoading(true); setError(null); onStatusChange?.({ loading: true, result: null });
       try {
         const ids = onlyIds?.length ? `&ids=${onlyIds.join(',')}` : '';
@@ -1991,7 +1985,7 @@ const ValidatePanel = forwardRef<{ run: () => void }, { monthId: string; onlyIds
         onStatusChange?.({ loading: false, result: data });
         onValidated?.();
       } catch (e) { setError(String(e)); onStatusChange?.({ loading: false, result: null }); } finally { setLoading(false); }
-    }, [version, result, monthId, onlyIds?.join(','), onStatusChange, onValidated]);
+    }, [monthId, onlyIds?.join(','), onStatusChange, onValidated]);
 
     useEffect(() => { if (autoRun) run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
