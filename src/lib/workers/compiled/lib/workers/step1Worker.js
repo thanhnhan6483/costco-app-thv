@@ -32,8 +32,10 @@ for (const [deptId, group] of deptGroups) {
     const fixedArrays = [];
     const initGaps = [];
     const empPhepNam = [];
-    let totalLP = 0;
+    const fixedWorking = new Array(daysInMonth + 1).fill(0);
+    let totalNonX = 0;
     for (const emp of group) {
+        const workdaysVal = Math.round(parseFloat(emp.workdays) || 27);
         const lp = (0, distributionEngine_1.calcEmployeeLP)(emp, daysInMonth, params, paidDayTypes, symbolMap);
         const fa = (0, distributionEngine_1.encodeInputArray)(emp.days, symbolMap, daysInMonth);
         const phepNam = Math.max(0, Math.round(parseFloat(emp.phepNam) || 0));
@@ -42,11 +44,15 @@ for (const [deptId, group] of deptGroups) {
         fixedArrays.push(fa);
         initGaps.push(initGap);
         empPhepNam.push(phepNam);
-        totalLP += lp;
+        totalNonX += workdaysVal;
+        // Count immutable fixed values per day (> 2: TS, Ô, NL, P...)
+        for (let d = 0; d < daysInMonth; d++) {
+            if (fa[d] > 2)
+                fixedWorking[d + 1]++;
+        }
     }
-    // Phase 2: Quota + Day-first assign LP
-    const quota = (0, distributionEngine_1.calcDeptQuota)(totalLP, daysInMonth);
-    const { positions: allLPPositions } = (0, distributionEngine_1.dayFirstAssignLP)(lpCounts, fixedArrays, initGaps, daysInMonth, mcd, quota);
+    // Phase 2: Day-first assign LP (balance-aware quota)
+    const { positions: allLPPositions } = (0, distributionEngine_1.dayFirstAssignLP)(lpCounts, fixedArrays, initGaps, daysInMonth, mcd, fixedWorking, totalNonX);
     // Phase 3: Build arrangement (LP → PN → push rows)
     for (let ei = 0; ei < group.length; ei++) {
         const emp = group[ei];

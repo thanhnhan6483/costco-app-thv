@@ -352,15 +352,19 @@ function calcDeptQuota(totalLP, daysInMonth) {
  *  - gap < maxConsecutiveDays → candidate
  *  - gap == maxConsecutiveDays - 1 → urgent (phải đặt hôm nay)
  *  Assign urgent trước (constraint), sau đó fill quota từ candidate
- *  (ưu tiên gap gần deadline + còn nhiều LP)
+ *  (ưu tiên gap gần deadline + còn nhiều LP).
+ *
+ *  Quota được điều chỉnh theo totalNonX + fixedWorking để cân bằng
+ *  số NV làm việc (non-X) mỗi ngày.
  */
-function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConsecutiveDays, quota) {
+function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConsecutiveDays, fixedWorking, totalNonX) {
     const N = lpCounts.length;
     const lastPos = new Array(N).fill(0);
     const remaining = [...lpCounts];
     const positions = Array.from({ length: N }, () => []);
     const dailyLP = new Array(daysInMonth + 1).fill(0);
     const URGENT = maxConsecutiveDays - 1;
+    const avgTarget = Math.round(totalNonX / daysInMonth);
     for (let d = 1; d <= daysInMonth; d++) {
         const urgent = [];
         const candidates = [];
@@ -387,8 +391,8 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
             remaining[i]--;
             dailyLP[d]++;
         }
-        // Fill quota từ candidate
-        const need = quota[d] - dailyLP[d];
+        // Adjusted quota: số LP cần thêm ngày d để đạt avgTarget
+        const need = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
         if (need > 0 && candidates.length > 0) {
             candidates.sort((a, b) => {
                 const gapA = lastPos[a] === 0 ? d - 1 + initGaps[a] : d - lastPos[a] - 1;
@@ -407,7 +411,7 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
             }
         }
     }
-    // Phase 2b: Backfill — đặt LP còn thiếu (bỏ quota, maximize min-gap)
+    // Backfill — đặt LP còn thiếu (maximize min-gap + balance)
     for (let i = 0; i < N; i++) {
         while (remaining[i] > 0) {
             let bestDay = -1, bestScore = -1;
@@ -436,7 +440,9 @@ function dayFirstAssignLP(lpCounts, fixedArrays, initGaps, daysInMonth, maxConse
                     }
                 }
                 const gapAfter = next - d - 1;
-                const score = Math.min(gapBefore, gapAfter);
+                // Score: gap-spacing (primary) + balance bonus
+                const balanceBonus = Math.max(0, avgTarget - fixedWorking[d] - dailyLP[d]);
+                const score = Math.min(gapBefore, gapAfter) * 100 + balanceBonus;
                 if (score > bestScore) {
                     bestScore = score;
                     bestDay = d;
