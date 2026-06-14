@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
     const params = await loadParams(monthId);
     const { month, year, daysInMonth } = await loadMonthInfo(monthId);
     const { accountingIds } = await loadSpecialDeptIds(monthId);
+    // Load deptId→code map để áp dụng skipEqualRestDeptCodes
+    const deptCodeRows = await conn.all<{ id: string; code: string }>(
+      `SELECT id, code FROM departments WHERE month_id = ?`, monthId
+    );
+    const deptCodeMap = new Map(deptCodeRows.map(d => [d.code.toUpperCase(), d.id]));
+    const skipDeptIds = params.skipEqualRestDeptCodes
+      .map((c: string) => deptCodeMap.get(c.toUpperCase()))
+      .filter(Boolean) as string[];
+
     const symbolMap = await loadSymbolMap(monthId);
     const paidDayTypes = await loadPaidDayTypes(monthId);
     const now = new Date().toISOString().slice(0, 10);
@@ -71,8 +80,8 @@ export async function POST(req: NextRequest) {
 
     const workerResults = await Promise.all(chunks.map(chunk =>
       runWorker({ emps: chunk, daysInMonth, month, year, params,
-        accountingIds: [...accountingIds], monthId, now, symbolMap,
-        paidDayTypes: [...paidDayTypes] })
+        accountingIds: [...accountingIds], skipDeptIds, monthId, now,
+        symbolMap, paidDayTypes: [...paidDayTypes] })
     ));
     const allRows = workerResults.flat();
     console.log(`[step1] workers done: ${Date.now() - t_start}ms, rows: ${allRows.length}`);
@@ -102,10 +111,12 @@ export async function POST(req: NextRequest) {
         for (let d = 1; d <= daysInMonth; d++) { if (data.days.get(d)?.dt === 2) { fp = d; break; } }
         if (fp > 0) empFirstPn.set(empId, fp);
       }
-      // Group by dept
+      // Group by dept (bỏ qua skipEqualRestDeptCodes - dùng skipDeptIds đã load ở trên)
       const deptEmps = new Map<string, string[]>();
       for (const [empId, data] of empData) {
-        const d = data.deptId; if (!deptEmps.has(d)) deptEmps.set(d, []);
+        const d = data.deptId;
+        if (skipDeptIds.includes(d)) continue;
+        if (!deptEmps.has(d)) deptEmps.set(d, []);
         deptEmps.get(d)!.push(empId);
       }
 

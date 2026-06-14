@@ -13,14 +13,16 @@ interface WorkerInput {
   year: number;
   params: AllocParams;
   accountingIds: string[];
+  skipDeptIds: string[];
   monthId: string;
   now: string;
 }
 
-const { emps, daysInMonth, month, year, params, accountingIds, monthId, now, symbolMap, paidDayTypes: paidArr } =
+const { emps, daysInMonth, month, year, params, accountingIds, skipDeptIds, monthId, now, symbolMap, paidDayTypes: paidArr } =
   workerData as WorkerInput & { symbolMap?: Record<string, number>; paidDayTypes?: number[] };
 
 const accountingSet = new Set(accountingIds);
+const skipDeptSet = new Set(skipDeptIds);
 const paidDayTypes = paidArr ? new Set(paidArr) : undefined;
 const rows: unknown[][] = [];
 
@@ -33,6 +35,8 @@ for (const emp of emps) {
 }
 
 for (const [, group] of deptGroups) {
+  const deptId = group[0]?.departmentId ?? '';
+  const shouldSkip = accountingSet.has(deptId) || skipDeptSet.has(deptId);
   // Pre-compute tổng LP kỳ vọng của cả phòng để targetRest chính xác ngay từ NV đầu
   let totalExpectedLP = 0;
   for (const emp of group) {
@@ -56,20 +60,22 @@ for (const [, group] of deptGroups) {
   }
   const targetRest = totalExpectedLP > 0 ? totalExpectedLP / daysInMonth : 0;
 
-  const dailyRest = new Array(daysInMonth).fill(0);
+  const dailyRest = shouldSkip ? undefined : new Array(daysInMonth).fill(0);
   for (const emp of group) {
     const isAcct = accountingSet.has(emp.departmentId ?? '');
     const arrangement = step1_generateArrangement(
       emp, daysInMonth, month, year, params,
       isAcct, symbolMap,
-      isAcct ? undefined : dailyRest,
-      isAcct ? undefined : targetRest,
+      isAcct || shouldSkip ? undefined : dailyRest,
+      isAcct || shouldSkip ? undefined : targetRest,
       paidDayTypes,
     );
 
     // Cập nhật dailyRest
-    for (let d = 0; d < daysInMonth; d++) {
-      if (arrangement[d] === 1 || arrangement[d] === 2) dailyRest[d]++;
+    if (dailyRest) {
+      for (let d = 0; d < daysInMonth; d++) {
+        if (arrangement[d] === 1 || arrangement[d] === 2) dailyRest[d]++;
+      }
     }
 
     for (let d = 0; d < daysInMonth; d++) {
