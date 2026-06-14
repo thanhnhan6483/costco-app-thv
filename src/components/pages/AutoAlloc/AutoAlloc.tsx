@@ -8,6 +8,7 @@ import { useColumnVisibility } from './useColumnVisibility';
 import { ColumnToggle } from './ColumnToggle';
 
 const OT_CLR = '#1d4ed8', LATE_CLR = '#c2410c';
+const OT_BG = '#eff6ff', LATE_BG = '#fff7ed';
 
 /* ── Reusable inline filter row for grids ── */
 function InlineFilterRow({ fCode, fName, fDept, setFCode, setFName, setFDept, deptList, extraBefore = 0, extraAfter = 0, daysCols = 31, codeThStyle, nameThStyle, monthLabel, fGroup, setFGroup, groupList, extraMiddle = 0, children, middleChildren, hideDeptFilter, hideGroupFilter }: {
@@ -1448,11 +1449,9 @@ function ShiftGrid({ rows, monthLabel, filterCodes, vis }: { rows: Record<string
 }
 
 /* === OtLateGrid (Step 4) === */
-function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved, vis }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void; vis: Record<string, boolean>; }) {
+  function OtLateGrid({ rows, monthLabel, filterCodes, monthId, onSaved, vis }: { rows: Record<string, unknown>[]; monthLabel: string; filterCodes?: Set<string> | null; monthId?: string; onSaved?: () => void; vis: Record<string, boolean>; }) {
   const [mm_, yyyy_] = monthLabel.split('/');
   const daysInMonth = new Date(parseInt(yyyy_, 10), parseInt(mm_, 10), 0).getDate();
-  const OT_BG = '#eff6ff';
-  const LATE_BG = '#fff7ed';
   const [fCode, setFCode] = useState('');
   const [fName, setFName] = useState('');
   const [fDept, setFDept] = useState('');
@@ -1769,7 +1768,7 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis }: { rows: Record
             />
           </thead>
           <tbody>{useSortRows(filtered, sort).map((r: any, ri) => {
-            const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string }[] = r.days ?? [];
+            const days: { day: number; dayType: number; checkIn: string; checkOut: string; shiftCode: string; otHours: number; lateMins: number }[] = r.days ?? [];
             return (
               <tr key={r.code}>
                 <td className={styles.sc0} style={{ textAlign: 'center', color: 'var(--gray-400)', fontSize: '0.7rem', minWidth: 32 }}>{ri + 1}</td>
@@ -1785,7 +1784,11 @@ function TimeGrid({ rows, monthLabel, showCa, filterCodes, vis }: { rows: Record
                   const co = d?.checkOut ?? '';
                   let bg = '#fff', clr = '#9ca3af', label: React.ReactNode = <span style={{ color: '#d1d5db', fontWeight: 400 }}>·</span>;
                   if (ci && (dt === 0 || dt === 1)) {
-                    bg = dt === 0 ? IN_BG : (DT_CELL_BG[1] ?? '#fff');
+                    if (dt === 0) {
+                      bg = d && d.otHours > 0 ? OT_BG : d && d.lateMins > 0 ? LATE_BG : IN_BG;
+                    } else {
+                      bg = DT_CELL_BG[1] ?? '#fff';
+                    }
                     label = <><span style={{ color: dt === 0 ? IN_CLR : DT_TEXT[1], display: 'block', lineHeight: 1.2 }}>{ci}</span><span style={{ color: dt === 0 ? OUT_CLR : DT_TEXT[1], display: 'block', lineHeight: 1.2 }}>{co}</span>{dt === 0 && showCa && d?.shiftCode && <span style={{ color: '#ea580c', display: 'block', lineHeight: 1.2, fontSize: '0.6rem' }}>{d.shiftCode}</span>}</>;
                   } else if (dt >= 0) { bg = DT_CELL_BG[dt] ?? '#fff'; clr = DT_TEXT[dt] ?? '#9ca3af'; label = <span>{DT_SYMBOL[dt] ?? ''}</span>; }
                   return (
@@ -1922,7 +1925,8 @@ function FinalGrid({ rows, monthLabel, vis }: { rows: Record<string, unknown>[];
                 if (!d) return <td key={i} style={{ background: '#fff', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}><span style={{ color: '#d1d5db' }}>·</span></td>;
                 const dt = Number(d.dayType);
                 const isWork = dt === 0;
-                return <td key={i} style={{ background: DT_CELL_BG[dt] ?? '#fff', color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }} title={(DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? '')}>
+                const cellBg = isWork ? (d.otHours > 0 ? OT_BG : d.lateMins > 0 ? LATE_BG : DT_CELL_BG[0]) : (DT_CELL_BG[dt] ?? '#fff');
+                return <td key={i} style={{ background: cellBg, color: DT_TEXT[dt] ?? '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textAlign: 'center', padding: '2px 1px', minWidth: 48, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', lineHeight: 1.3 }} title={(DAY_TYPE_LABEL[dt] ?? '') + ' | ' + (d.shiftCode ?? '')}>
                   {isWork ? <><span style={{ color: '#15803d', display: 'block', lineHeight: 1.2 }}>{d.checkIn}</span><span style={{ color: '#1d4ed8', display: 'block', lineHeight: 1.2 }}>{d.checkOut}</span></> : <span style={{ opacity: 0.85 }}>{DT_SYMBOL[dt] ?? '?'}</span>}
                 </td>;
               })}
