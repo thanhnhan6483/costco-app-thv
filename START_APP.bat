@@ -49,17 +49,6 @@ echo  [OK] Cai dat xong.
 echo.
 
 :SKIP_INSTALL
-
-:: Build
-if exist ".next\BUILD_ID" goto SKIP_BUILD
-echo  [2/2] Dang build ung dung (3-5 phut), vui long doi...
-call npm.cmd run build
-if %errorlevel% neq 0 goto BUILD_FAIL
-echo  [OK] Build xong.
-echo.
-
-:SKIP_BUILD
-
 echo  ============================================
 echo   San sang! Truy cap: http://localhost:3000
 echo  ============================================
@@ -69,7 +58,7 @@ echo  Giu cua so nay mo khi dang su dung.
 echo  Nhan Ctrl+C de dung.
 echo.
 powershell -Command "Start-Sleep 3; Start-Process 'http://localhost:3000'"
-call npm.cmd start
+call npm.cmd run dev
 goto END
 
 :DOWNLOAD_FAIL
@@ -83,10 +72,6 @@ goto END
 
 :INSTALL_FAIL
 echo  [LOI] Cai dat thu vien that bai. Kiem tra ket noi Internet va thu lai.
-goto END
-
-:BUILD_FAIL
-echo  [LOI] Build that bai. Lien he ky thuat de duoc ho tro.
 goto END
 
 :END
